@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مسابقة الثروة الحيوانية</title>
+  
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            direction: rtl; 
+            background-color: #cecece; 
+            background-image: url('https://j.top4top.io/p_32526fv2x1.jpg'); 
+            background-size: cover; 
+            background-repeat: no-repeat; 
+            background-attachment: fixed; 
+            color: #333; 
+            margin: 0; 
+            padding: 0; 
+        }
+
+        header { 
+            background-color: #ead1dc; 
+            color: black; 
+            padding: 10px; 
+            text-align: center; 
+        }
+
+        .quiz-section, .question-section { 
+            margin: 80px auto; 
+            width: 90%; 
+            max-width: 900px; 
+            background-color: white; 
+            padding: 10px; 
+            border-radius: 10px; 
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); 
+            display: none; 
+        }
+
+        .options { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 20px; 
+            justify-content: center; 
+        }
+
+        .options button { 
+            flex: 1 1 calc(25% - 15px); 
+            box-sizing: border-box; 
+            background-color: #ffd966; 
+            color: black; 
+            padding: 15px 25px; 
+            border: none; 
+            border-radius: 30px; 
+            cursor: pointer; 
+            font-size: 35px; 
+        }
+
+        .options button:hover { 
+            background-color: #00ffff; 
+        }
+
+        footer { 
+            text-align: center; 
+            padding: 7px; 
+            background-color: #333; 
+            color: white; 
+            position: fixed; 
+            width: 100%; 
+            bottom: 0; 
+        }
+
+        .message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 30px;
+            border-radius: 25px;
+            display: none;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            width: 80%;
+            max-width: 900px;
+            line-height: 1.5;
+        }
+
+.correct-answer { background-color: #00ff00 !important; color: #00ff00; }
+
+        .stats { 
+            margin-top: 20px; 
+            font-size: 18px; 
+            color: #007BFF; 
+        }
+
+        .timer { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: red; 
+            text-align: center; 
+            margin-top: 10px; 
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <img src="https://f.top4top.io/p_325014zw71.jpg" alt="شعار المسابقة" style="width: 70px; height: auto;">
+    <h1>مسابقة الأسئلة من الثروة الحيوانية</h1>
+    <h2>اختبر معلوماتك وأجب عن الأسئلة للفوز بجوائز رائعة!</h2>
+    <div id="page-select">
+<button style="background-color: Yellow; color: black; padding: 20px 70px; border: none; border-radius: 15px; font-size: 30px; cursor: pointer;" onclick="showOptions()">فتح الأسئلة</button>
+
+<button style="background-color: #e8e8ba; color: black; padding: 20px 70px; border: none; border-radius: 15px; font-size: 30px; cursor: pointer;" onclick="window.location.href='file:///C:/Users/Lenovo/Desktop/%E2%80%8F%E2%80%8F%D9%85%D8%B3%D8%A7%D8%A8%D9%82%D8%A9%20%D8%A7%D9%84%D8%AB%D8%B1%D9%88%D8%A9%20%D8%A7%D9%84%D8%AD%D9%8A%D9%88%D8%A7%D9%86%D9%8A%D8%A9.html'">القائمة الرئيسية</button>
+
+
+    </div>
+</header>
+
+<!-- صفحة الخيارات -->
+<div id="options" class="quiz-section">
+    <h2>اختر سؤالاً:</h2>
+    <div class="options">
+        <button id="button-1" onclick="showQuestion(1)">السؤال 1</button> 
+        <button id="button-2" onclick="showQuestion(2)">السؤال 2</button>
+        <button id="button-3" onclick="showQuestion(3)">السؤال 3</button>
+        <button id="button-4" onclick="showQuestion(4)">السؤال 4</button>
+        <button id="button-5" onclick="showQuestion(5)">السؤال 5</button>
+        <button id="button-6" onclick="showQuestion(6)">السؤال 6</button>
+        <button id="button-7" onclick="showQuestion(7)">السؤال 7</button>
+        <button id="button-8" onclick="showQuestion(8)">السؤال 8</button>
+        <button id="button-9" onclick="showQuestion(9)">السؤال 9</button>
+        <button id="button-10" onclick="showQuestion(10)">السؤال 10</button>
+        <button id="button-11" onclick="showQuestion(11)">السؤال 11</button> 
+        <button id="button-12" onclick="showQuestion(12)">السؤال 12</button>
+        <button id="button-13" onclick="showQuestion(13)">السؤال 13</button>
+        <button id="button-14" onclick="showQuestion(14)">السؤال 14</button>
+        <button id="button-15" onclick="showQuestion(15)">السؤال 15</button>
+        <button id="button-16" onclick="showQuestion(16)">السؤال 16</button>
+
+
+ <!-- أضف المزيد من الأسئلة هنا -->
+    </div>
+    <div class="stats" id="stats">النقاط: 0</div>
+</div>
+
+<!-- قسم الأسئلة -->
+<div id="question-1" class="question-section">
+    <h2>ماذا تحتاج النباتات لتنمو؟</h2>
+    <div style="display: flex; align-items: center;">
+        <img src="https://i.top4top.io/p_3250hf8rx1.jpg" alt="صورة الحيوان" style="width: 20%; height: 20%; margin: 20px;">
+        <div class="options" style="margin-left: 20px;">
+            <button onclick="checkAnswer('الماء والشمس', 'الماء والشمس', 'question-1', 'button-1', 'مبرووك')">الماء والشمس</button>
+            <button onclick="checkAnswer('الحليب والعسل', 'الماء والشمس', 'question-1', 'button-1', 'حظ أوفر')">الحليب والعسل</button>
+            <button onclick="checkAnswer('الطين والثلج', 'الماء والشمس', 'question-1', 'button-1', 'حظ أوفر')">الطين والثلج</button>
+        </div>
+    </div>
+    <div class="timer" id="timer-1">30</div>
+    <button onclick="showOptions()" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">رجوع إلى القائمة</button>
+</div>
+<div id="question-2" class="question-section">
+    <h2>ما هو الغاز الذي نتنفسه للبقاء على قيد الحياة؟</h2>
+    <div style="display: flex; align-items: center;">
+        <img src="https://i.top4top.io/p_3250hf8rx1.jpg" alt="صورة الحيوان" style="width: 20%; height: 20%; margin: 20px;">
+        <div class="options" style="margin-left: 20px;">
+           <button onclick="checkAnswer('الهيدروجين', 'الأكسجين', 'question-2', 'button-2', 'حظ أوفر')">الهيدروجين</button>
+        <button onclick="checkAnswer('الأكسجين', 'الأكسجين', 'question-2', 'button-2', 'مبرووك')">الأكسجين</button>
+        <button onclick="checkAnswer('الهيليوم', 'الأكسجين', 'question-2', 'button-2', 'حظ أوفر')"> الهيليوم</button>
+        </div>
+    </div>
+    <div class="timer" id="timer-2">30</div>
+    <button onclick="showOptions()" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">رجوع إلى القائمة</button>
+</div>
+<div id="question-3" class="question-section">
+    <h2>ما هي عاصمة مصر؟</h2>
+    <div style="display: flex; align-items: center;">
+        <img src="https://i.top4top.io/p_3250hf8rx1.jpg" alt="صورة الحيوان" style="width: 20%; height: 20%; margin: 20px;">
+        <div class="options" style="margin-left: 20px;">
+         <button onclick="checkAnswer('الإسكندرية', 'القاهرة', 'question-3', 'button-3', 'حظ أوفر')">الإسكندرية</button>
+        <button onclick="checkAnswer('الجيزة', 'القاهرة', 'question-3', 'button-3', 'حظ أوفر')">الجيزة</button>
+        <button onclick="checkAnswer('القاهرة', 'القاهرة', 'question-3', 'button-3', 'مبرووك')"> القاهرة</button>
+        </div>
+    </div>
+    <div class="timer" id="timer-3">30</div>
+    <button onclick="showOptions()" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">رجوع إلى القائمة</button>
+</div>
+
+
+<div id="question-4" class="question-section">
+    <h2>كم عدد الكواكب في المجموعة الشمسية؟</h2>
+    <div style="display: flex; align-items: center;">
+        <img src="https://i.top4top.io/p_3250hf8rx1.jpg" alt="صورة الحيوان" style="width: 20%; height: 20%; margin: 20px;">
+        <div class="options" style="margin-left: 20px;">
+        <button onclick="checkAnswer('7', '8', 'question-4', 'button-4', 'حظ أوفر')">7</button>
+        <button onclick="checkAnswer('9', '8', 'question-4', 'button-4', 'حظ أوفر')">9</button>
+        <button onclick="checkAnswer('8', '8', 'question-4', 'button-4', 'مبرووك')">8</button>
+        </div>
+    </div>
+    <div class="timer" id="timer-4">30</div>
+    <button onclick="showOptions()" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">رجوع إلى القائمة</button>
+</div>
+
+<div id="question-5" class="question-section">
+    <h2>ما هو العضو المسؤول عن ضخ الدم في جسم الإنسان؟</h2>
+    <div style="display: flex; align-items: center;">
+        <img src="https://i.top4top.io/p_3250hf8rx1.jpg" alt="صورة الحيوان" style="width: 20%; height: 20%; margin: 20px;">
+        <div class="options" style="margin-left: 20px;">
+        <button onclick="checkAnswer('القلب', 'القلب', 'question-5', 'button-5', 'مبرووك')">القلب</button>
+        <button onclick="checkAnswer('الدماغ', 'القلب', 'question-5', 'button-5', 'حظ أوفر')">الدماغ</button>
+        <button onclick="checkAnswer('الكبد', 'القلب', 'question-5', 'button-5', 'حظ أوفر')">الكبد</button>
+        </div>
+    </div>
+    <div class="timer" id="timer-5">30</div>
+    <button onclick="showOptions()" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">رجوع إلى القائمة</button>
+</div>
+
+<div id="question-6" class="question-section">
+    <h2>ما هو أكبر عضو في جسم الإنسان؟</h2>
+    <div style="display: flex; align-items: center;">
+        <img src="https://i.top4top.io/p_3250hf8rx1.jpg" alt="صورة الحيوان" style="width: 20%; height: 20%; margin: 20px;">
+        <div class="options" style="margin-left: 20px;">
+          <button onclick="checkAnswer('الرئة', 'الجلد', 'question-6', 'button-6', 'حظ أوفر')">الرئة</button>
+        <button onclick="checkAnswer('الكبد', 'الجلد', 'question-6', 'button-6', 'حظ أوفر')">الكبد</button>
+        <button onclick="checkAnswer('الجلد', 'الجلد', 'question-6', 'button-6', 'مبرووك')">الجلد</button>
+        </div>
+    </div>
+    <div class="timer" id="timer-6">30</div>
+    <button onclick="showOptions()" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">رجوع إلى القائمة</button>
+</div>
+
+<div id="question-7" class="question-section">
+    <h2>كم لاعبًا في فريق كرة القدم؟</h2>
+    <div style="display: flex; align-items: center;">
+        <img src="https://i.top4top.io/p_3250hf8rx1.jpg" alt="صورة الحيوان" style="width: 20%; height: 20%; margin: 20px;">
+        <div class="options" style="margin-left: 20px;">
+          <button onclick="checkAnswer('11 لاعبًا', '11 لاعبًا', 'question-7', 'button-7', 'مبرووك')">11 لاعبًا</button>
+        <button onclick="checkAnswer('9 لاعبين', '11 لاعبًا', 'question-7', 'button-7', 'حظ أوفر')">9 لاعبين</button>
+        <button onclick="checkAnswer('12 لاعبًا', '11 لاعبًا', 'question-7', 'button-7', 'حظ أوفر')">12 لاعبًا</button>
+        </div>
+    </div>
+    <div class="timer" id="timer-7">30</div>
+    <button onclick="showOptions()" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">رجوع إلى القائمة</button>
+</div>
+
+<div id="question-8" class="question-section">
+    <h2>ما هو الشيء الذي يسمع بلا أذن ويتكلم بلا لسان؟</h2>
+    <div style="display: flex; align-items: center;">
+        <img src="https://i.top4top.io/p_3250hf8rx1.jpg" alt="صورة الحيوان" style="width: 20%; height: 20%; margin: 20px;">
+        <div class="options" style="margin-left: 20px;">
+          <button onclick="checkAnswer('الساعة', 'الهاتف', 'question-8', 'button-8', 'حظ أوفر')">الساعة</button>
+        <button onclick="checkAnswer('الهاتف', 'الهاتف', 'question-8', 'button-8', 'مبرووك')">الهاتف</button>
+        <button onclick="checkAnswer('الطبل', 'الهاتف', 'question-8', 'button-8', 'حظ أوفر')">الطبل</button>
+        </div>
+    </div>
+    <div class="timer" id="timer-8">30</div>
+    <button onclick="showOptions()" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">رجوع إلى القائمة</button>
+</div>
+
+
+<div id="question-9" class="question-section">
+    <h2>ما هو مصدر الضوء الطبيعي على الأرض؟</h2>
+    <div style="display: flex; align-items: center;">
+        <img src="https://i.top4top.io/p_3250hf8rx1.jpg" alt="صورة الحيوان" style="width: 20%; height: 20%; margin: 20px;">
+        <div class="options" style="margin-left: 20px;">
+          <button onclick="checkAnswer('القمر', 'الشمس', 'question-9', 'button-9', 'حظ أوفر')">القمر</button>
+        <button onclick="checkAnswer('النجوم', 'الشمس', 'question-9', 'button-9', 'حظ أوفر')">النجوم</button>
+        <button onclick="checkAnswer('الشمس', 'الشمس', 'question-9', 'button-9', 'مبرووك')">الشمس</button>
+        </div>
+    </div>
+    <div class="timer" id="timer-9">30</div>
+    <button onclick="showOptions()" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">رجوع إلى القائمة</button>
+</div>
+
+
+<div id="question-10" class="question-section">
+    <h2>أي حاسة تُستخدم للشم؟</h2>
+    <div style="display: flex; align-items: center;">
+        <img src="https://i.top4top.io/p_3250hf8rx1.jpg" alt="صورة الحيوان" style="width: 20%; height: 20%; margin: 20px;">
+        <div class="options" style="margin-left: 20px;">
+           <button onclick="checkAnswer('الأنف', 'الأنف', 'question-10', 'button-10', 'مبرووك')">الأنف</button>
+        <button onclick="checkAnswer('العين', 'الأنف', 'question-10', 'button-10', 'حظ أوفر')">العين</button>
+        <button onclick="checkAnswer('الأذن', 'الأنف', 'question-10', 'button-10', 'حظ أوفر')">الأذن</button>
+        </div>
+    </div>
+    <div class="timer" id="timer-10">30</div>
+    <button onclick="showOptions()" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">رجوع إلى القائمة</button>
+</div>
+
+<div id="question-11" class="question-section">
+    <h2>ما هو أطول نهر في العالم؟</h2>
+    <div style="display: flex; align-items: center;">
+        <img src="https://i.top4top.io/p_3250hf8rx1.jpg" alt="صورة الحيوان" style="width: 20%; height: 20%; margin: 20px;">
+        <div class="options" style="margin-left: 20px;">
+           <button onclick="checkAnswer('نهر الأمازون', 'نهر النيل', 'question-11', 'button-11', 'حظ أوفر')">نهر الأمازون</button>
+        <button onclick="checkAnswer('نهر الفرات', 'نهر النيل', 'question-11', 'button-11', 'حظ أوفر')">نهر الفرات</button>
+        <button onclick="checkAnswer('نهر النيل', 'نهر النيل', 'question-11', 'button-11', 'مبرووك')">نهر النيل</button>
+        </div>
+    </div>
+    <div class="timer" id="timer-11">30</div>
+    <button onclick="showOptions()" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">رجوع إلى القائمة</button>
+</div>
+
+<div id="question-12" class="question-section">
+    <h2>ما الشيء الذي يكتب ولا يقرأ؟</h2>
+    <div style="display: flex; align-items: center;">
+        <img src="https://i.top4top.io/p_3250hf8rx1.jpg" alt="صورة الحيوان" style="width: 20%; height: 20%; margin: 20px;">
+        <div class="options" style="margin-left: 20px;">
+           <button onclick="checkAnswer('القلم', 'القلم', 'question-12', 'button-12', 'مبرووك')">القلم</button>
+        <button onclick="checkAnswer('الكتاب', 'القلم', 'question-12', 'button-12', 'حظ أوفر')">الكتاب</button>
+        <button onclick="checkAnswer('الورقة', 'القلم', 'question-12', 'button-12', 'حظ أوفر')">الورقة</button>
+        </div>
+    </div>
+    <div class="timer" id="timer-12">30</div>
+    <button onclick="showOptions()" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">رجوع إلى القائمة</button>
+</div>
+
+<div id="question-13" class="question-section">
+    <h2>في أي موسم تتساقط الأوراق من الأشجار؟</h2>
+    <div style="display: flex; align-items: center;">
+        <img src="https://i.top4top.io/p_3250hf8rx1.jpg" alt="صورة الحيوان" style="width: 20%; height: 20%; margin: 20px;">
+        <div class="options" style="margin-left: 20px;">
+           <button onclick="checkAnswer('الربيع', 'الخريف', 'question-13', 'button-13', 'حظ أوفر')">الربيع</button>
+        <button onclick="checkAnswer('الخريف', 'الخريف', 'question-13', 'button-13', 'مبرووك')">الخريف</button>
+        <button onclick="checkAnswer('الصيف', 'الخريف', 'question-13', 'button-13', 'حظ أوفر')">الصيف</button>
+        </div>
+    </div>
+    <div class="timer" id="timer-13">30</div>
+    <button onclick="showOptions()" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">رجوع إلى القائمة</button>
+</div>
+
+<div id="question-14" class="question-section">
+    <h2>أي حيوان يستطيع أن يغير لونه ليطابق البيئة المحيطة به؟</h2>
+    <div style="display: flex; align-items: center;">
+        <img src="https://i.top4top.io/p_3250hf8rx1.jpg" alt="صورة الحيوان" style="width: 20%; height: 20%; margin: 20px;">
+        <div class="options" style="margin-left: 20px;">
+           <button onclick="checkAnswer('الحرباء', 'الحرباء', 'question-14', 'button-14', 'مبرووك')">الحرباء</button>
+        <button onclick="checkAnswer('النمر', 'الحرباء', 'question-14', 'button-14', 'حظ أوفر')">النمر</button>
+        <button onclick="checkAnswer('الأرنب', 'الحرباء', 'question-14', 'button-14', 'حظ أوفر')">الأرنب</button>
+        </div>
+    </div>
+    <div class="timer" id="timer-14">30</div>
+    <button onclick="showOptions()" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">رجوع إلى القائمة</button>
+</div>
+
+<div id="question-15" class="question-section">
+    <h2>ي نوع من الطيور لا يستطيع الطيران ولكنه يستطيع السباحة؟</h2>
+    <div style="display: flex; align-items: center;">
+        <img src="https://i.top4top.io/p_3250hf8rx1.jpg" alt="صورة الحيوان" style="width: 20%; height: 20%; margin: 20px;">
+        <div class="options" style="margin-left: 20px;">
+           <button onclick="checkAnswer('البطريق', 'البطريق', 'question-15', 'button-15', 'مبرووك')">البطريق</button>
+        <button onclick="checkAnswer('النعام', 'البطريق', 'question-15', 'button-15', 'حظ أوفر')">النعام</button>
+        <button onclick="checkAnswer('الطاووس', 'البطريق', 'question-15', 'button-15', 'حظ أوفر')">الطاووس</button>
+        </div>
+    </div>
+    <div class="timer" id="timer-15">30</div>
+    <button onclick="showOptions()" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">رجوع إلى القائمة</button>
+</div>
+
+<div id="question-16" class="question-section">
+    <h2>ما هو أسرع حيوان بري؟</h2>
+    <div style="display: flex; align-items: center;">
+        <img src="https://i.top4top.io/p_3250hf8rx1.jpg" alt="صورة الحيوان" style="width: 20%; height: 20%; margin: 20px;">
+        <div class="options" style="margin-left: 20px;">
+           <button onclick="checkAnswer('الأسد', 'الفهد', 'question-16', 'button-16', 'حظ أوفر')">الأسد</button>
+        <button onclick="checkAnswer('الغزال', 'الفهد', 'question-16', 'button-16', 'حظ أوفر')">الغزال</button>
+        <button onclick="checkAnswer('الفهد', 'الفهد', 'question-16', 'button-16', 'مبرووك')">الفهد</button>
+        </div>
+    </div>
+    <div class="timer" id="timer-16">30</div>
+    <button onclick="showOptions()" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">رجوع إلى القائمة</button>
+</div>
+
+<!-- المزيد من الأسئلة بنفس التنسيق -->
+
+<div id="message" class="message"></div>
+
+<footer>
+    <p>© 2024 مسابقة الثروة الحيوانية - جميع الحقوق محفوظة.</p>
+</footer>
+
+<!-- الأصوات -->
+<audio id="correct-sound" src="https://d.top4top.io/m_3229awo4z1.mp3"></audio>
+<audio id="incorrect-sound" src="https://f.top4top.io/m_32298knla1.mp3"></audio>
+
+<script>
+    let score = 0;
+    let timer;
+    let timeLeft = 30;
+
+    function showOptions() {
+        hideAllSections();
+        document.getElementById('options').style.display = 'block';
+        clearInterval(timer);
+        timeLeft = 30;
+    }
+
+    function showQuestion(number) {
+        hideAllSections();
+        const questionSection = document.getElementById('question-' + number);
+        questionSection.style.display = 'block';
+
+        // إعداد المؤقت
+        timeLeft = 30;
+        const timerElement = document.getElementById('timer-' + number);
+        timerElement.innerText = timeLeft;
+        timer = setInterval(() => {
+            timeLeft--;
+            timerElement.innerText = timeLeft;
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                showMessage("انتهى الوقت! ❌", false);
+            }
+        }, 1000);
+
+        // قراءة السؤال مع الخيارات بصوت
+        const questionText = questionSection.querySelector('h2').innerText;
+        const options = [...questionSection.querySelectorAll('.options button')].map(btn => btn.innerText);
+        const fullText = `${questionText} الخيارات: ${options.join(', ')}`;
+        readText(fullText);
+    }
+
+    function checkAnswer(selectedAnswer, correctAnswer, questionId, buttonId, explanation) {
+        clearInterval(timer);
+        const messageBox = document.getElementById('message');
+        if (selectedAnswer === correctAnswer) {
+            score++;
+            updateStats();
+            showMessage(`إجابة صحيحة! 🎉\n${explanation}`, true);
+            document.getElementById(buttonId).classList.add('correct-answer');
+        } else {
+            showMessage(`إجابة خاطئة! ❌\n${explanation}`, false);
+        }
+    }
+
+    function updateStats() {
+        const stats = document.getElementById('stats');
+        stats.innerText = `النقاط: ${score}`;
+    }
+
+    function showMessage(message, isCorrect) {
+        const messageBox = document.getElementById('message');
+        messageBox.innerText = message;
+        messageBox.style.display = 'block';
+
+        const sound = document.getElementById(isCorrect ? 'correct-sound' : 'incorrect-sound');
+        sound.play();
+
+        setTimeout(() => {
+            messageBox.style.display = 'none';
+            showOptions();
+        }, 4000);
+    }
+
+    function hideAllSections() {
+        document.querySelectorAll('.quiz-section, .question-section').forEach(section => {
+            section.style.display = 'none';
+        });
+    }
+
+    // قراءة النصوص بصوت
+    function readText(text) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'ar-SA'; // اللغة العربية
+        window.speechSynthesis.speak(utterance);
+    }
+</script>
+
+</body>
+</html>
+
