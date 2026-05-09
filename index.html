@@ -1141,7 +1141,7 @@ lockNav();
     </button>
 
     <div class="lalert error" id="l_loginErr">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <svg viewBox="0 0 24 24" id="l_loginErrIco"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       <span id="l_loginErrTx"></span>
     </div>
     <div class="lfooter">البيانات محمية — جميع الحقوق محفوظة</div>
@@ -1274,21 +1274,28 @@ lockNav();
 
   function lFk(obj, terms) { return Object.keys(obj).find(k=>terms.some(t=>k.includes(t))); }
 
-  function lAlert(elId, icoId, txId, type, msg) {
-    const el=document.getElementById(elId), ico=document.getElementById(icoId);
-    el.className=`lalert ${type}`;
-    document.getElementById(txId).textContent=msg;
-    ico.innerHTML = type==='success'
-      ? `<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>`
-      : `<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>`;
-    el.style.display='flex';
+function lAlert(elId, icoId, txId, type, msg) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.className = `lalert ${type}`;
+    const txEl = document.getElementById(txId);
+    if (txEl) txEl.textContent = msg;
+    if (icoId) {
+      const ico = document.getElementById(icoId);
+      if (ico) {
+        ico.innerHTML = type === 'success'
+          ? `<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>`
+          : `<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>`;
+      }
+    }
+    el.style.display = 'flex';
   }
 
 async function lDoLogin() {
     const u=document.getElementById('l_username').value.trim();
     const p=document.getElementById('l_password').value.trim();
     document.getElementById('l_loginErr').style.display='none';
-    if(!u||!p){ lAlert('l_loginErr','','l_loginErrTx','error','الرجاء إدخال اسم المستخدم وكلمة المرور.'); return; }
+    lAlert('l_loginErr','l_loginErrIco','l_loginErrTx','error','الرجاء إدخال اسم المستخدم وكلمة المرور.');
 
     document.getElementById('l_loginBtn').disabled=true;
     document.getElementById('l_lsp').style.display='block';
@@ -1303,7 +1310,7 @@ async function lDoLogin() {
       lPK=lFk(users[0]||{}, ['pass','كلمة','password']);
       lNK=lFk(users[0]||{}, ['name','الاسم','full']);
       if(!lUK||!lPK){
-        lAlert('l_loginErr','','l_loginErrTx','error','تعذّر العثور على أعمدة البيانات.');
+        lAlert('l_loginErr','l_loginErrIco','l_loginErrTx','error','تعذّر العثور على أعمدة البيانات.');
       } else {
         const m=users.find(u2=>(u2[lUK]||'').toLowerCase()===u.toLowerCase()&&(u2[lPK]||'')===p);
         if(m){
@@ -1345,7 +1352,7 @@ async function lDoLogin() {
         }
       }
     } catch {
-      lAlert('l_loginErr','','l_loginErrTx','error','خطأ في الاتصال. تأكد من مشاركة الجدول بشكل عام.');
+      lAlert('l_loginErr','l_loginErrIco','l_loginErrTx','error','خطأ في الاتصال. تأكد من مشاركة الجدول بشكل عام.');
     } finally {
       // ← هذا هو المهم — يعمل دائماً سواء نجح أو فشل
       document.getElementById('l_loginBtn').disabled=false;
