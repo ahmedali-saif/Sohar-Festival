@@ -878,7 +878,16 @@ window.showToast = function(message, type) {
 <script>
 "use strict";
 
+// استبدل دالة showPage الموجودة بهذه:
 function showPage(pageId) {
+  // الصفحات المسموح بها دون تسجيل دخول
+  var publicPages = ['login'];
+  
+  if (!window._isLoggedIn && !publicPages.includes(pageId)) {
+    showToast('يرجى تسجيل الدخول أولاً', 'warning');
+    return;
+  }
+
   document.querySelectorAll(".page").forEach(function(p) {
     p.classList.remove("active");
   });
@@ -898,15 +907,40 @@ function showPage(pageId) {
     if (typeof trinit === 'function') trinit();
   }
 
-if (pageId === 'vaccination' && !window._vaccinationInitialized) {
+  if (pageId === 'vaccination' && !window._vaccinationInitialized) {
     window._vaccinationInitialized = true;
     if (typeof vaccInit === 'function') vaccInit();
   }
 }
+
+function lockNav() {
+  window._isLoggedIn = false;
+  document.querySelectorAll("nav button").forEach(function(btn) {
+    var onclick = btn.getAttribute('onclick') || '';
+    if (onclick.indexOf("'login'") === -1) {
+      btn.disabled = true;
+      btn.style.opacity = '0.4';
+      btn.style.cursor = 'not-allowed';
+    }
+  });
+}
+
+function unlockNav() {
+  window._isLoggedIn = true;
+  document.querySelectorAll("nav button").forEach(function(btn) {
+    btn.disabled = false;
+    btn.style.opacity = '';
+    btn.style.cursor = '';
+  });
+}
+
+// تأمين التنقل عند التحميل
+window._isLoggedIn = false;
+lockNav();
 </script>
 
 <!-- الصفحات -->
-<div id="home" class="page active">
+<div id="home" class="page">
   <h1>يمكنك التعديل على مظهر الصفحات</h1>
   <button onclick="document.getElementById('settingsPanel').style.display='block'" style="margin-top:15px;background:#00b8d9;color:#fff;padding:8px 20px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:bold">⚙️ ضبط المظهر</button>
 
@@ -941,7 +975,7 @@ if (pageId === 'vaccination' && !window._vaccinationInitialized) {
   </div>
 </div>
 
-<div id="login" class="page">
+<div id="login" class="page active">
 <style>
 #login { padding: 0 !important; }
 #login .login-wrap {
@@ -1258,10 +1292,11 @@ if (pageId === 'vaccination' && !window._vaccinationInitialized) {
       lNK=lFk(users[0]||{}, ['name','الاسم','full']);
       if(!lUK||!lPK){ lAlert('l_loginErr','','l_loginErrTx','error','تعذّر العثور على أعمدة البيانات.'); return; }
       const m=users.find(u2=>(u2[lUK]||'').toLowerCase()===u.toLowerCase()&&(u2[lPK]||'')===p);
-      if(m){
-        lCU={...m, _u:u};
-        document.getElementById('l_welcomeName').textContent=`مرحباً، ${lNK?(m[lNK]||u):u}!`;
-        lShow(lViews.welcome);
+   if(m){
+  lCU={...m, _u:u};
+  document.getElementById('l_welcomeName').textContent=`مرحباً، ${lNK?(m[lNK]||u):u}!`;
+  lShow(lViews.welcome);
+  unlockNav(); // ← فتح التنقل بعد تسجيل الدخول lShow(lViews.welcome);
       } else {
         lAlert('l_loginErr','','l_loginErrTx','error','اسم المستخدم أو كلمة المرور غير صحيحة.');
       }
@@ -1278,14 +1313,15 @@ if (pageId === 'vaccination' && !window._vaccinationInitialized) {
   document.getElementById('l_username').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('l_password').focus(); });
   document.getElementById('l_password').addEventListener('keydown', e=>{ if(e.key==='Enter') lDoLogin(); });
 
-  document.getElementById('l_logoutBtn').addEventListener('click', ()=>{
-    lCU=null;
-    document.getElementById('l_username').value='';
-    document.getElementById('l_password').value='';
-    document.getElementById('l_loginErr').style.display='none';
-    lShow(lViews.login);
-  });
-
+document.getElementById('l_logoutBtn').addEventListener('click', ()=>{
+  lCU=null;
+  document.getElementById('l_username').value='';
+  document.getElementById('l_password').value='';
+  document.getElementById('l_loginErr').style.display='none';
+  lShow(lViews.login);
+  lockNav();           // ← إعادة تأمين التنقل
+  showPage('login');   // ← العودة لصفحة الدخول
+});
   document.getElementById('l_goCP').addEventListener('click', ()=>{
     ['l_oldPass','l_newPass','l_confPass'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('l_cpAlert').style.display='none';
