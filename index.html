@@ -1291,14 +1291,49 @@ lockNav();
       lPK=lFk(users[0]||{}, ['pass','كلمة','password']);
       lNK=lFk(users[0]||{}, ['name','الاسم','full']);
       if(!lUK||!lPK){ lAlert('l_loginErr','','l_loginErrTx','error','تعذّر العثور على أعمدة البيانات.'); return; }
-      const m=users.find(u2=>(u2[lUK]||'').toLowerCase()===u.toLowerCase()&&(u2[lPK]||'')===p);
-   if(m){
-  lCU={...m, _u:u};
-  document.getElementById('l_welcomeName').textContent=`مرحباً، ${lNK?(m[lNK]||u):u}!`;
-  lShow(lViews.welcome);
-  unlockNav(); // ← فتح التنقل بعد تسجيل الدخول lShow(lViews.welcome);
+const m=users.find(u2=>(u2[lUK]||'').toLowerCase()===u.toLowerCase()&&(u2[lPK]||'')===p);
+      if(m){
+        lCU={...m, _u:u};
+        document.getElementById('l_welcomeName').textContent=`مرحباً، ${lNK?(m[lNK]||u):u}!`;
+        lShow(lViews.welcome);
+        unlockNav();
       } else {
-        lAlert('l_loginErr','','l_loginErrTx','error','اسم المستخدم أو كلمة المرور غير صحيحة.');
+        // تحديد سبب الخطأ
+        const userExists = users.find(u2=>(u2[lUK]||'').toLowerCase()===u.toLowerCase());
+        let errMsg = '';
+        if(!userExists){
+          errMsg = '❌ اسم المستخدم غير موجود، تحقق من الاسم وأعد المحاولة.';
+        } else {
+          errMsg = '❌ كلمة المرور غير صحيحة، تحقق منها وأعد المحاولة.';
+        }
+
+        // إظهار رسالة الخطأ
+        lAlert('l_loginErr','','l_loginErrTx','error', errMsg);
+
+        // تفريغ حقل كلمة المرور فقط وإعادة التركيز عليه
+        document.getElementById('l_password').value = '';
+        document.getElementById('l_password').focus();
+
+        // تلوين الحقل الخاطئ باللون الأحمر
+        if(!userExists){
+          document.getElementById('l_username').style.borderColor = '#e74c3c';
+          document.getElementById('l_username').style.background  = '#fdecea';
+          document.getElementById('l_password').style.borderColor = '';
+          document.getElementById('l_password').style.background  = '';
+        } else {
+          document.getElementById('l_password').style.borderColor = '#e74c3c';
+          document.getElementById('l_password').style.background  = '#fdecea';
+          document.getElementById('l_username').style.borderColor = '';
+          document.getElementById('l_username').style.background  = '';
+        }
+
+        // إعادة تعيين لون الحقل بعد 4 ثوانٍ
+        setTimeout(function(){
+          document.getElementById('l_username').style.borderColor = '';
+          document.getElementById('l_username').style.background  = '';
+          document.getElementById('l_password').style.borderColor = '';
+          document.getElementById('l_password').style.background  = '';
+        }, 4000);
       }
     } catch {
       lAlert('l_loginErr','','l_loginErrTx','error','خطأ في الاتصال. تأكد من مشاركة الجدول بشكل عام.');
