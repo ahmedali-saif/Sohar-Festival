@@ -1284,7 +1284,7 @@ lockNav();
     el.style.display='flex';
   }
 
-  async function lDoLogin() {
+async function lDoLogin() {
     const u=document.getElementById('l_username').value.trim();
     const p=document.getElementById('l_password').value.trim();
     document.getElementById('l_loginErr').style.display='none';
@@ -1302,58 +1302,57 @@ lockNav();
       lUK=lFk(users[0]||{}, ['user','اسم','username']);
       lPK=lFk(users[0]||{}, ['pass','كلمة','password']);
       lNK=lFk(users[0]||{}, ['name','الاسم','full']);
-      if(!lUK||!lPK){ lAlert('l_loginErr','','l_loginErrTx','error','تعذّر العثور على أعمدة البيانات.'); return; }
-const m=users.find(u2=>(u2[lUK]||'').toLowerCase()===u.toLowerCase()&&(u2[lPK]||'')===p);
-      if(m){
-        lCU={...m, _u:u};
-        document.getElementById('l_welcomeName').textContent=`مرحباً، ${lNK?(m[lNK]||u):u}!`;
-        lShow(lViews.welcome);
-        unlockNav();
+      if(!lUK||!lPK){
+        lAlert('l_loginErr','','l_loginErrTx','error','تعذّر العثور على أعمدة البيانات.');
       } else {
-        // تحديد سبب الخطأ
-        const userExists = users.find(u2=>(u2[lUK]||'').toLowerCase()===u.toLowerCase());
-        let errMsg = '';
-        if(!userExists){
-          errMsg = '❌ اسم المستخدم غير موجود، تحقق من الاسم وأعد المحاولة.';
+        const m=users.find(u2=>(u2[lUK]||'').toLowerCase()===u.toLowerCase()&&(u2[lPK]||'')===p);
+        if(m){
+          lCU={...m, _u:u};
+          document.getElementById('l_welcomeName').textContent=`مرحباً، ${lNK?(m[lNK]||u):u}!`;
+          lShow(lViews.welcome);
+          unlockNav();
         } else {
-          errMsg = '❌ كلمة المرور غير صحيحة، تحقق منها وأعد المحاولة.';
+          // تحديد سبب الخطأ
+          const userExists=users.find(u2=>(u2[lUK]||'').toLowerCase()===u.toLowerCase());
+          let errMsg = '';
+          if(!userExists){
+            errMsg='❌ اسم المستخدم غير موجود، تحقق من الاسم وأعد المحاولة.';
+          } else {
+            errMsg='❌ كلمة المرور غير صحيحة، تحقق منها وأعد المحاولة.';
+          }
+          lAlert('l_loginErr','','l_loginErrTx','error', errMsg);
+
+          // تفريغ كلمة المرور وإعادة التركيز
+          document.getElementById('l_password').value='';
+          document.getElementById('l_password').focus();
+
+          // تلوين الحقل الخاطئ
+          if(!userExists){
+            document.getElementById('l_username').style.borderColor='#e74c3c';
+            document.getElementById('l_username').style.background='#fdecea';
+          } else {
+            document.getElementById('l_password').style.borderColor='#e74c3c';
+            document.getElementById('l_password').style.background='#fdecea';
+          }
+
+          // إعادة اللون الطبيعي بعد 4 ثوانٍ
+          setTimeout(function(){
+            document.getElementById('l_username').style.borderColor='';
+            document.getElementById('l_username').style.background='';
+            document.getElementById('l_password').style.borderColor='';
+            document.getElementById('l_password').style.background='';
+          }, 4000);
         }
-
-        // إظهار رسالة الخطأ
-        lAlert('l_loginErr','','l_loginErrTx','error', errMsg);
-
-        // تفريغ حقل كلمة المرور فقط وإعادة التركيز عليه
-        document.getElementById('l_password').value = '';
-        document.getElementById('l_password').focus();
-
-        // تلوين الحقل الخاطئ باللون الأحمر
-        if(!userExists){
-          document.getElementById('l_username').style.borderColor = '#e74c3c';
-          document.getElementById('l_username').style.background  = '#fdecea';
-          document.getElementById('l_password').style.borderColor = '';
-          document.getElementById('l_password').style.background  = '';
-        } else {
-          document.getElementById('l_password').style.borderColor = '#e74c3c';
-          document.getElementById('l_password').style.background  = '#fdecea';
-          document.getElementById('l_username').style.borderColor = '';
-          document.getElementById('l_username').style.background  = '';
-        }
-
-        // إعادة تعيين لون الحقل بعد 4 ثوانٍ
-        setTimeout(function(){
-          document.getElementById('l_username').style.borderColor = '';
-          document.getElementById('l_username').style.background  = '';
-          document.getElementById('l_password').style.borderColor = '';
-          document.getElementById('l_password').style.background  = '';
-        }, 4000);
       }
     } catch {
       lAlert('l_loginErr','','l_loginErrTx','error','خطأ في الاتصال. تأكد من مشاركة الجدول بشكل عام.');
+    } finally {
+      // ← هذا هو المهم — يعمل دائماً سواء نجح أو فشل
+      document.getElementById('l_loginBtn').disabled=false;
+      document.getElementById('l_lsp').style.display='none';
+      document.getElementById('l_lbt').textContent='دخول';
+      document.getElementById('l_lbi').style.display='block';
     }
-    document.getElementById('l_loginBtn').disabled=false;
-    document.getElementById('l_lsp').style.display='none';
-    document.getElementById('l_lbt').textContent='دخول';
-    document.getElementById('l_lbi').style.display='block';
   }
 
   document.getElementById('l_loginBtn').addEventListener('click', lDoLogin);
