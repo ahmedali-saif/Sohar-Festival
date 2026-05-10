@@ -1434,7 +1434,7 @@ document.getElementById('l_logoutBtn').addEventListener('click', ()=>{
       const txt=await res.text();
       if(txt.includes('success')||res.ok){
         lCU[lPK]=newP;
-        lAlert('l_cpAlert','l_cpAlertIco','l_cpAlertTx','success','✓ تم تحديث كلمة المرور بنجاح في Google Sheets!');
+        lAlert('l_cpAlert','l_cpAlertIco','l_cpAlertTx','success','✓ تم تحديث كلمة المرور بنجاح');
         ['l_oldPass','l_newPass','l_confPass'].forEach(id=>document.getElementById(id).value='');
         lUpdateStrength('');
       } else {
