@@ -1292,8 +1292,12 @@ function lAlert(elId, icoId, txId, type, msg) {
 async function lDoLogin() {
     const u=document.getElementById('l_username').value.trim();
     const p=document.getElementById('l_password').value.trim();
-    document.getElementById('l_loginErr').style.display='none';
-    lAlert('l_loginErr','l_loginErrIco','l_loginErrTx','error','الرجاء إدخال اسم المستخدم وكلمة المرور.');
+document.getElementById('l_loginErr').style.display='none';
+
+if (!u || !p) {
+  lAlert('l_loginErr','l_loginErrIco','l_loginErrTx','error','الرجاء إدخال اسم المستخدم وكلمة المرور.');
+  return;
+}
 
     document.getElementById('l_loginBtn').disabled=true;
     document.getElementById('l_lsp').style.display='block';
