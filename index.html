@@ -3538,7 +3538,7 @@ async function bd_updateData() {
     bd_showMessage("جاري التحديث...", false, "info");
     try{
  var res=await bd_callApi("bd_updateData",{data:data});
-   if(res.success){bd_showMessage("تم التحديث بنجاح",false);bd_clearForm();bd_refreshDropdowns();globalRefreshPhoneLists();}
+   if(res.success){bd_showMessage("تم التحديث بنجاح",false);bd_clearForm();bd_refreshDropdowns();setTimeout(globalRefreshPhoneLists, 1500);}
     else bd_showMessage(res.message,true);
     }catch(err){bd_showMessage("خطأ: "+err.message,true);}
     finally{btn.disabled=false;}
