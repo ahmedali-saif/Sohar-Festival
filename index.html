@@ -955,36 +955,10 @@ function showPage(pageId) {
   }
   
 if (pageId === 'treatment' && !window._treatmentInitialized) {
+  window._treatmentInitialized = true;
   var trOverlay = document.getElementById('loadingOverlay');
-
-  try {
-    if (typeof trinit === 'function') {
-      trinit();
-    }
-
-    // اعتبر الصفحة مهيأة فقط بعد نجاح التنفيذ
-    window._treatmentInitialized = true;
-
-    // إخفاء شاشة التحميل
-    if (trOverlay) {
-      trOverlay.style.display = 'none';
-      trOverlay.classList.add('hide');
-    }
-
-  } catch (error) {
-    console.error('خطأ أثناء تحميل صفحة سجل العلاج:', error);
-
-    // السماح بإعادة المحاولة لاحقاً
-    window._treatmentInitialized = false;
-
-    // إخفاء شاشة التحميل حتى لا تبقى معلقة
-    if (trOverlay) {
-      trOverlay.style.display = 'none';
-      trOverlay.classList.add('hide');
-    }
-
-    showToast('حدث خطأ أثناء تحميل صفحة سجل العلاج', 'error');
-  }
+  if (trOverlay) trOverlay.style.display = 'none';
+  if (typeof trinit === 'function') trinit();
 }
 
   if (pageId === 'vaccination' && !window._vaccinationInitialized) {
