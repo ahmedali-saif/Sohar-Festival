@@ -948,7 +948,12 @@ function showPage(pageId) {
   });
   var activeBtn = document.querySelector('nav button[onclick="showPage(\'' + pageId + '\')"]');
   if (activeBtn) activeBtn.classList.add("nav-active");
-
+// تشغيل تنبيه العينات عند التنقل (ما عدا login و settings)
+  var excludedPages = ['login', 'settings', 'home'];
+  if (excludedPages.indexOf(pageId) === -1 && typeof foCheckOverdueSamples === 'function') {
+    setTimeout(foCheckOverdueSamples, 500);
+  }
+  
   if (pageId === 'treatment' && !window._treatmentInitialized) {
     window._treatmentInitialized = true;
     var trOverlay = document.getElementById('loadingOverlay');
@@ -6355,7 +6360,7 @@ window.addEventListener('load', function () {
 { delay: 6500, fn: function () {
     if (typeof foloadDropdowns === 'function') foloadDropdowns();
     if (typeof foloadUniqueCount === 'function') foloadUniqueCount();
-    setTimeout(foCheckOverdueSamples, 2000);
+    
 }},
 
 { delay: 7000, fn: function () {
