@@ -2329,6 +2329,7 @@ async function trloadIncompleteCount() {
 async function trloadIncompleteCases() {
   try {
     const res = await trcallApi("trgetIncompleteCases");
+    console.log("=== trgetIncompleteCases response ===", JSON.stringify(res));
     return res.cases || [];
   } catch (err) {
     console.warn("خطأ في جلب الحالات غير المكتملة:", err);
