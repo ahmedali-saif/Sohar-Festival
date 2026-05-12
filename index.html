@@ -6342,12 +6342,61 @@ if(card){document.querySelectorAll('.card').forEach(function(c){c.style.backgrou
 
 window.addEventListener('load', function () {
 
-  // ضبط تاريخ الجرد المالي فقط عند التحميل
-  var today = fin_localToday();
-  var ff = document.getElementById('fin_dateFrom');
-  var ft = document.getElementById('fin_dateTo');
-  if (ff) ff.value = today;
-  if (ft) ft.value = today;
+  var initQueue = [
+    { delay: 1500, fn: function () {
+        if (!window._treatmentInitialized) {
+          window._treatmentInitialized = true;
+          var ov = document.getElementById('loadingOverlay');
+          if (ov) ov.style.display = 'none';
+          if (typeof trinit === 'function') trinit();
+        }
+    }},
+    { delay: 2500, fn: function () {
+        if (!window._vaccinationInitialized) {
+          window._vaccinationInitialized = true;
+          var ov = document.getElementById('vacc_loadingOverlay');
+          if (ov) ov.style.display = 'none';
+          if (typeof vaccInit === 'function') vaccInit();
+        }
+    }},
+    { delay: 3500, fn: function () {
+        if (!window._vrInitialized) {
+          window._vrInitialized = true;
+          if (typeof vr_loadData === 'function') vr_loadData();
+        }
+    }},
+    { delay: 4000, fn: function () {
+        if (typeof dtr_initLoad === 'function') dtr_initLoad();
+    }},
+    { delay: 4500, fn: function () {
+        if (typeof ani_loadData === 'function') ani_loadData();
+    }},
+    { delay: 5000, fn: function () {
+        if (typeof dim_loadData === 'function') dim_loadData();
+    }},
+    { delay: 5500, fn: function () {
+        if (typeof rpt_loadReport === 'function') rpt_loadReport();
+    }},
+    { delay: 6000, fn: function () {
+        if (typeof bd_refreshDropdowns === 'function') bd_refreshDropdowns();
+    }},
+    { delay: 6500, fn: function () {
+        if (typeof foloadDropdowns === 'function') foloadDropdowns();
+        if (typeof foloadUniqueCount === 'function') foloadUniqueCount();
+    }},
+    { delay: 7000, fn: function () {
+        var today = fin_localToday();
+        var ff = document.getElementById('fin_dateFrom');
+        var ft = document.getElementById('fin_dateTo');
+        if (ff) ff.value = today;
+        if (ft) ft.value = today;
+        if (typeof fin_loadFinancialData === 'function') fin_loadFinancialData();
+    }}
+  ];
+
+  initQueue.forEach(function (item) {
+    setTimeout(item.fn, item.delay);
+  });
 
 });
   // ===== Overdue Samples Alert =====
