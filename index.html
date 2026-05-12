@@ -956,7 +956,7 @@ function showPage(pageId) {
   
 if (pageId === 'treatment' && !window._treatmentInitialized) {
   window._treatmentInitialized = true;
-  var trOverlay = document.getElementById('loadingOverlay');
+  var trOverlay = document.getElementById('tr_loadingOverlay');
   if (trOverlay) trOverlay.style.display = 'none';
   if (typeof trinit === 'function') trinit();
 }
