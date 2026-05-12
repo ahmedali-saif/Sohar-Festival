@@ -2134,18 +2134,7 @@ document.addEventListener('DOMContentLoaded', function(){ dim_loadData(); });
 </div><div class="top-bar">
   <div class="top-group"><label>🔍 إدخل رقم الحالة العلاجية</label><input type="text" id="tr_caseNumber"></div>
  <button type="button" id="tr_topAlertBadge" title="انقر لعرض التنبيهات" style="display:none;align-items:center;gap:7px;background:#e53935;color:#fff;border:none;border-radius:20px;padding:5px 14px 5px 10px;font-size:13px;font-weight:bold;cursor:pointer;"><span class="badge-icon">⚠️</span><span id="tr_topAlertText">تنبيه</span></button>
-  <button type="button" id="tr_incompleteBadge"
-  style="display:none;align-items:center;gap:7px;background:#e67e22;color:#fff;
-         border:none;border-radius:20px;padding:5px 14px 5px 10px;font-size:13px;
-         font-weight:bold;cursor:pointer;animation:pulseBadge 1.4s infinite;
-         box-shadow:0 2px 8px rgba(230,126,34,.4);white-space:nowrap;">
-  <span style="font-size:18px;">📋</span>
-  <span>بيانات غير مكتملة</span>
-  <span class="tr_incomplete_count"
-    style="background:#fff;color:#e67e22;border-radius:50%;
-           width:22px;height:22px;display:inline-flex;
-           align-items:center;justify-content:center;font-size:12px;">0</span>
-</button>
+
 </div>
 <div class="main-container"><div class="right-panel">
   <div class="card"><h3>بيانات المربي</h3>
@@ -2329,7 +2318,7 @@ function trshowConfirm(msg, onConfirm) {
 
 /** تحديث شارة التنبيهات العلوية */
 function trrefreshTopBadge() {
-  const badge = document.getElementById("tr_topAlertBadge");
+  const badge = document.getElementById("");
   const txt   = document.getElementById("tr_topAlertText");
   if (!badge || !txt) return;
 
@@ -2359,79 +2348,6 @@ function trsetSpecialNote(val) {
 //  التحقق من البيانات (Validation)
 // ============================================================
 
-  /** التحقق من من البيانات الغير مكتملة */
-function trcheckIncompleteRecords() {
-  var today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
-  var tbody = document.querySelector("#tr_dataTable tbody");
-  if (!tbody) return;
-
-  var incompleteList = [];
-
-  tbody.querySelectorAll("tr").forEach(function(row) {
-    var cells = row.querySelectorAll("td");
-    if (cells.length < 47) return; // يجب أن يكون هناك عمود 46 على الأقل
-
-    // ✅ التحقق من class="data-missing" (تم تعيينه من trloadData)
-    var isIncomplete = row.classList.contains("data-missing");
-    if (!isIncomplete) return;
-
-    // ✅ التحقق من التاريخ في العمود 46 (تاريخ ادخال البيانات)
-    var rowDate = "";
-    var comparableDate = "";
-    
-    // العمود 46 هو تاريخ ادخال البيانات
-    if (cells[46]) {
-      var txt = cells[46].textContent.trim();
-      
-      // صيغة DD/MM/YYYY
-      if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(txt)) {
-        var parts = txt.split("/");
-        comparableDate = parts[2] + "-" + parts[1].padStart(2,"0") + "-" + parts[0].padStart(2,"0");
-        rowDate = txt;
-      }
-      // صيغة YYYY-MM-DD
-      else if (/^\d{4}-\d{2}-\d{2}$/.test(txt)) {
-        comparableDate = txt;
-        rowDate = txt;
-      }
-      // صيغة تاريخ JavaScript (مثل "4/17/2026 17:37:44")
-      else {
-        var dateObj = new Date(txt);
-        if (!isNaN(dateObj.getTime())) {
-          var y = dateObj.getFullYear();
-          var m = String(dateObj.getMonth() + 1).padStart(2, "0");
-          var d = String(dateObj.getDate()).padStart(2, "0");
-          comparableDate = y + "-" + m + "-" + d;
-          rowDate = d + "/" + m + "/" + y;
-        }
-      }
-    }
-
-    // ✅ التحقق: التاريخ يجب أن يكون قبل اليوم
-    if (!comparableDate || comparableDate >= today) return;
-
-    incompleteList.push({
-      caseNumber: (cells[0].textContent || "").trim(),
-      phone:      (cells[1].textContent || "").trim(),
-      date:       rowDate,
-      name:       cells.length > 2 ? (cells[2].textContent || "").trim() : ""
-    });
-  });
-
-  var badge = document.getElementById("tr_incompleteBadge");
-  if (!badge) return;
-
-  if (incompleteList.length === 0) {
-    badge.style.display = "none";
-    return;
-  }
-
-  badge.style.display = "flex";
-  badge.querySelector(".tr_incomplete_count").textContent = incompleteList.length;
-  badge._incompleteList = incompleteList;
-}
-  
-  
 /** التحقق من تاريخ الحيازة وعرض تحذير إذا كان منتهياً أو قريباً */
 function trcheckQuickNotesDate(dateStr) {
   const field = document.getElementById("tr_quickNotesInput");
@@ -3052,7 +2968,6 @@ async function trloadData() {
     }
     html += "</tbody>";
     tbl.innerHTML = html;
-    trcheckIncompleteRecords();
   } catch (err) {
     trshowMessage("خطأ في تحميل الجدول: " + err.message, true);
   } finally {
@@ -3403,52 +3318,6 @@ document.getElementById("tr_animalsEndDate").addEventListener("change", function
     document.body.appendChild(modal);
     modal.querySelector(".confirm-btn").onclick = () => modal.remove();
   });
-  // أضف في نهاية trbindEvents
-document.getElementById("tr_incompleteBadge").addEventListener("click", function() {
-  var list = this._incompleteList || [];
-  if (!list.length) return;
-
-  var rows = list.map(function(r, i) {
-    return "<tr style='cursor:pointer;' onclick='document.getElementById(\"tr_caseNumber\").value=\"" + r.caseNumber + "\";trsearchCase();trIncompletModal.remove();'>"
-      + "<td>" + (i + 1) + "</td>"
-      + "<td style='color:#00b8d9;font-weight:bold;text-decoration:underline'>" + r.caseNumber + "</td>"
-      + "<td>" + r.phone + "</td>"
-      + "<td>" + r.name + "</td>"
-      + "<td style='color:#e65050;font-weight:bold'>" + r.date + "</td>"
-      + "</tr>";
-  }).join("");
-
-  var modal = document.createElement("div");
-  modal.className = "custom-modal";
-  modal.id = "trIncompletModal";
-  modal.innerHTML = `
-    <div class="modal-box" style="max-width:600px;width:95%">
-      <h3 style="color:#e67e22">📋 بيانات غير مكتملة (${list.length})</h3>
-      <p style="font-size:12px;color:#888;margin-bottom:10px">السجلات التالية تاريخها أقدم من اليوم — انقر على أي صف لتحميله</p>
-      <div style="max-height:350px;overflow:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
-          <thead>
-            <tr>
-              <th style="background:#e67e22;color:#fff;padding:6px;border:1px solid #ccc">م</th>
-              <th style="background:#e67e22;color:#fff;padding:6px;border:1px solid #ccc">رقم الحالة</th>
-              <th style="background:#e67e22;color:#fff;padding:6px;border:1px solid #ccc">الهاتف</th>
-              <th style="background:#e67e22;color:#fff;padding:6px;border:1px solid #ccc">الاسم</th>
-              <th style="background:#e67e22;color:#fff;padding:6px;border:1px solid #ccc">التاريخ</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-      <div style="margin-top:15px;text-align:center">
-        <button class="cancel-btn" onclick="document.getElementById('trIncompletModal').remove()">إغلاق</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-  window.trIncompletModal = modal;
-  modal.addEventListener("click", function(e) {
-    if (e.target === modal) modal.remove();
-  });
-});
 }
 
 // ============================================================
