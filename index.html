@@ -3404,12 +3404,11 @@ document.getElementById("tr_topAlertBadge").addEventListener("click", () => {
       </tr>`;
     });
 
-    html += `</tbody></table>`;
+html += `</tbody></table>`;
     document.getElementById("incompleteTableContainer").innerHTML = html;
 
     const overlay = document.getElementById("incompleteOverlay");
-    overlay.style.display = "flex";
-    setTimeout(() => overlay.classList.add("show"), 10);
+    overlay.classList.add("show");
   });
 }
 
