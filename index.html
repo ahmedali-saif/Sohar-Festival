@@ -3329,11 +3329,15 @@ function trinit() {
   document.getElementById("tr_financialDate").value = new Date().toLocaleDateString("en-CA");
 
   const overlay = document.getElementById("tr_loadingOverlay");
+  // تأكد من أن شاشة التحميل مرئية قبل بدء تحميل البيانات
   if (overlay) overlay.style.display = "flex";
 
   Promise.all([trloadDropdowns(), trloadData()])
     .catch(err => trshowMessage("خطأ في التحميل: " + err.message, true))
-    .finally(() => { if (overlay) overlay.style.display = "none"; });
+    .finally(() => { 
+        // هذا هو الجزء المهم: إخفاء شاشة التحميل بعد الانتهاء من جميع العمليات
+        if (overlay) overlay.style.display = "none"; 
+    });
 }
 </script>
 </div>
