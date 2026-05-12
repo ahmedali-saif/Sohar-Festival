@@ -4701,15 +4701,7 @@ function vr_render() {
 // التحميل عند فتح الصفحة للمرة الأولى فقط
 // يُستدعى من showPage المركزية
 // =====================================================
-window._vrInitialized = false;
-var _vr_originalShowPage = window.showPage;
-window.showPage = function(pageId) {
-  _vr_originalShowPage(pageId);
-  if (pageId === 'vaccinationRequests' && !window._vrInitialized) {
-    window._vrInitialized = true;
-    vr_loadData();
-  }
-};
+
 </script>
 
 </div>
