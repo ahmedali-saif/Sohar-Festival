@@ -2770,6 +2770,7 @@ async function trsaveData() {
         trshowMessage("✅ تم الحفظ بنجاح", false);
         trclearForm();
         trloadData();
+        trloadIncompleteCount();
       } else {
         trshowMessage(res.message, true);
       }
@@ -2805,6 +2806,7 @@ async function trupdateData() {
         trshowMessage("✅ تم التحديث بنجاح", false);
         trclearForm();
         trloadData();
+        trloadIncompleteCount();
       } else {
         trshowMessage(res.message, true);
       }
@@ -2945,6 +2947,7 @@ async function trtempSave() {
       trshowMessage(res.message, false);
       trclearForm();
       trloadData();
+        trloadIncompleteCount();
     } else {
       trshowMessage(res.message, true);
     }
@@ -2975,6 +2978,7 @@ async function trtempUpdate() {
       trshowMessage(res.message, false);
       trclearForm();
       trloadData();
+       trloadIncompleteCount();
     } else {
       trshowMessage(res.message, true);
     }
@@ -3351,7 +3355,7 @@ document.getElementById("tr_animalsEndDate").addEventListener("change", function
   });
 
   // --- شارة التنبيهات العلوية ---
-  document.getElementById("tr_topAlertBadge").addEventListener("click", () => {
+document.getElementById("tr_topAlertBadge").addEventListener("click", () => {
     const msgs = [];
     if (window._tr_expiredWarning) msgs.push(window._tr_expiredWarning);
     if (window._tr_specialNote)    msgs.push(window._tr_specialNote);
@@ -3371,6 +3375,42 @@ document.getElementById("tr_animalsEndDate").addEventListener("change", function
     document.body.appendChild(modal);
     modal.querySelector(".confirm-btn").onclick = () => modal.remove();
   });
+
+  // إضافة listener زر الحالات غير المكتملة
+  document.getElementById("tr_incompleteCountBadge").addEventListener("click", async () => {
+    const cases = await trloadIncompleteCases();
+    const badge = document.getElementById("incompleteBadge");
+    badge.textContent = cases.length;
+
+    if (!cases.length) {
+      trshowMessage("لا توجد حالات غير مكتملة", false);
+      return;
+    }
+
+    let html = `<table class="overdue-table">
+      <thead><tr>
+        <th>رقم الحالة</th>
+        <th>الاسم</th>
+        <th>رقم الهاتف</th>
+        <th>مدخل البيانات</th>
+      </tr></thead><tbody>`;
+
+    cases.forEach(c => {
+      html += `<tr style="cursor:pointer" onclick="trSelectIncompleteCase('${c.caseNumber}')">
+        <td><strong style="color:#00b8d9">${c.caseNumber || ''}</strong></td>
+        <td>${c.name || ''}</td>
+        <td>${c.phone || ''}</td>
+        <td>${c.dataEntry || ''}</td>
+      </tr>`;
+    });
+
+    html += `</tbody></table>`;
+    document.getElementById("incompleteTableContainer").innerHTML = html;
+
+    const overlay = document.getElementById("incompleteOverlay");
+    overlay.style.display = "flex";
+    setTimeout(() => overlay.classList.add("show"), 10);
+  });
 }
 
 // ============================================================
@@ -3388,42 +3428,6 @@ function trinit() {
     .catch(err => trshowMessage("خطأ في التحميل: " + err.message, true))
     .finally(() => { if (overlay) overlay.style.display = "none"; });
 }
-
-  document.getElementById("tr_incompleteCountBadge").addEventListener("click", async () => {
-  const cases = await trloadIncompleteCases();
-  const badge = document.getElementById("incompleteBadge");
-  badge.textContent = cases.length;
-
-  if (!cases.length) {
-    trshowMessage("لا توجد حالات غير مكتملة", false);
-    return;
-  }
-
-  let html = `<table class="overdue-table">
-    <thead><tr>
-      <th>رقم الحالة</th>
-      <th>الاسم</th>
-      <th>رقم الهاتف</th>
-      <th>مدخل البيانات</th>
-    </tr></thead><tbody>`;
-
-  cases.forEach(c => {
-    html += `<tr style="cursor:pointer" onclick="trSelectIncompleteCase('${c.caseNumber}')">
-      <td><strong style="color:#00b8d9">${c.caseNumber || ''}</strong></td>
-      <td>${c.name || ''}</td>
-      <td>${c.phone || ''}</td>
-      <td>${c.dataEntry || ''}</td>
-    </tr>`;
-  });
-
-  html += `</tbody></table>`;
-  document.getElementById("incompleteTableContainer").innerHTML = html;
-
-  const overlay = document.getElementById("incompleteOverlay");
-  overlay.style.display = "flex";
-  setTimeout(() => overlay.classList.add("show"), 10);
-});
-  
 function trCloseIncompleteModal() {
   const overlay = document.getElementById("incompleteOverlay");
   overlay.classList.remove("show");
