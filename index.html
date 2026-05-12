@@ -1929,7 +1929,7 @@ function hideSettingsLoadingOverlay() {
 }
 async function settingsCall(action, payload) {
   var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
-  var r = await fetch(SETTINGS_API_URL, { method:"POST", mode:"cors", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:body, redirect:"follow" });
+  var r = await fetch(SETTINGS__URL, { method:"POST", mode:"cors", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:body, redirect:"follow" });
   if (!r.ok) throw new Error("HTTP " + r.status);
   return await r.json();
 }
@@ -1947,7 +1947,7 @@ async function searchData() {
   if (!phone) { statusDiv.innerHTML = '<span style="color:#8B0000">⚠️ الرجاء إدخال رقم الهاتف</span>'; return; }
   statusDiv.innerHTML = '<span style="color:#0066cc">⏳ جاري البحث...</span>';
   try {
-    var result = await settingsCallApi("searchByPhone", { phone: phone });
+    var result = await settingsCall("searchByPhone", { phone: phone });
     if (result && result.ownerName) { fillFormData(result); statusDiv.innerHTML = '<span style="color:green">✅ تم العثور على البيانات</span>'; }
     else { statusDiv.innerHTML = '<span style="color:#8B0000">❌ لم يتم العثور على بيانات</span>'; clearFormData(); }
   } catch(err) { statusDiv.innerHTML = '<span style="color:#8B0000">❌ خطأ: '+err.message+'</span>'; }
