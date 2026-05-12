@@ -3516,8 +3516,8 @@ async function bd_saveData() {
   bd_showMessage("جاري الحفظ...", false, "info");
   try{
     var res=await bd_callApi("bd_saveData",{data:data});
-    if(res.success){bd_showMessage("تم الحفظ بنجاح",false);bd_clearForm();bd_refreshDropdowns();}
-    else bd_showMessage(res.message,true);
+if(res.success){bd_showMessage("تم الحفظ بنجاح",false);bd_clearForm();bd_refreshDropdowns();globalRefreshPhoneLists();}
+else bd_showMessage(res.message,true);
   }catch(err){bd_showMessage("خطأ: "+err.message,true);}
   finally{btn.disabled=false;}
 }
@@ -3532,14 +3532,14 @@ async function bd_updateData() {
     dataEntry:bd_getValue("bd_dataEntryInput"),dataUpdater:bd_getValue("bd_dataUpdaterInput"),
     animals:{camel:bd_getValue("bd_animal_camel"),goat:bd_getValue("bd_animal_goat"),sheep:bd_getValue("bd_animal_sheep"),cow:bd_getValue("bd_animal_cow"),poultry:bd_getValue("bd_animal_poultry")},
     financialDate:bd_getValue("bd_financialDate")};
-  bd_showConfirm("هل أنت متأكد من تحديث بيانات الرقم: "+phone+"؟",async function(){
+    bd_showConfirm("هل أنت متأكد من تحديث بيانات الرقم: "+phone+"؟",async function(){
     var btn=document.getElementById("bd_updateBtn");
     btn.disabled=true;
     bd_showMessage("جاري التحديث...", false, "info");
     try{
-      var res=await bd_callApi("bd_updateData",{data:data});
-      if(res.success){bd_showMessage("تم التحديث بنجاح",false);bd_clearForm();bd_refreshDropdowns();}
-      else bd_showMessage(res.message,true);
+ var res=await bd_callApi("bd_updateData",{data:data});
+   if(res.success){bd_showMessage("تم التحديث بنجاح",false);bd_clearForm();bd_refreshDropdowns();globalRefreshPhoneLists();}
+    else bd_showMessage(res.message,true);
     }catch(err){bd_showMessage("خطأ: "+err.message,true);}
     finally{btn.disabled=false;}
   });
@@ -6295,6 +6295,37 @@ localStorage.setItem('app_card', document.getElementById('cardColor').value);
   setTimeout(function(){t.classList.add('show');},10);
   setTimeout(function(){t.classList.remove('show');setTimeout(function(){t.remove();},300);},2500);
 }
+
+  // ===== تحديث قوائم الهاتف في جميع الصفحات =====
+async function globalRefreshPhoneLists() {
+  try {
+    var results = await Promise.all([
+      bd_callApi("bd_getPhoneNumbers"),
+      trcallApi("trgetPhoneNumbers"),
+      vaccCallApi("getPhoneNumbers"),
+      focallApi("fogetPhoneNumbers")
+    ]);
+
+    function fillDatalist(id, arr) {
+      var dl = document.getElementById(id);
+      if (!dl) return;
+      dl.innerHTML = "";
+      (arr || []).sort().forEach(function(v) {
+        var o = document.createElement("option");
+        o.value = v;
+        dl.appendChild(o);
+      });
+    }
+
+    if (results[0].success) fillDatalist("bd_phoneList",  results[0].data);
+    if (results[1].success) fillDatalist("tr_phoneList",  results[1].data);
+    if (results[2].success) fillDatalist("vacc_phoneList", results[2].data);
+    if (results[3].success) fillDatalist("phoneList",     results[3].data);
+  } catch(err) {
+    console.warn("خطأ في تحديث قوائم الهاتف:", err);
+  }
+}
+  
 function resetAppearance() {
 ['app_bg','app_txt','app_fs','app_nav','app_card'].forEach(function(k){localStorage.removeItem(k);});
 document.querySelectorAll('.card').forEach(function(c){c.style.background='#f8ffff';});
