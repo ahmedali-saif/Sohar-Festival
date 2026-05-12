@@ -2369,33 +2369,45 @@ function trcheckIncompleteRecords() {
 
   tbody.querySelectorAll("tr").forEach(function(row) {
     var cells = row.querySelectorAll("td");
-    if (cells.length < 7) return;
+    if (cells.length < 47) return; // يجب أن يكون هناك عمود 46 على الأقل
 
-    // التحقق من أن الصف غير مكتمل (اللون الأحمر)
+    // ✅ التحقق من class="data-missing" (تم تعيينه من trloadData)
     var isIncomplete = row.classList.contains("data-missing");
     if (!isIncomplete) return;
 
-    // البحث عن التاريخ في جميع الخلايا
+    // ✅ التحقق من التاريخ في العمود 46 (تاريخ ادخال البيانات)
     var rowDate = "";
     var comparableDate = "";
-
-    for (var i = 0; i < cells.length; i++) {
-      var txt = (cells[i].textContent || "").trim();
+    
+    // العمود 46 هو تاريخ ادخال البيانات
+    if (cells[46]) {
+      var txt = cells[46].textContent.trim();
+      
       // صيغة DD/MM/YYYY
       if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(txt)) {
         var parts = txt.split("/");
         comparableDate = parts[2] + "-" + parts[1].padStart(2,"0") + "-" + parts[0].padStart(2,"0");
         rowDate = txt;
-        break;
       }
       // صيغة YYYY-MM-DD
-      if (/^\d{4}-\d{2}-\d{2}$/.test(txt)) {
+      else if (/^\d{4}-\d{2}-\d{2}$/.test(txt)) {
         comparableDate = txt;
         rowDate = txt;
-        break;
+      }
+      // صيغة تاريخ JavaScript (مثل "4/17/2026 17:37:44")
+      else {
+        var dateObj = new Date(txt);
+        if (!isNaN(dateObj.getTime())) {
+          var y = dateObj.getFullYear();
+          var m = String(dateObj.getMonth() + 1).padStart(2, "0");
+          var d = String(dateObj.getDate()).padStart(2, "0");
+          comparableDate = y + "-" + m + "-" + d;
+          rowDate = d + "/" + m + "/" + y;
+        }
       }
     }
 
+    // ✅ التحقق: التاريخ يجب أن يكون قبل اليوم
     if (!comparableDate || comparableDate >= today) return;
 
     incompleteList.push({
@@ -2855,7 +2867,7 @@ async function trdeleteCase() {
       if (res.success) {
         trshowMessage("✅ تم الحذف بنجاح", false);
         trclearForm();
-        trloadData();
+        ();
       } else {
         trshowMessage(res.message, true);
       }
