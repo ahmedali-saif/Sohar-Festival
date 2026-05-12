@@ -2329,7 +2329,7 @@ function trshowConfirm(msg, onConfirm) {
 
 /** تحديث شارة التنبيهات العلوية */
 function trrefreshTopBadge() {
-  const badge = document.getElementById("");
+  const badge = document.getElementById("tr_topAlertBadge");
   const txt   = document.getElementById("tr_topAlertText");
   if (!badge || !txt) return;
 
@@ -2371,31 +2371,41 @@ function trcheckIncompleteRecords() {
     var cells = row.querySelectorAll("td");
     if (cells.length < 7) return;
 
-    var isIncomplete = (cells[6].textContent || "").indexOf("غير مكتملة") > -1;
+    // التحقق من أن الصف غير مكتمل (اللون الأحمر)
+    var isIncomplete = row.classList.contains("data-missing");
     if (!isIncomplete) return;
 
-    // التحقق من التاريخ — العمود الثالث (index 2) يحتوي على التاريخ
-    var rowDate = (cells[2].textContent || "").trim();
-    if (!rowDate) return;
+    // البحث عن التاريخ في جميع الخلايا
+    var rowDate = "";
+    var comparableDate = "";
 
-    // تحويل DD/MM/YYYY إلى YYYY-MM-DD للمقارنة
-    var parts = rowDate.split("/");
-    var comparableDate = rowDate;
-    if (parts.length === 3) {
-      comparableDate = parts[2] + "-" + parts[1].padStart(2,"0") + "-" + parts[0].padStart(2,"0");
+    for (var i = 0; i < cells.length; i++) {
+      var txt = (cells[i].textContent || "").trim();
+      // صيغة DD/MM/YYYY
+      if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(txt)) {
+        var parts = txt.split("/");
+        comparableDate = parts[2] + "-" + parts[1].padStart(2,"0") + "-" + parts[0].padStart(2,"0");
+        rowDate = txt;
+        break;
+      }
+      // صيغة YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}$/.test(txt)) {
+        comparableDate = txt;
+        rowDate = txt;
+        break;
+      }
     }
 
-    if (comparableDate < today) {
-      incompleteList.push({
-        caseNumber: (cells[0].textContent || "").trim(),
-        phone:      (cells[1].textContent || "").trim(),
-        date:       rowDate,
-        name:       cells.length > 3 ? (cells[3].textContent || "").trim() : ""
-      });
-    }
+    if (!comparableDate || comparableDate >= today) return;
+
+    incompleteList.push({
+      caseNumber: (cells[0].textContent || "").trim(),
+      phone:      (cells[1].textContent || "").trim(),
+      date:       rowDate,
+      name:       cells.length > 2 ? (cells[2].textContent || "").trim() : ""
+    });
   });
 
-  // تحديث الشارة
   var badge = document.getElementById("tr_incompleteBadge");
   if (!badge) return;
 
