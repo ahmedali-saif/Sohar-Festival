@@ -2134,7 +2134,13 @@ document.addEventListener('DOMContentLoaded', function(){ dim_loadData(); });
 </div><div class="top-bar">
   <div class="top-group"><label>🔍 إدخل رقم الحالة العلاجية</label><input type="text" id="tr_caseNumber"></div>
  <button type="button" id="tr_topAlertBadge" title="انقر لعرض التنبيهات" style="display:none;align-items:center;gap:7px;background:#e53935;color:#fff;border:none;border-radius:20px;padding:5px 14px 5px 10px;font-size:13px;font-weight:bold;cursor:pointer;"><span class="badge-icon">⚠️</span><span id="tr_topAlertText">تنبيه</span></button>
-
+<button type="button" id="tr_incompleteCountBadge"
+  style="display:none;align-items:center;gap:7px;
+         background:#e67e22;color:#fff;border:none;
+         border-radius:20px;padding:5px 14px 5px 10px;
+         font-size:13px;font-weight:bold;cursor:default;">
+  ⚠️ <span id="tr_incompleteCountText">0 حالة غير مكتملة</span>
+</button>
 </div>
 <div class="main-container"><div class="right-panel">
   <div class="card"><h3>بيانات المربي</h3>
@@ -2280,7 +2286,29 @@ function trunblockButtons() {
     btn.disabled = false;
   });
 }
+// ============================================================
+//  عداد الحالات غير المكتملة قبل اليوم
+// ============================================================
+async function trloadIncompleteCount() {
+  try {
+    const res = await trcallApi("trgetIncompleteCount");
+    if (!res.success) return;
 
+    const count = res.count || 0;
+    const badge = document.getElementById("tr_incompleteCountBadge");
+    const text  = document.getElementById("tr_incompleteCountText");
+    if (!badge || !text) return;
+
+    if (count > 0) {
+      text.textContent    = count + " حالة غير مكتملة";
+      badge.style.display = "flex";
+    } else {
+      badge.style.display = "none";
+    }
+  } catch (err) {
+    console.warn("خطأ في جلب عداد الحالات غير المكتملة:", err);
+  }
+}
 
 // ============================================================
 //  الإشعارات والتنبيهات (Notifications)
@@ -3327,7 +3355,7 @@ document.getElementById("tr_animalsEndDate").addEventListener("change", function
 function trinit() {
   trbindEvents();
   document.getElementById("tr_financialDate").value = new Date().toLocaleDateString("en-CA");
-
+  trloadIncompleteCount();
   const overlay = document.getElementById("tr_loadingOverlay");
   if (overlay) overlay.style.display = "flex";
 
