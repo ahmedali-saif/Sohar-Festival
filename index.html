@@ -3554,7 +3554,7 @@ async function bd_deleteData() {
     bd_showMessage("جاري الحذف...", false, "info");
     try{
       var res=await bd_callApi("bd_deleteData",{phone:phone});
-      if(res.success){bd_showMessage("تم الحذف بنجاح",false);bd_clearForm();bd_refreshDropdowns();}
+    if(res.success){bd_showMessage("تم الحذف بنجاح",false);bd_clearForm();bd_refreshDropdowns();globalRefreshPhoneLists();}
       else bd_showMessage(res.message,true);
     }catch(err){bd_showMessage("خطأ: "+err.message,true);}
     finally{btn.disabled=false;}
