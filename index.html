@@ -146,7 +146,7 @@ button {
   font-size: 13px;
   transition: all .2s ease;
 }
-button:disabled { opacity: .6; cursor: not-allowed; }
+button:disabled { opacity: .6; cursor:  pointer; }
 button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,.15); }
 
 .save          { background: #2bb673; color: #fff; }
@@ -887,6 +887,23 @@ window.showToast = function(message, type) {
 
 })();
 </script>
+  <div class="overdue-overlay" id="incompleteOverlay">
+  <div class="overdue-box">
+    <div class="overdue-header" style="background:linear-gradient(135deg,#e67e22,#d35400)">
+      <h3>⚠️ الحالات غير المكتملة</h3>
+      <span class="overdue-badge" id="incompleteBadge">0</span>
+    </div>
+    <div class="overdue-body">
+      <div class="overdue-info" style="background:#fff3e0;border-color:#ff9800;color:#7f4400">
+        📋 انقر على أي حالة لتحميل بياناتها في النموذج
+      </div>
+      <div id="incompleteTableContainer"></div>
+    </div>
+    <div class="overdue-footer">
+      <button class="btn-close" style="background:#e67e22" onclick="trCloseIncompleteModal()">إغلاق</button>
+    </div>
+  </div>
+</div>
   <div class="overdue-overlay" id="overdueOverlay">
   <div class="overdue-box">
     <div class="overdue-header">
@@ -2309,7 +2326,15 @@ async function trloadIncompleteCount() {
     console.warn("خطأ في جلب عداد الحالات غير المكتملة:", err);
   }
 }
-
+async function trloadIncompleteCases() {
+  try {
+    const res = await trcallApi("trgetIncompleteCases");
+    return res.cases || [];
+  } catch (err) {
+    console.warn("خطأ في جلب الحالات غير المكتملة:", err);
+    return [];
+  }
+}
 // ============================================================
 //  الإشعارات والتنبيهات (Notifications)
 // ============================================================
@@ -3364,6 +3389,68 @@ function trinit() {
     .finally(() => { if (overlay) overlay.style.display = "none"; });
 }
 
+  document.getElementById("tr_incompleteCountBadge").addEventListener("click", async () => {
+  const cases = await trloadIncompleteCases();
+  const badge = document.getElementById("incompleteBadge");
+  badge.textContent = cases.length;
+
+  if (!cases.length) {
+    trshowMessage("لا توجد حالات غير مكتملة", false);
+    return;
+  }
+
+  let html = `<table class="overdue-table">
+    <thead><tr>
+      <th>رقم الحالة</th>
+      <th>الاسم</th>
+      <th>رقم الهاتف</th>
+      <th>مدخل البيانات</th>
+    </tr></thead><tbody>`;
+
+  cases.forEach(c => {
+    html += `<tr style="cursor:pointer" onclick="trSelectIncompleteCase('${c.caseNumber}')">
+      <td><strong style="color:#00b8d9">${c.caseNumber || ''}</strong></td>
+      <td>${c.name || ''}</td>
+      <td>${c.phone || ''}</td>
+      <td>${c.dataEntry || ''}</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  document.getElementById("incompleteTableContainer").innerHTML = html;
+
+  const overlay = document.getElementById("incompleteOverlay");
+  overlay.style.display = "flex";
+  setTimeout(() => overlay.classList.add("show"), 10);
+});
+  
+function trCloseIncompleteModal() {
+  const overlay = document.getElementById("incompleteOverlay");
+  overlay.classList.remove("show");
+  setTimeout(() => { overlay.style.display = "none"; }, 300);
+}
+
+async function trSelectIncompleteCase(caseNumber) {
+  trCloseIncompleteModal();
+  document.getElementById("tr_caseNumber").value = caseNumber;
+  trupdateMirrorCaseNumber();
+  trshowMessage("⏳ جاري تحميل الحالة...", false);
+  trblockButtons();
+  try {
+    const res = await trcallApi("trsearchCaseData", { caseNumber });
+    if (res.success) {
+      trfillFormWithData(res);
+      trloadData();
+      trshowMessage("✅ تم تحميل الحالة " + caseNumber, false);
+    } else {
+      trshowMessage(res.message, true);
+    }
+  } catch (err) {
+    trshowMessage("خطأ: " + err.message, true);
+  } finally {
+    trunblockButtons();
+  }
+}
 </script>
 </div>
 
