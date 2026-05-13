@@ -6550,10 +6550,7 @@ window.addEventListener('load', function () {
   // ===== Overdue Samples Alert =====
 var overdueSessionDismissed = false;
 
-document.getElementById('overdueOverlay').onclick = function(e){
-  if(e.target === this) foCloseOverdueAlert();
-};
-
+document.getElementById('overdueOverlay').onclick = function(e){ /* disabled */ };
 function foCheckOverdueSamples() {
   if (overdueSessionDismissed) return;
   focallApi("fosearchSamplesData", { showAll: true }).then(function(res) {
