@@ -4519,10 +4519,25 @@ async function vaccDoGetMaxAnimals() {
     var res = await vaccCallApi("getMaxAnimalsPerBreeder", { filters:filters });
     if(!res.success||!res.rows||res.rows.length===0){ div.innerHTML='<p style="text-align:center;color:#e65050;">لا توجد بيانات</p>'; return; }
     document.getElementById('vacc_maResultCount').textContent='عدد المربين: '+res.recordCount;
-var html='<table><thead><tr>'+(res.headers||[]).map(function(h){ return '<th>'+(h||'')+'</th>'; }).join('')+'</tr></thead><tbody>';
-res.rows.forEach(function(row,idx){
+var phone = vaccGetValue('vacc_maPhone').trim();
+var displayRows = res.rows;
+if (phone !== '') {
+  displayRows = res.rows.filter(function(row) {
+    return (row[0] != null) && row[0].toString().trim() === phone;
+  });
+}
+if (displayRows.length === 0) {
+  div.innerHTML = '<p style="text-align:center;color:#e65050;">لا توجد بيانات لهذا الرقم</p>';
+  return;
+}
+var html='<table><thead><tr>'+(res.headers||[]).map(function(h){
+  return '<th>'+(h||'')+'</th>';
+}).join('')+'</tr></thead><tbody>';
+displayRows.forEach(function(row,idx){
   var bg=(idx%2!==0)?' style="background:#eafaf1;"':'';
-  html+='<tr'+bg+'>'+row.map(function(c){ return '<td style="border:1px solid #ddd;padding:5px;">'+(c!=null?c:'')+'</td>'; }).join('')+'</tr>';
+  html+='<tr'+bg+'>'+row.map(function(c){
+    return '<td style="border:1px solid #ddd;padding:5px;">'+(c!=null?c:'')+'</td>';
+  }).join('')+'</tr>';
 });
     html+='</tbody>';
     if(res.totals&&res.totals.length){ html+='<tfoot><tr><td colspan="2">الإجمالي الكلي</td>'+res.totals.map(function(t){ return '<td>'+(t||0)+'</td>'; }).join('')+'</tr></tfoot>'; }
