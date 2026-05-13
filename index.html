@@ -4519,37 +4519,11 @@ async function vaccDoGetMaxAnimals() {
     var res = await vaccCallApi("getMaxAnimalsPerBreeder", { filters:filters });
     if(!res.success||!res.rows||res.rows.length===0){ div.innerHTML='<p style="text-align:center;color:#e65050;">لا توجد بيانات</p>'; return; }
     document.getElementById('vacc_maResultCount').textContent='عدد المربين: '+res.recordCount;
-var searchPhone = vaccGetValue('vacc_maPhone').trim();
-var phoneColIndex = (res.headers||[]).findIndex(function(h){
-  return h && (h.includes('هاتف') || h.toLowerCase().includes('phone'));
-});
-
-var filteredRows = res.rows;
-if (searchPhone && phoneColIndex !== -1) {
-  filteredRows = res.rows.filter(function(row){
-    return String(row[phoneColIndex] || '') === searchPhone;
-  });
-}
-
-if (!filteredRows.length) {
-  div.innerHTML = '<p style="text-align:center;color:#e65050;padding:20px">لا توجد نتائج للرقم: ' + searchPhone + '</p>';
-  document.getElementById('vacc_maResultCount').textContent = 'لا توجد نتائج';
-  return;
-}
-
-document.getElementById('vacc_maResultCount').textContent = 'عدد المربين: ' + filteredRows.length;
-
 var html='<table><thead><tr>'+(res.headers||[]).map(function(h){ return '<th>'+(h||'')+'</th>'; }).join('')+'</tr></thead><tbody>';
-filteredRows.forEach(function(row,idx){
+res.rows.forEach(function(row,idx){
   var bg=(idx%2!==0)?' style="background:#eafaf1;"':'';
   html+='<tr'+bg+'>'+row.map(function(c){ return '<td style="border:1px solid #ddd;padding:5px;">'+(c!=null?c:'')+'</td>'; }).join('')+'</tr>';
 });
-html+='</tbody>';
-if(res.totals&&res.totals.length){ 
-  html+='<tfoot><tr><td colspan="2">الإجمالي الكلي</td>'+res.totals.map(function(t){ return '<td>'+(t||0)+'</td>'; }).join('')+'</tr></tfoot>'; 
-}
-html+='</table>'; 
-div.innerHTML=html;
     html+='</tbody>';
     if(res.totals&&res.totals.length){ html+='<tfoot><tr><td colspan="2">الإجمالي الكلي</td>'+res.totals.map(function(t){ return '<td>'+(t||0)+'</td>'; }).join('')+'</tr></tfoot>'; }
     html+='</table>'; div.innerHTML=html;
