@@ -4523,7 +4523,7 @@ var phone = vaccGetValue('vacc_maPhone').trim();
 var displayRows = res.rows;
 if (phone !== '') {
   displayRows = res.rows.filter(function(row) {
-    return (row[0] != null) && row[0].toString().trim() === phone;
+    return (row[1] != null) && row[1].toString().trim() === phone;
   });
 }
 if (displayRows.length === 0) {
