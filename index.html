@@ -3379,11 +3379,14 @@ document.getElementById("tr_topAlertBadge").addEventListener("click", () => {
 
   // إضافة listener زر الحالات غير المكتملة
 document.getElementById("tr_incompleteCountBadge").addEventListener("click", async () => {
-  // ① إظهار رسالة التحميل فوراً
   const badge = document.getElementById("incompleteBadge");
   badge.textContent = "...";
   
   const overlay = document.getElementById("incompleteOverlay");
+  
+  // ← السطر الجديد: إعادة الظهور قبل إضافة show
+  overlay.style.display = "flex";
+  
   document.getElementById("incompleteTableContainer").innerHTML = `
     <div style="text-align:center;padding:30px;">
       <div style="width:40px;height:40px;border:4px solid #e0e0e0;
@@ -3395,7 +3398,6 @@ document.getElementById("tr_incompleteCountBadge").addEventListener("click", asy
       </div>
     </div>`;
   overlay.classList.add("show");
-
   // ② جلب البيانات
   const cases = await trloadIncompleteCases();
   badge.textContent = cases.length;
@@ -3452,12 +3454,15 @@ function trinit() {
 function trCloseIncompleteModal() {
   const overlay = document.getElementById("incompleteOverlay");
   overlay.classList.remove("show");
-  setTimeout(() => { overlay.style.display = "none"; }, 300);
+  setTimeout(() => {
+    overlay.style.display = "none";
+    // ← إعادة تعيين المحتوى لضمان جلب جديد عند الفتح التالي
+    document.getElementById("incompleteTableContainer").innerHTML = "";
+    document.getElementById("incompleteBadge").textContent = "...";
+  }, 300);
   
-  // ③ إعادة تحميل العداد بعد الإغلاق
   trloadIncompleteCount();
 }
-
 async function trSelectIncompleteCase(caseNumber) {
   trCloseIncompleteModal();
   document.getElementById("tr_caseNumber").value = caseNumber;
