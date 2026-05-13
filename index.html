@@ -5160,8 +5160,15 @@ async function foupdateData() {
   foshowMessage('جاري التحديث...',false,'info');
   try{
     var res=await focallApi("foupdateData",{data:focollectFormData()});
-    if(res.success){foshowMessage('تم التحديث بنجاح',false);fochearForm();fosafeSet('caseNumberrt','');}
-    else foshowMessage(res.message,true);
+if(res.success){
+  foshowMessage('تم التحديث بنجاح',false);
+  fochearForm();
+  fosafeSet('caseNumberrt','');
+  // ← إعادة فحص العينات المتأخرة بعد التحديث
+  setTimeout(function(){ 
+    if(typeof foCheckOverdueSamples === 'function') foCheckOverdueSamples(); 
+  }, 1000);
+}    else foshowMessage(res.message,true);
   }catch(err){foshowMessage("خطأ: "+err.message,true);}
   finally{btn.textContent=orig;btn.disabled=false;}
 }
@@ -6554,7 +6561,10 @@ document.getElementById('overdueOverlay').onclick = function(e){ /* disabled */ 
 function foCheckOverdueSamples() {
   if (overdueSessionDismissed) return;
   focallApi("fosearchSamplesData", { showAll: true }).then(function(res) {
-    if (!res.success || !res.data || !res.data.length) return;
+    if (!res.success || !res.data || !res.data.length) {
+      foCloseOverdueAlert();
+      return;
+    }
     var today = new Date(); today.setHours(0,0,0,0);
     var overdue = res.data.filter(function(row) {
       var hasUnresolved = [1,2,3,4,5].some(function(k){
