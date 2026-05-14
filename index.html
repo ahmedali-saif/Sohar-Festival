@@ -4471,19 +4471,7 @@ async function vaccDoSearchVaccinationRecords() {
       html += '</tr>';
     });
     html += '</tbody></table>';
-   div.innerHTML = html;
-// تكبير البطاقة لتملأ الصفحة
-var card = document.getElementById('vacc_searchRecordCard');
-if (card) {
-  card.style.position = 'fixed';
-  card.style.inset = '0';
-  card.style.zIndex = '9000';
-  card.style.overflowY = 'auto';
-  card.style.margin = '0';
-  card.style.borderRadius = '0';
-  card.style.width = '100%';
-  card.style.maxWidth = '100%';
-}
+div.innerHTML = html;
   } catch(err) { div.innerHTML = '<p style="color:red;text-align:center;">خطأ: '+err.message+'</p>'; }
   finally { btn.textContent = orig; btn.disabled = false; }
 }
@@ -4567,20 +4555,7 @@ function vaccBindEvents() {
   document.getElementById('vacc_searchRecordBtn').onclick = function(){ vaccShowSubView('vacc_searchRecordCard'); };
   document.getElementById('vacc_allTotalBtn').onclick = function(){ vaccShowSubView('vacc_allTotalCard'); };
   document.getElementById('vacc_maxAnimalsBtn').onclick = function(){ vaccShowSubView('vacc_maxAnimalsCard'); };
- document.getElementById('vacc_srBackBtn').onclick = function() {
-  var card = document.getElementById('vacc_searchRecordCard');
-  if (card) {
-    card.style.position = '';
-    card.style.inset = '';
-    card.style.zIndex = '';
-    card.style.overflowY = '';
-    card.style.margin = '';
-    card.style.borderRadius = '';
-    card.style.width = '';
-    card.style.maxWidth = '';
-  }
-  vaccShowMainView();
-};
+  document.getElementById('vacc_srBackBtn').onclick = vaccShowMainView;
   document.getElementById('vacc_srSearchBtn').onclick = vaccDoSearchVaccinationRecords;
   document.getElementById('vacc_srClearBtn').onclick = vaccClearSearchRecordForm;
   document.getElementById('vacc_atBackBtn').onclick = vaccShowMainView;
