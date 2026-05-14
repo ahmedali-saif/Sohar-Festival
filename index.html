@@ -4712,7 +4712,7 @@ async function vaccInit() {
 var VR_API_URL = "https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec";
 var vr_allData = [];
 var vr_dataLoaded = false;
-
+var vr_registeredPhones = new Set();
 // إخفاء شاشة التحميل
 function vr_hideLoadingOverlay() {
   var overlay = document.getElementById('vr_loadingOverlay');
@@ -4766,8 +4766,15 @@ async function vr_loadData() {
       vr_showMsg('خطأ: ' + res.error, true);
       return;
     }
-    vr_allData = res.data || [];
+vr_allData = res.data || [];
     vr_dataLoaded = true;
+    // جلب أرقام هواتف المربين المسجلين
+    try {
+      var bdRes = await vr_callApi("bd_getPhoneNumbers");
+      vr_registeredPhones = new Set((bdRes.data || []).map(function(p){ return p.toString().trim(); }));
+    } catch(e) {
+      vr_registeredPhones = new Set();
+    }
     vr_hideMsg();
     document.getElementById("vr_searchResultsTable").style.display = "";
     vr_render();
@@ -4853,12 +4860,21 @@ function vr_render() {
     var badge = r.vaccinated
       ? '<span class="badge badge-vacc">محصن ✓</span>'
       : '<span class="badge badge-not">غير محصن ✗</span>';
+var isRegistered = vr_registeredPhones.size === 0 || vr_registeredPhones.has(r.phone.toString().trim());
+    var nameCellStyle = isRegistered
+      ? 'border:1px solid #ccc;padding:6px 8px;text-align:center;'
+      : 'border:1px solid #ccc;padding:6px 8px;text-align:center;background:#fff3cd;color:#856404;font-weight:bold;cursor:pointer;';
+    var nameContent = isRegistered
+      ? vr_escapeHtml(r.name)
+      : '<span title="انقر لحفظ في سجل المربي" onclick="vr_saveToBreeder(' + JSON.stringify(r).replace(/"/g, '&quot;') + ')">'
+        + '⚠️ ' + vr_escapeHtml(r.name) + ' <small style="font-size:10px;color:#cc7000;">(غير مسجل)</small></span>';
+
     tr.innerHTML =
       '<td style="border:1px solid #ccc;padding:6px 8px;text-align:center;">' + (i + 1) + '</td>' +
       '<td style="border:1px solid #ccc;padding:6px 8px;text-align:center;">' + vr_escapeHtml(r.phone) + '</td>' +
-      '<td style="border:1px solid #ccc;padding:6px 8px;text-align:center;">' + vr_escapeHtml(r.name) + '</td>' +
+      '<td style="' + nameCellStyle + '">' + nameContent + '</td>' +
       '<td style="border:1px solid #ccc;padding:6px 8px;text-align:center;">' + vr_escapeHtml(r.area) + '</td>' +
-'<td style="border:1px solid #ccc;padding:6px 8px;text-align:center;">' + vr_escapeHtml(vr_formatDate(r.entryDate)) + '</td>' +
+      '<td style="border:1px solid #ccc;padding:6px 8px;text-align:center;">' + vr_escapeHtml(vr_formatDate(r.entryDate)) + '</td>' +
       '<td style="border:1px solid #ccc;padding:6px 8px;text-align:center;">' + badge + '</td>' +
       '<td style="border:1px solid #ccc;padding:6px 8px;text-align:right;">'  + vr_escapeHtml(r.summary || "—") + '</td>';
     tbody.appendChild(tr);
@@ -4875,14 +4891,35 @@ function vr_render() {
     document.getElementById("vr_statusFilter").addEventListener("change", vr_render);
     document.getElementById("vr_sortBy").addEventListener("change",       vr_render);
   }
-  vr_bindOnce();
+vr_bindOnce();
 })();
+
+async function vr_saveToBreeder(r) {
+  if (!confirm('هل تريد حفظ بيانات "' + r.name + '" في سجل المربي؟')) return;
+  try {
+    var res = await vr_callApi("bd_saveData", { data: {
+      phone: r.phone, name: r.name,
+      region: r.area || '', possession: '', civil: '',
+      notes: 'تم الإضافة من طلبات التحصين',
+      animals: { goat: '', sheep: '', cow: '', camel: '', poultry: '' },
+      financialDate: '', dataEntry: 'نظام التحصين'
+    }});
+    if (res.success) {
+      showToast('✅ تم حفظ ' + r.name + ' في سجل المربي', 'success');
+      vr_registeredPhones.add(r.phone.toString().trim());
+      vr_render();
+    } else {
+      showToast('❌ ' + (res.message || 'فشل الحفظ'), 'error');
+    }
+  } catch(err) {
+    showToast('❌ خطأ: ' + err.message, 'error');
+  }
+}
 
 // =====================================================
 // التحميل عند فتح الصفحة للمرة الأولى فقط
 // يُستدعى من showPage المركزية
 // =====================================================
-
 </script>
 
 </div>
