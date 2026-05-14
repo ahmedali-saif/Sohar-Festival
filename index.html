@@ -4523,12 +4523,12 @@ var phone = vaccGetValue('vacc_maPhone').trim();
 var displayRows = res.rows;
 if (phone !== '') {
   displayRows = res.rows.filter(function(row) {
-    return (row[1] != null) && row[1].toString().trim() === phone;
+    return (row[1] != null) && row[1].toString().trim().indexOf(phone) !== -1;
   });
-}
-if (displayRows.length === 0) {
-  div.innerHTML = '<p style="text-align:center;color:#e65050;">لا توجد بيانات لهذا الرقم</p>';
-  return;
+  if (displayRows.length === 0) {
+    div.innerHTML = '<p style="text-align:center;color:#e65050;">لا توجد بيانات لهذا الرقم</p>';
+    return;
+  }
 }
 var html='<table><thead><tr>'+(res.headers||[]).map(function(h){
   return '<th>'+(h||'')+'</th>';
@@ -4590,6 +4590,21 @@ function vaccBindEvents() {
 ['vacc_maPhone','vacc_maDateFrom','vacc_maDateTo'].forEach(function(id){
     document.getElementById(id).addEventListener('keypress', function(e){ if(e.key==='Enter'){ e.preventDefault(); vaccDoGetMaxAnimals(); } });
   });
+ document.getElementById('vacc_maPhone').addEventListener('input', function() {
+  var phone = this.value.trim();
+  var table = document.querySelector('#vacc_maxAnimalsResults table');
+  if (!table) return;
+  var rows = table.querySelectorAll('tbody tr');
+  rows.forEach(function(row) {
+    if (phone === '') {
+      row.style.display = '';
+    } else {
+      var cell = row.cells[1];
+      var cellVal = cell ? cell.textContent.trim() : '';
+      row.style.display = (cellVal.indexOf(phone) !== -1) ? '' : 'none';
+    }
+  });
+}); 
 }
 
 // FIX: دالة init للتحصين (تُستدعى من showPage فقط)
