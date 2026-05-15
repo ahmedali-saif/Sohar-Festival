@@ -6355,9 +6355,9 @@ function dtr_renderTable(monthly, byAnimal, disease) {
     tbody.appendChild(tr);
   });
 
-  tfoot.innerHTML = '<tr><td colspan="2" style="text-align:center">الإجمالي</td><td>' + grandTotal.toLocaleString() + '</td></tr>';
+tfoot.innerHTML = '<tr><td colspan="2" style="text-align:center">الإجمالي</td><td>' + grandTotal.toLocaleString() + '</td></tr>';
 }
-}
+
 // ===== طباعة =====
 function dtr_printAll() {
   var disease  = document.getElementById('dtr_diseaseSelect').value;
@@ -6426,6 +6426,10 @@ async function dtr_initLoad() {
 
 document.addEventListener('DOMContentLoaded', function() {
   dtr_initLoad();
+  document.getElementById('dtr_diseaseSelect').addEventListener('change', function() {
+    dtr_userClick = true;
+    dtr_loadData();
+  });
 });
 </script>
 
