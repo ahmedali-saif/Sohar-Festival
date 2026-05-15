@@ -6207,17 +6207,26 @@ function dtr_renderChart(monthly, byAnimal, disease) {
   }
 
   // المخطط الشريطي الشهري (الافتراضي)
-  var sortedKeys = Object.keys(monthly).sort();
-  var labels = sortedKeys.map(function(k) {
+// بعد التعديل
+var sortedKeys = Object.keys(monthly).sort();
+
+// ← تصفية المفاتيح للتأكد من صحة الصيغة YYYY-MM فقط
+sortedKeys = sortedKeys.filter(function(k) {
+    return /^\d{4}-\d{2}$/.test(k);
+});
+
+var labels = sortedKeys.map(function(k) {
     var p = k.split('-');
     return dtr_ARABIC_MONTHS[parseInt(p[1]) - 1] + ' ' + p[0];
-  });
-  var values  = sortedKeys.map(function(k) { return monthly[k]; });
-  var maxVal  = values.length > 0 ? Math.max.apply(null, values) : 0;
+});
+var values  = sortedKeys.map(function(k) { return monthly[k]; });
+var maxVal  = values.length > 0 ? Math.max.apply(null, values) : 0;
 
- var monthCount = sortedKeys.length;
-var chartWidth = monthCount > 12 ? (monthCount * 80) + 'px' : '100%';
-ctx.parentElement.style.width = chartWidth;
+var monthCount = sortedKeys.length;
+// ← تحديد عرض مناسب مع حد أدنى
+var minWidth = Math.max(monthCount * 90, 600);
+ctx.parentElement.style.width = monthCount > 8 ? minWidth + 'px' : '100%';
+ctx.parentElement.style.overflowX = 'auto';
 
 dtr_chartInstance = new Chart(ctx, {
   type: 'bar',
