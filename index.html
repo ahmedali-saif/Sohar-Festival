@@ -6094,7 +6094,42 @@ function dtr_renderTable(monthly, byAnimal, disease) {
   var thead = document.querySelector('#dtr_searchResultsTable thead tr');
   tbody.innerHTML = '';
   tfoot.innerHTML = '';
+// عرض حسب المنطقة
+  if (disease && dtr_currentView === 'region') {
+    var byRegion = (dtr_lastResult && dtr_lastResult.byRegion) ? dtr_lastResult.byRegion : {};
+    thead.innerHTML = '<th>م</th><th>المنطقة</th><th>عدد الإصابات</th><th>النسبة %</th>';
 
+    if (!Object.keys(byRegion).length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">لا توجد بيانات</td></tr>';
+      return;
+    }
+
+    var regions = Object.keys(byRegion).sort(function(a,b){ return byRegion[b]-byRegion[a]; });
+    var total   = regions.reduce(function(sum,k){ return sum+byRegion[k]; }, 0);
+
+    regions.forEach(function(region, i) {
+      var count = byRegion[region];
+      var pct   = total > 0 ? Math.round(count/total*100) : 0;
+      var tr    = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + (i+1) + '</td>' +
+        '<td style="font-weight:bold;color:#004e66;text-align:right;padding-right:10px">' + region + '</td>' +
+        '<td style="font-weight:bold;color:#e65050;font-size:15px">' + count.toLocaleString() + '</td>' +
+        '<td>' +
+          '<div style="display:flex;align-items:center;gap:8px;">' +
+            '<div style="flex:1;background:#e0f7fa;border-radius:4px;height:14px;overflow:hidden;">' +
+              '<div style="width:' + pct + '%;background:#00b8d9;height:100%;border-radius:4px;"></div>' +
+            '</div>' +
+            '<span style="font-weight:bold;color:#00b8d9;min-width:38px">' + pct + '%</span>' +
+          '</div>' +
+        '</td>';
+      tbody.appendChild(tr);
+    });
+
+    tfoot.innerHTML = '<tr><td colspan="2" style="text-align:center">الإجمالي</td>' +
+      '<td style="font-weight:bold;color:#e65050">' + total.toLocaleString() + '</td><td>100%</td></tr>';
+    return;
+  }
   // عرض حسب الحيوان — فقط إذا تم اختيار مرض والعرض = animal
   if (disease && dtr_currentView === 'animal' && byAnimal && Object.keys(byAnimal).length > 0) {
     thead.innerHTML = '<th>م</th><th>نوع الحيوان</th><th>عدد الإصابات</th><th>النسبة %</th>';
