@@ -184,7 +184,7 @@ button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 3px 8px
 /* ============================================================
    ١٠. TOAST
    ============================================================ */
-  #dim_searchResultsTable { width: 100%; min-width: 600px; }
+  #dim_searchResultsTable { width: 100%; min-width: 650px; }
 
 #dim_searchResultsTable th,
 #dim_searchResultsTable td { padding: 8px 20px; }
@@ -213,6 +213,21 @@ button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 3px 8px
   white-space: normal;
   word-break: break-word;
   padding: 6px 4px;
+}
+  #tab-diseases .sw thead th,
+#tab-medicines .sw thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #00b8d9;
+  color: #fff;
+}
+
+#tab-diseases .sw,
+#tab-medicines .sw {
+  max-height: 480px;
+  overflow-y: auto;
+  position: relative;
 }
 /* ============================================================
    ١١. MODALS
