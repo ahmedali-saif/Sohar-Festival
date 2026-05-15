@@ -2019,8 +2019,8 @@ function fillFormDataMultiRows(rows) {
   //    (أعمدة: pockGoat, pockSheep — الشهادة تضع القيمة في صف الحيوان)
   var pock_goat  = 0, pock_sheep = 0;
   rows.forEach(function(r) {
-    pock_goat  = Math.max(pock_goat,  num(r.pockGoat));
-    pock_sheep = Math.max(pock_sheep, num(r.pockSheep));
+    pock_goat  += num(r.pockGoat);
+    pock_sheep += num(r.pockSheep);
   });
   document.getElementById('goat_plague').value  = pock_goat  || '';
   document.getElementById('sheep_plague').value = pock_sheep || '';
