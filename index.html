@@ -578,7 +578,7 @@ tr.data-missing { background-color: #ff0000 !important; color: #000 !important; 
 .serial-section { text-align: right; font-size: 12pt; font-weight: 700; color: #8B0000; line-height: 1.6; }
 .serial-section input { border: none; border-bottom: 1px solid #333; font-family: inherit; font-size: 12pt; font-weight: 700; color: #8B0000; width: 80px; text-align: center; background: transparent; }
 .logo-section { text-align: center; flex: 1; display: flex; flex-direction: column; align-items: center; }
-.oman-emblem  { width: 65px; height: 65px; margin-bottom: 4px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.2)); object-fit: contain; }
+.oman-emblem  { width: 120px; height: 120px; margin-bottom: 4px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.2)); object-fit: contain; }
 .ministry-name   { font-size: 12pt; font-weight: 700; margin-bottom: 2px; }
 .department-name { font-size: 10pt; color: #333; }
 .location-section { text-align: left; font-size: 11pt; line-height: 1.6; }
@@ -1909,7 +1909,7 @@ document.getElementById('l_logoutBtn').addEventListener('click', ()=>{
     <table class="data-table">
       <thead>
         <tr>
-          <th rowspan="2">اللقاح<br>نوع الحيوان</th><th rowspan="2">مركب<br>طاعون + جدري</th>
+          <th rowspan="2">اللقاح<br>نوع الحيوان</th><th rowspan="2">طاعون + جدري<br>مركب</th>
           <th colspan="2">التسمم المعوي</th><th colspan="2">التسمم البخصي</th><th colspan="2">الحمى القلاعية</th>
           <th rowspan="2">التهاب الجلد<br>العقدي</th><th rowspan="2">السعار</th><th rowspan="2">البروسيلا</th>
           <th rowspan="2">أخرى</th><th rowspan="2">عدد الرؤوس<br>المحصنة</th>
@@ -1918,8 +1918,8 @@ document.getElementById('l_logoutBtn').addEventListener('click', ()=>{
       </thead>
       <tbody>
         <tr><td class="animal-name">أبقار</td><td><input id="cattle_plague"></td><td><input id="cattle_entero1"></td><td><input id="cattle_entero2"></td><td><input id="cattle_septic1"></td><td><input id="cattle_septic2"></td><td><input id="cattle_fmd1"></td><td><input id="cattle_fmd2"></td><td><input id="cattle_lsd"></td><td><input id="cattle_rabies"></td><td><input id="cattle_brucella"></td><td><input id="cattle_other"></td><td><input id="cattle_total"></td></tr>
-        <tr><td class="animal-name">ماعز</td><td><input id="goat_plague"></td><td><input id="goat_entero1"></td><td><input id="goat_entero2"></td><td><input id="goat_septic1"></td><td><input id="goat_septic2"></td><td><input id="goat_fmd1"></td><td><input id="goat_fmd2"></td><td><input id="goat_lsd"></td><td><input id="goat_rabies"></td><td><input id="goat_brucella"></td><td><input id="goat_other"></td><td><input id="goat_total"></td></tr>
-        <tr><td class="animal-name">ضأن</td><td><input id="sheep_plague"></td><td><input id="sheep_entero1"></td><td><input id="sheep_entero2"></td><td><input id="sheep_septic1"></td><td><input id="sheep_septic2"></td><td><input id="sheep_fmd1"></td><td><input id="sheep_fmd2"></td><td><input id="sheep_lsd"></td><td><input id="sheep_rabies"></td><td><input id="sheep_brucella"></td><td><input id="sheep_other"></td><td><input id="sheep_total"></td></tr>
+        <tr><td class="animal-name">ضأن</td><td><input id="goat_plague"></td><td><input id="goat_entero1"></td><td><input id="goat_entero2"></td><td><input id="goat_septic1"></td><td><input id="goat_septic2"></td><td><input id="goat_fmd1"></td><td><input id="goat_fmd2"></td><td><input id="goat_lsd"></td><td><input id="goat_rabies"></td><td><input id="goat_brucella"></td><td><input id="goat_other"></td><td><input id="goat_total"></td></tr>
+        <tr><td class="animal-name">ماعز</td><td><input id="sheep_plague"></td><td><input id="sheep_entero1"></td><td><input id="sheep_entero2"></td><td><input id="sheep_septic1"></td><td><input id="sheep_septic2"></td><td><input id="sheep_fmd1"></td><td><input id="sheep_fmd2"></td><td><input id="sheep_lsd"></td><td><input id="sheep_rabies"></td><td><input id="sheep_brucella"></td><td><input id="sheep_other"></td><td><input id="sheep_total"></td></tr>
         <tr><td class="animal-name">جمال</td><td><input id="camel_plague"></td><td><input id="camel_entero1"></td><td><input id="camel_entero2"></td><td><input id="camel_septic1"></td><td><input id="camel_septic2"></td><td><input id="camel_fmd1"></td><td><input id="camel_fmd2"></td><td><input id="camel_lsd"></td><td><input id="camel_rabies"></td><td><input id="camel_brucella"></td><td><input id="camel_other"></td><td><input id="camel_total"></td></tr>
         <tr><td class="animal-name">أخرى...</td><td><input id="other_plague"></td><td><input id="other_entero1"></td><td><input id="other_entero2"></td><td><input id="other_septic1"></td><td><input id="other_septic2"></td><td><input id="other_fmd1"></td><td><input id="other_fmd2"></td><td><input id="other_lsd"></td><td><input id="other_rabies"></td><td><input id="other_brucella"></td><td><input id="other_other"></td><td><input id="other_total"></td></tr>
         <tr><td class="animal-name">الإجمالي</td><td><input id="total_plague"></td><td><input id="total_entero1"></td><td><input id="total_entero2"></td><td><input id="total_septic1"></td><td><input id="total_septic2"></td><td><input id="total_fmd1"></td><td><input id="total_fmd2"></td><td><input id="total_lsd"></td><td><input id="total_rabies"></td><td><input id="total_brucella"></td><td><input id="total_other"></td><td><input id="total_total"></td></tr>
