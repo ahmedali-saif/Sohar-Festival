@@ -1981,7 +1981,7 @@ async function searchData() {
     // الـ API يعيد الآن مصفوفة rows بدلاً من object واحد
     var result = await settingsCall("searchByPhoneRows", { phone: phone });
     if (result && result.rows && result.rows.length > 0) {
-      fillFormDataMultiRows(result.rows);
+      fillFormDataMultiRows(result.rows, result);
       statusDiv.innerHTML = '<span style="color:green">✅ تم العثور على البيانات (' + result.rows.length + ' صف)</span>';
     } else if (result && result.ownerName) {
       // fallback: الـ API لا يزال يعيد object واحد
@@ -1999,12 +1999,13 @@ async function searchData() {
 // ---------------------------------------------------------------
 // 2. الدالة الجديدة: تعالج مصفوفة من الصفوف (تكرار نفس الرقم)
 // ---------------------------------------------------------------
-function fillFormDataMultiRows(rows) {
+function fillFormDataMultiRows(rows, data) {
+  data = data || {};
   if (!rows || rows.length === 0) return;
  
   // بيانات المربي من أول صف
   var first = rows[0];
-  document.getElementById('serialNum').value     = first.serial     || '';
+  document.getElementById('serialNum').value = data.serial || first.serial || '';
   document.getElementById('set_ownerName').value = first.ownerName  || '';
   document.getElementById('ownerPhone').value    = first.phone      || '';
   document.getElementById('village').value       = first.village    || '';
