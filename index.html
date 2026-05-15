@@ -1972,49 +1972,203 @@ if (document.readyState === 'loading') { document.addEventListener('DOMContentLo
 async function searchData() {
   var phone = document.getElementById('searchPhone').value.trim();
   var statusDiv = document.getElementById('searchStatus');
-  if (!phone) { statusDiv.innerHTML = '<span style="color:#8B0000">⚠️ الرجاء إدخال رقم الهاتف</span>'; return; }
+  if (!phone) {
+    statusDiv.innerHTML = '<span style="color:#8B0000">⚠️ الرجاء إدخال رقم الهاتف</span>';
+    return;
+  }
   statusDiv.innerHTML = '<span style="color:#0066cc">⏳ جاري البحث...</span>';
   try {
-    var result = await settingsCall("searchByPhone", { phone: phone });
-    if (result && result.ownerName) { fillFormData(result); statusDiv.innerHTML = '<span style="color:green">✅ تم العثور على البيانات</span>'; }
-    else { statusDiv.innerHTML = '<span style="color:#8B0000">❌ لم يتم العثور على بيانات</span>'; clearFormData(); }
-  } catch(err) { statusDiv.innerHTML = '<span style="color:#8B0000">❌ خطأ: '+err.message+'</span>'; }
+    // الـ API يعيد الآن مصفوفة rows بدلاً من object واحد
+    var result = await settingsCall("searchByPhoneRows", { phone: phone });
+    if (result && result.rows && result.rows.length > 0) {
+      fillFormDataMultiRows(result.rows);
+      statusDiv.innerHTML = '<span style="color:green">✅ تم العثور على البيانات (' + result.rows.length + ' صف)</span>';
+    } else if (result && result.ownerName) {
+      // fallback: الـ API لا يزال يعيد object واحد
+      fillFormData(result);
+      statusDiv.innerHTML = '<span style="color:green">✅ تم العثور على البيانات</span>';
+    } else {
+      statusDiv.innerHTML = '<span style="color:#8B0000">❌ لم يتم العثور على بيانات</span>';
+      clearFormData();
+    }
+  } catch(err) {
+    statusDiv.innerHTML = '<span style="color:#8B0000">❌ خطأ: ' + err.message + '</span>';
+  }
 }
+ 
+// ---------------------------------------------------------------
+// 2. الدالة الجديدة: تعالج مصفوفة من الصفوف (تكرار نفس الرقم)
+// ---------------------------------------------------------------
+function fillFormDataMultiRows(rows) {
+  if (!rows || rows.length === 0) return;
+ 
+  // بيانات المربي من أول صف
+  var first = rows[0];
+  document.getElementById('serialNum').value     = first.serial     || '';
+  document.getElementById('set_ownerName').value = first.ownerName  || '';
+  document.getElementById('ownerPhone').value    = first.phone      || '';
+  document.getElementById('village').value       = first.village    || '';
+  document.getElementById('set_notes').value     = first.notes      || '';
+ 
+  // ---------------------------------------------------------------
+  // مساعد: قراءة قيمة عددية بأمان
+  var num = function(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; };
+ 
+  // ---------------------------------------------------------------
+  // 1. مركب طاعون + جدري  →  MAX لكل نوع حيوان عبر جميع الصفوف
+  //    (أعمدة: pockGoat, pockSheep — الشهادة تضع القيمة في صف الحيوان)
+  var pock_goat  = 0, pock_sheep = 0;
+  rows.forEach(function(r) {
+    pock_goat  = Math.max(pock_goat,  num(r.pockGoat));
+    pock_sheep = Math.max(pock_sheep, num(r.pockSheep));
+  });
+  document.getElementById('goat_plague').value  = pock_goat  || '';
+  document.getElementById('sheep_plague').value = pock_sheep || '';
+  // أبقار وجمال وخيول: لا يوجد لقاح مركب لها في CSV → فارغة
+ 
+  // ---------------------------------------------------------------
+  // 2. التسمم المعوي  →  صف 1 = جرعة أولى، صف 2 = جرعة ثانية
+  //    (أعمدة: intoxGoat, intoxSheep)
+  var intox1_goat  = num(rows[0] ? rows[0].intoxGoat  : 0);
+  var intox1_sheep = num(rows[0] ? rows[0].intoxSheep : 0);
+  var intox2_goat  = num(rows[1] ? rows[1].intoxGoat  : 0);
+  var intox2_sheep = num(rows[1] ? rows[1].intoxSheep : 0);
+ 
+  document.getElementById('goat_entero1').value  = intox1_goat  || '';
+  document.getElementById('goat_entero2').value  = intox2_goat  || '';
+  document.getElementById('sheep_entero1').value = intox1_sheep || '';
+  document.getElementById('sheep_entero2').value = intox2_sheep || '';
+ 
+  // ---------------------------------------------------------------
+  // 3. التسمم البخصي  →  يُعامَل كالتسمم المعوي (جرعتان)
+  //    إذا كانت البيانات موجودة في CSV (لم تُوجد في ملفك → تُترك فارغة)
+  // document.getElementById('goat_septic1').value  = ...
+ 
+  // ---------------------------------------------------------------
+  // 4. الحمى القلاعية  →  صف 1 = جرعة أولى، صف 2 = جرعة ثانية
+  //    (أعمدة: fmdGoat, fmdSheep, fmdCow)
+  var fmd1_goat  = num(rows[0] ? rows[0].fmdGoat  : 0);
+  var fmd1_sheep = num(rows[0] ? rows[0].fmdSheep : 0);
+  var fmd1_cow   = num(rows[0] ? rows[0].fmdCow   : 0);
+  var fmd2_goat  = num(rows[1] ? rows[1].fmdGoat  : 0);
+  var fmd2_sheep = num(rows[1] ? rows[1].fmdSheep : 0);
+  var fmd2_cow   = num(rows[1] ? rows[1].fmdCow   : 0);
+ 
+  document.getElementById('goat_fmd1').value  = fmd1_goat  || '';
+  document.getElementById('goat_fmd2').value  = fmd2_goat  || '';
+  document.getElementById('sheep_fmd1').value = fmd1_sheep || '';
+  document.getElementById('sheep_fmd2').value = fmd2_sheep || '';
+  document.getElementById('cattle_fmd1').value = fmd1_cow   || '';
+  document.getElementById('cattle_fmd2').value = fmd2_cow   || '';
+ 
+  // ---------------------------------------------------------------
+  // 5. التهاب الجلد العقدي  →  جمع كل الصفوف لكل نوع حيوان
+  //    (أعمدة: lsdCow, lsdGoat, lsdSheep, lsdCamel)
+  var lsd_cow = 0, lsd_goat = 0, lsd_sheep = 0, lsd_camel = 0;
+  rows.forEach(function(r) {
+    lsd_cow   += num(r.lsdCow);
+    lsd_goat  += num(r.lsdGoat);
+    lsd_sheep += num(r.lsdSheep);
+    lsd_camel += num(r.lsdCamel);
+  });
+  document.getElementById('cattle_lsd').value = lsd_cow   || '';
+  document.getElementById('goat_lsd').value   = lsd_goat  || '';
+  document.getElementById('sheep_lsd').value  = lsd_sheep || '';
+  document.getElementById('camel_lsd').value  = lsd_camel || '';
+ 
+  // ---------------------------------------------------------------
+  // 6. السعار  →  جمع كل الصفوف لكل نوع حيوان
+  //    (أعمدة: rabiesGoat, rabiesSheep, rabiesCow, rabiesCamel, rabiesHorse)
+  var rab_goat = 0, rab_sheep = 0, rab_cow = 0, rab_camel = 0, rab_horse = 0;
+  rows.forEach(function(r) {
+    rab_goat  += num(r.rabiesGoat);
+    rab_sheep += num(r.rabiesSheep);
+    rab_cow   += num(r.rabiesCow);
+    rab_camel += num(r.rabiesCamel);
+    rab_horse += num(r.rabiesHorse);
+  });
+  document.getElementById('goat_rabies').value   = rab_goat  || '';
+  document.getElementById('sheep_rabies').value  = rab_sheep || '';
+  document.getElementById('cattle_rabies').value = rab_cow   || '';
+  document.getElementById('camel_rabies').value  = rab_camel || '';
+  // إضافة خيول إذا وُجد الحقل في الشهادة:
+  // document.getElementById('horse_rabies').value = rab_horse || '';
+ 
+  // ---------------------------------------------------------------
+  // 7. عدد الرؤوس المحصنة  →  MAX لكل نوع حيوان عبر جميع الصفوف
+  //    (يأخذ أكبر قيمة من أي لقاح لكل حيوان)
+  var animalTypes = {
+    cattle: { fields: ['fmdCow','lsdCow','rabiesCow'], idTotal: 'cattle_total' },
+    goat:   { fields: ['intoxGoat','pockGoat','fmdGoat','lsdGoat','rabiesGoat'], idTotal: 'goat_total' },
+    sheep:  { fields: ['intoxSheep','pockSheep','fmdSheep','lsdSheep','rabiesSheep'], idTotal: 'sheep_total' },
+    camel:  { fields: ['lsdCamel','rabiesCamel'], idTotal: 'camel_total' }
+  };
+ 
+  Object.keys(animalTypes).forEach(function(animal) {
+    var cfg = animalTypes[animal];
+    var maxVal = 0;
+    rows.forEach(function(r) {
+      cfg.fields.forEach(function(field) {
+        maxVal = Math.max(maxVal, num(r[field]));
+      });
+    });
+    var el = document.getElementById(cfg.idTotal);
+    if (el) el.value = maxVal || '';
+  });
+}
+  
 function fillFormData(data) {
-  document.getElementById('serialNum').value = data.serial||'';
-  document.getElementById('set_ownerName').value = data.ownerName||'';
-  document.getElementById('ownerPhone').value = data.phone||'';
-  document.getElementById('village').value = data.village||'';
-  document.getElementById('set_notes').value = data.notes||'';
-  document.getElementById('cattle_plague').value = data.cattlePlague||'';
-  document.getElementById('cattle_entero1').value = data.cattleEntero1||'';
-  document.getElementById('cattle_entero2').value = data.cattleEntero2||'';
-  document.getElementById('cattle_fmd1').value = data.cattleFmd1||'';
-  document.getElementById('cattle_fmd2').value = data.cattleFmd2||'';
-  document.getElementById('cattle_lsd').value = data.cattleLsd||'';
-  document.getElementById('cattle_rabies').value = data.cattleRabies||'';
-  document.getElementById('goat_plague').value = data.goatPlague||'';
-  document.getElementById('goat_entero1').value = data.goatEntero1||'';
-  document.getElementById('goat_entero2').value = data.goatEntero2||'';
-  document.getElementById('goat_fmd1').value = data.goatFmd1||'';
-  document.getElementById('goat_fmd2').value = data.goatFmd2||'';
-  document.getElementById('goat_lsd').value = data.goatLsd||'';
-  document.getElementById('goat_rabies').value = data.goatRabies||'';
-  document.getElementById('sheep_plague').value = data.sheepPlague||'';
-  document.getElementById('sheep_entero1').value = data.sheepEntero1||'';
-  document.getElementById('sheep_entero2').value = data.sheepEntero2||'';
-  document.getElementById('sheep_fmd1').value = data.sheepFmd1||'';
-  document.getElementById('sheep_fmd2').value = data.sheepFmd2||'';
-  document.getElementById('sheep_lsd').value = data.sheepLsd||'';
-  document.getElementById('sheep_rabies').value = data.sheepRabies||'';
-  document.getElementById('camel_plague').value = data.camelPlague||'';
-  document.getElementById('camel_rabies').value = data.camelRabies||'';
-  document.getElementById('camel_lsd').value = data.camelLsd||'';
-  document.getElementById('cattle_total').value = data.cattleLsd||'';
-  document.getElementById('goat_total').value = data.goatPlague||'';
-  document.getElementById('sheep_total').value = data.sheepPlague||'';
-  document.getElementById('camel_total').value = data.camelRabies||'';
+  document.getElementById('serialNum').value      = data.serial     || '';
+  document.getElementById('set_ownerName').value  = data.ownerName  || '';
+  document.getElementById('ownerPhone').value     = data.phone      || '';
+  document.getElementById('village').value        = data.village    || '';
+  document.getElementById('set_notes').value      = data.notes      || '';
+  document.getElementById('cattle_plague').value  = data.cattlePlague  || '';
+  document.getElementById('cattle_entero1').value = data.cattleEntero1 || '';
+  document.getElementById('cattle_entero2').value = data.cattleEntero2 || '';
+  document.getElementById('cattle_septic1').value = data.cattleSeptic1 || '';
+  document.getElementById('cattle_septic2').value = data.cattleSeptic2 || '';
+  document.getElementById('cattle_fmd1').value    = data.cattleFmd1    || '';
+  document.getElementById('cattle_fmd2').value    = data.cattleFmd2    || '';
+  document.getElementById('cattle_lsd').value     = data.cattleLsd     || '';
+  document.getElementById('cattle_rabies').value  = data.cattleRabies  || '';
+  document.getElementById('cattle_brucella').value = data.cattleBrucella || '';
+  document.getElementById('cattle_other').value   = data.cattleOther   || '';
+  document.getElementById('cattle_total').value   = data.cattleTotal   || '';
+  document.getElementById('goat_plague').value    = data.goatPlague    || '';
+  document.getElementById('goat_entero1').value   = data.goatEntero1   || '';
+  document.getElementById('goat_entero2').value   = data.goatEntero2   || '';
+  document.getElementById('goat_septic1').value   = data.goatSeptic1   || '';
+  document.getElementById('goat_septic2').value   = data.goatSeptic2   || '';
+  document.getElementById('goat_fmd1').value      = data.goatFmd1      || '';
+  document.getElementById('goat_fmd2').value      = data.goatFmd2      || '';
+  document.getElementById('goat_lsd').value       = data.goatLsd       || '';
+  document.getElementById('goat_rabies').value    = data.goatRabies    || '';
+  document.getElementById('goat_brucella').value  = data.goatBrucella  || '';
+  document.getElementById('goat_other').value     = data.goatOther     || '';
+  document.getElementById('goat_total').value     = data.goatTotal     || '';
+  document.getElementById('sheep_plague').value   = data.sheepPlague   || '';
+  document.getElementById('sheep_entero1').value  = data.sheepEntero1  || '';
+  document.getElementById('sheep_entero2').value  = data.sheepEntero2  || '';
+  document.getElementById('sheep_septic1').value  = data.sheepSeptic1  || '';
+  document.getElementById('sheep_septic2').value  = data.sheepSeptic2  || '';
+  document.getElementById('sheep_fmd1').value     = data.sheepFmd1     || '';
+  document.getElementById('sheep_fmd2').value     = data.sheepFmd2     || '';
+  document.getElementById('sheep_lsd').value      = data.sheepLsd      || '';
+  document.getElementById('sheep_rabies').value   = data.sheepRabies   || '';
+  document.getElementById('sheep_brucella').value = data.sheepBrucella || '';
+  document.getElementById('sheep_other').value    = data.sheepOther    || '';
+  document.getElementById('sheep_total').value    = data.sheepTotal    || '';
+  document.getElementById('camel_plague').value   = data.camelPlague   || '';
+  document.getElementById('camel_entero1').value  = data.camelEntero1  || '';
+  document.getElementById('camel_entero2').value  = data.camelEntero2  || '';
+  document.getElementById('camel_lsd').value      = data.camelLsd      || '';
+  document.getElementById('camel_rabies').value   = data.camelRabies   || '';
+  document.getElementById('camel_total').value    = data.camelTotal    || '';
+  document.getElementById('other_plague').value   = data.otherPlague   || '';
+  document.getElementById('other_total').value    = data.otherTotal    || '';
 }
+  
 function clearAllData() {
   document.getElementById('searchPhone').value=''; document.getElementById('searchStatus').innerHTML='';
   document.getElementById('set_clinicPhone').value=''; document.getElementById('serialNum').value='';
