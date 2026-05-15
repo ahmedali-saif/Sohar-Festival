@@ -816,7 +816,10 @@ input, select, textarea {
     maxWidth:      '90vw'
   });
   document.body.appendChild(container);
-
+var savedToastSize = localStorage.getItem('toastSize');
+if (savedToastSize) {
+  container.style.fontSize = savedToastSize + 'px';
+}
 window.showToast = function(message, type) {
     type = type || 'info';
     var colors = {
@@ -1038,6 +1041,15 @@ lockNav();
       <label style="font-weight:bold;width:130px">لون الشريط:</label>
       <input type="color" id="navColor" value="#333333" oninput="document.querySelector('nav').style.background=this.value">
     </div>
+    <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px">
+  <label style="font-weight:bold;width:130px">حجم الإشعارات:</label>
+  <input type="range" id="toastSize" min="10" max="22" value="14" style="flex:1"
+    oninput="
+      document.getElementById('toastSizeVal').textContent=this.value+'px';
+      document.getElementById('toastContainer').style.fontSize=this.value+'px';
+    ">
+  <span id="toastSizeVal" style="min-width:35px;font-weight:bold;color:#00b8d9">14px</span>
+</div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button onclick="saveAppearance()" style="background:#2bb673;color:#fff;padding:7px 16px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:bold">💾 حفظ</button>
       <button onclick="resetAppearance()" style="background:#e65050;color:#fff;padding:7px 16px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:bold">↺ إعادة تعيين</button>
@@ -6506,7 +6518,8 @@ function saveAppearance() {
   localStorage.setItem('app_txt', document.getElementById('txtColor').value);
   localStorage.setItem('app_fs', document.getElementById('fontSize').value);
   localStorage.setItem('app_nav', document.getElementById('navColor').value);
-localStorage.setItem('app_card', document.getElementById('cardColor').value);
+  localStorage.setItem('app_card', document.getElementById('cardColor').value);
+  localStorage.setItem('toastSize', document.getElementById('toastSize').value);
   var t = document.createElement('div');
   t.className = 'toast success'; t.textContent = '✅ تم حفظ الإعدادات';
   document.body.appendChild(t);
@@ -6546,13 +6559,17 @@ async function globalRefreshPhoneLists() {
   
 function resetAppearance() {
 ['app_bg','app_txt','app_fs','app_nav','app_card'].forEach(function(k){localStorage.removeItem(k);});
-document.querySelectorAll('.card').forEach(function(c){c.style.background='#f8ffff';});
-document.getElementById('cardColor').value='#f8ffff';
+  document.querySelectorAll('.card').forEach(function(c){c.style.background='#f8ffff';});
+  document.getElementById('cardColor').value='#f8ffff';
   document.body.style.background='#d9d9d9'; document.body.style.color=''; document.body.style.fontSize='13px';
   document.querySelector('nav').style.background='#333';
   document.getElementById('bgColor').value='#d9d9d9'; document.getElementById('txtColor').value='#000000';
   document.getElementById('fontSize').value=13; document.getElementById('fontSizeVal').textContent='13px';
   document.getElementById('navColor').value='#333333';
+  document.getElementById('toastSize').value = 14;
+  document.getElementById('toastSizeVal').textContent = '14px';
+  document.getElementById('toastContainer').style.fontSize = '14px';
+  localStorage.removeItem('toastSize');
 }
 (function applyAppearance(){
   var bg=localStorage.getItem('app_bg'),txt=localStorage.getItem('app_txt'),
