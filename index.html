@@ -6122,14 +6122,27 @@ var result = await dtr_callApi("getDiseaseMonthlyData", {
 }
 
 // ===== رسم المخطط =====
+// ============================================================
+// بداية الكود المستهدف — دالة dtr_renderChart (معدّلة)
+// ============================================================
+
 function dtr_renderChart(monthly, byAnimal, disease) {
   var ctx = document.getElementById('dtr_mainChart');
   if (dtr_chartInstance) dtr_chartInstance.destroy();
-// عرض حسب المنطقة (دائري)
+
+  // إخفاء أزرار التبديل عند عدم اختيار مرض محدد
+  var toggle = document.getElementById('dtr_viewToggle');
+  if (!disease) {
+    toggle.style.display = 'none';
+    dtr_currentView = 'monthly';
+  } else {
+    toggle.style.display = 'flex';
+  }
+
+  // عرض حسب المنطقة (دائري)
   if (disease && dtr_currentView === 'region') {
     var byRegion = (dtr_lastResult && dtr_lastResult.byRegion) ? dtr_lastResult.byRegion : {};
     if (Object.keys(byRegion).length === 0) {
-      if (dtr_chartInstance) dtr_chartInstance.destroy();
       return;
     }
     var regionLabels = Object.keys(byRegion).sort(function(a,b){ return byRegion[b]-byRegion[a]; });
@@ -6166,7 +6179,8 @@ function dtr_renderChart(monthly, byAnimal, disease) {
     });
     return;
   }
-  // عرض حسب الحيوان (دائري) — فقط إذا تم اختيار مرض والعرض = animal
+
+  // عرض حسب الحيوان (دائري)
   if (disease && dtr_currentView === 'animal' && byAnimal && Object.keys(byAnimal).length > 0) {
     var animalLabels = Object.keys(byAnimal);
     var animalValues = animalLabels.map(function(k) { return byAnimal[k]; });
@@ -6206,65 +6220,80 @@ function dtr_renderChart(monthly, byAnimal, disease) {
     return;
   }
 
-  // المخطط الشريطي الشهري (الافتراضي)
-var sortedKeys = Object.keys(monthly).sort();
-var labels = sortedKeys.map(function(k) {
+  // ============================================================
+  // المخطط الشريطي الشهري (الافتراضي — يعمل لجميع الأمراض أو مرض محدد)
+  // ============================================================
+
+  var sortedKeys = Object.keys(monthly).sort();
+  var labels = sortedKeys.map(function(k) {
     var p = k.split('-');
     return dtr_ARABIC_MONTHS[parseInt(p[1]) - 1] + ' ' + p[0];
-});
-var values  = sortedKeys.map(function(k) { return monthly[k]; });
-var maxVal  = values.length > 0 ? Math.max.apply(null, values) : 0;
+  });
+  
+  // ← إصلاح 1: تنظيف القيم — تحويل النصوص إلى أرقام ومعالجة undefined/NaN
+  var values = sortedKeys.map(function(k) {
+    var v = monthly[k];
+    if (v === undefined || v === null || v === '') return 0;
+    var n = Number(v);
+    return isNaN(n) ? 0 : n;
+  });
+  
+  var maxVal = values.length > 0 ? Math.max.apply(null, values) : 0;
 
-var monthCount = sortedKeys.length;
-var chartWidth = monthCount > 12 ? (monthCount * 80) + 'px' : '100%';
-ctx.parentElement.style.width = chartWidth;
+  var monthCount = sortedKeys.length;
+  var chartWidth = monthCount > 12 ? (monthCount * 80) + 'px' : '100%';
+  ctx.parentElement.style.width = chartWidth;
 
-dtr_chartInstance = new Chart(ctx, {
-  type: 'bar',
-  data: {
-    labels: labels,
-    datasets: [{
-      label: 'عدد الإصابات',
-      data: values,
-      backgroundColor: values.map(function(v){ return v === maxVal ? '#0077a8' : '#00b8d9'; }),
-      borderColor: '#007a99', borderWidth: 1, borderRadius: 4,
-      barPercentage: 0.6,
-      categoryPercentage: 0.8
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          label: function(c){ return 'عدد الإصابات: ' + c.parsed.y.toLocaleString(); }
-        }
-      }
+  dtr_chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'عدد الإصابات',
+        data: values,
+        backgroundColor: values.map(function(v){ return v === maxVal ? '#0077a8' : '#00b8d9'; }),
+        borderColor: '#007a99', borderWidth: 1, borderRadius: 4,
+        barPercentage: 0.6,
+        categoryPercentage: 0.8
+      }]
     },
-    scales: {
-      x: {
-        ticks: {
-          font: { family: 'Tahoma', size: 11, weight: 'bold' },
-          maxRotation: 45,
-          autoSkip: false,
-          color: '#003344'
-        },
-        grid: { display: false }
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(c){ return 'عدد الإصابات: ' + c.parsed.y.toLocaleString(); }
+          }
+        }
       },
-      y: {
-        beginAtZero: true,
-        ticks: {
-          font: { family: 'Tahoma', size: 13, weight: 'bold' },
-          color: '#003344',
-          callback: function(v){ return v.toLocaleString(); }
+      scales: {
+        x: {
+          ticks: {
+            font: { family: 'Tahoma', size: 11, weight: 'bold' },
+            maxRotation: 45,
+            autoSkip: false,
+            color: '#003344'
+          },
+          grid: { display: false }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: {
+            font: { family: 'Tahoma', size: 13, weight: 'bold' },
+            color: '#003344',
+            callback: function(v){ return v.toLocaleString(); }
+          }
         }
       }
     }
-  }
-});
-  } 
+  });
+}
+
+// ============================================================
+// نهاية الكود المستهدف — دالة dtr_renderChart (معدّلة)
+// ============================================================
 // ===== رسم الجدول =====
 function dtr_renderTable(monthly, byAnimal, disease) {
   var tbody = document.getElementById('dtr_searchResultsBody');
