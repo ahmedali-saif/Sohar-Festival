@@ -184,6 +184,36 @@ button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 3px 8px
 /* ============================================================
    ١٠. TOAST
    ============================================================ */
+  #dim_searchResultsTable { width: 100%; min-width: 600px; }
+
+#dim_searchResultsTable th,
+#dim_searchResultsTable td { padding: 8px 20px; }
+  #tab-diseases .card,
+#tab-medicines .card {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#tab-diseases .sw,
+#tab-medicines .sw {
+  max-height: none;
+  overflow: visible;
+}
+
+#tab-diseases table,
+#tab-medicines table {
+  width: 100%;
+  table-layout: auto;
+}
+
+#tab-diseases table th,
+#tab-diseases table td,
+#tab-medicines table th,
+#tab-medicines table td {
+  white-space: normal;
+  word-break: break-word;
+  padding: 6px 4px;
+}
 /* ============================================================
    ١١. MODALS
    ============================================================ */
@@ -387,8 +417,7 @@ tr.rpt_parasite td { background: #fff3e0; color: #e65100; }
 }
 #dtr_searchResultsTable td { border: 1px solid #ccc; padding: 6px 4px; text-align: center; white-space: nowrap; }
 #dtr_searchResultsTable tfoot td { background: #fffbe6; font-weight: bold; }
-#dtr_chartContainer { margin: 10px 0; position: relative; width: 100%; height: 300px; }
-
+#dtr_chartContainer { margin: 10px 0; position: relative; width: 100%; height: 450px; overflow-x: auto; }
 /* ============================================================
    ١٤. FORM GRID
    ============================================================ */
@@ -6211,35 +6240,55 @@ function dtr_renderChart(monthly, byAnimal, disease) {
   var values  = sortedKeys.map(function(k) { return monthly[k]; });
   var maxVal  = values.length > 0 ? Math.max.apply(null, values) : 0;
 
-  dtr_chartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'عدد الإصابات',
-        data: values,
-        backgroundColor: values.map(function(v){ return v === maxVal ? '#0077a8' : '#00b8d9'; }),
-        borderColor: '#007a99', borderWidth: 1, borderRadius: 4
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: function(c){ return 'عدد الإصابات: ' + c.parsed.y.toLocaleString(); }
-          }
+ var monthCount = sortedKeys.length;
+var chartWidth = monthCount > 12 ? (monthCount * 80) + 'px' : '100%';
+ctx.parentElement.style.width = chartWidth;
+
+dtr_chartInstance = new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: labels,
+    datasets: [{
+      label: 'عدد الإصابات',
+      data: values,
+      backgroundColor: values.map(function(v){ return v === maxVal ? '#0077a8' : '#00b8d9'; }),
+      borderColor: '#007a99', borderWidth: 1, borderRadius: 4,
+      barPercentage: 0.6,
+      categoryPercentage: 0.8
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: function(c){ return 'عدد الإصابات: ' + c.parsed.y.toLocaleString(); }
         }
+      }
+    },
+    scales: {
+      x: {
+        ticks: {
+          font: { family: 'Tahoma', size: 11, weight: 'bold' },
+          maxRotation: 45,
+          autoSkip: false,
+          color: '#003344'
+        },
+        grid: { display: false }
       },
-      scales: {
-x: { ticks: { font:{family:'Tahoma',size:14, weight:'bold'}, maxRotation:45, autoSkip:false, color:'#003344' }, grid:{display:false} },
-y: { beginAtZero:true, ticks: { font:{family:'Tahoma',size:13, weight:'bold'}, color:'#003344', callback:function(v){ return v.toLocaleString(); } } }
+      y: {
+        beginAtZero: true,
+        ticks: {
+          font: { family: 'Tahoma', size: 13, weight: 'bold' },
+          color: '#003344',
+          callback: function(v){ return v.toLocaleString(); }
+        }
       }
     }
-  });
-}
-
+  }
+});
 // ===== رسم الجدول =====
 function dtr_renderTable(monthly, byAnimal, disease) {
   var tbody = document.getElementById('dtr_searchResultsBody');
@@ -6416,7 +6465,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <button class="update" onclick="ani_loadData()">🔄 تحديث</button>
   </div>
   <div id="ani_loadingMsg">⏳ جاري تحميل البيانات...</div>
-  <div id="ani_searchResultsContainer" style="display:none">
+  <div id="ani_searchResultsContainer" style="display:none; width:100%">
     <table id="ani_searchResultsTable">
       <thead><tr><th>م</th><th>المنطقة</th><th>ماعز</th><th>أغنام</th><th>أبقار</th><th>جمال</th><th>المجموع</th></tr></thead>
       <tbody id="ani_searchResultsBody"></tbody>
