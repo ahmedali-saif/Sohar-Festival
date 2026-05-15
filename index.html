@@ -6064,6 +6064,10 @@ async function dtr_loadDiseaseList() {
 }
 
 // ===== تحميل البيانات =====
+// ============================================================
+// بداية الكود المستهدف — دالة dtr_loadData (معدّلة)
+// ============================================================
+
 async function dtr_loadData() {
   var disease  = document.getElementById('dtr_diseaseSelect').value;
   var dateFrom = document.getElementById('dtr_dateFrom').value;
@@ -6075,7 +6079,7 @@ async function dtr_loadData() {
     toggle.style.display = 'flex';
   } else {
     toggle.style.display = 'none';
-dtr_currentView = 'monthly';
+    dtr_currentView = 'monthly';
     var btnM = document.getElementById('dtr_btnMonthly');
     var btnA = document.getElementById('dtr_btnAnimal');
     var btnR = document.getElementById('dtr_btnRegion');
@@ -6084,42 +6088,98 @@ dtr_currentView = 'monthly';
     if (btnR) { btnR.style.background='#fff'; btnR.style.color='#00b8d9'; }
   }
 
-if (dtr_userClick) {
-  dtr_showToast(disease
-    ? '⏳ انتظر قليلاً، جاري جلب البيانات...'
-    : '⏳ انتظر قليلاً، جاري تحديث البيانات...');
-}
-dtr_userClick = false;
+  if (dtr_userClick) {
+    dtr_showToast(disease
+      ? '⏳ انتظر قليلاً، جاري جلب البيانات...'
+      : '⏳ انتظر قليلاً، جاري تحديث البيانات...');
+  }
+  dtr_userClick = false;
 
   try {
-var result = await dtr_callApi("getDiseaseMonthlyData", {
+    // ← إصلاح: عند "جميع الأمراض" نستخدم disease='' كما هو، لكن نتأكد من معالجة الـ response
+    var result = await dtr_callApi("getDiseaseMonthlyData", {
       clinic: '', disease: disease, dateFrom: dateFrom, dateTo: dateTo
     });
 
-    // بناء byRegion من بيانات التفاصيل إذا أعادها الـ API، وإلا نحسبها محلياً من rawRows
+    // ← إصلاح: بناء monthly بشكل موحد سواء كان مرض محدد أو جميع الأمراض
+    var monthly = result.monthly || {};
+    
+    // إذا كان الـ API يُرجع البيانات بصيغة مختلفة لـ "جميع الأمراض"
+    // نتحقق من أن المفاتيح بصيغة YYYY-MM
+    var normalizedMonthly = {};
+    Object.keys(monthly).forEach(function(key) {
+      var cleanKey = key.toString().trim();
+      // إذا كان المفتاح يحتوي على "/" بدلاً من "-" نحوله
+      if (cleanKey.indexOf('/') !== -1) {
+        var parts = cleanKey.split('/');
+        if (parts.length === 3) {
+          // DD/MM/YYYY → YYYY-MM
+          cleanKey = parts[2] + '-' + parts[1].padStart(2, '0');
+        } else if (parts.length === 2) {
+          // MM/YYYY → YYYY-MM
+          cleanKey = parts[1] + '-' + parts[0].padStart(2, '0');
+        }
+      }
+      // التأكد من صيغة YYYY-MM
+      var match = cleanKey.match(/^(\d{4})-(\d{1,2})$/);
+      if (match) {
+        cleanKey = match[1] + '-' + match[2].padStart(2, '0');
+      }
+      
+      var val = monthly[key];
+      if (typeof val === 'string') val = parseFloat(val.replace(/,/g, '')) || 0;
+      normalizedMonthly[cleanKey] = (normalizedMonthly[cleanKey] || 0) + val;
+    });
+    
+    // ← إصلاح: إذا كانت البيانات فارغة لكن rawRows موجودة، نبني monthly منها
+    if (Object.keys(normalizedMonthly).length === 0 && result.rawRows && result.rawRows.length > 0) {
+      result.rawRows.forEach(function(row) {
+        var dateStr = row.date || row.financialDate || row['التاريخ'] || '';
+        if (dateStr) {
+          var d = new Date(dateStr);
+          if (!isNaN(d.getTime())) {
+            var key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+            normalizedMonthly[key] = (normalizedMonthly[key] || 0) + 1;
+          }
+        }
+      });
+    }
+
+    // بناء byRegion من بيانات التفاصيل
+    var byRegion = {};
     if (!result.byRegion && result.rawRows) {
-      var byRegion = {};
-      (result.rawRows || []).forEach(function(row) {
+      result.rawRows.forEach(function(row) {
         var region = (row.region || row.المنطقة || '').toString().trim();
         if (!region) region = 'غير محدد';
         byRegion[region] = (byRegion[region] || 0) + 1;
       });
-      result.byRegion = byRegion;
-    } else if (!result.byRegion) {
-      result.byRegion = {};
+    } else {
+      byRegion = result.byRegion || {};
     }
 
-    dtr_lastResult = result;
-    console.log('byRegion:', JSON.stringify(result.byRegion));
-    console.log('rawRows:', result.rawRows ? result.rawRows.length : 'غير موجود');
-    dtr_renderChart(result.monthly || {}, result.byAnimal || {}, disease);
-    dtr_renderTable(result.monthly || {}, result.byAnimal || {}, disease);
+    dtr_lastResult = {
+      monthly: normalizedMonthly,
+      byAnimal: result.byAnimal || {},
+      byRegion: byRegion,
+      rawRows: result.rawRows || []
+    };
+    
+    console.log('monthly keys:', Object.keys(normalizedMonthly).sort());
+    console.log('byRegion:', JSON.stringify(byRegion));
+    console.log('rawRows count:', result.rawRows ? result.rawRows.length : 0);
+    
+    dtr_renderChart(normalizedMonthly, result.byAnimal || {}, disease);
+    dtr_renderTable(normalizedMonthly, result.byAnimal || {}, disease);
   } catch (err) {
     console.error('خطأ:', err);
   } finally {
     dtr_hideToast();
   }
 }
+
+// ============================================================
+// نهاية الكود المستهدف — دالة dtr_loadData (معدّلة)
+// ============================================================
 
 // ===== رسم المخطط =====
 // ============================================================
