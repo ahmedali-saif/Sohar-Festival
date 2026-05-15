@@ -5948,8 +5948,8 @@ function fin_localToday() {
   <select id="dtr_diseaseSelect"><option value="">-- جميع الأمراض --</option></select>
 
   <!-- زرا التبديل — يظهران فقط عند اختيار مرض -->
-  <div id="dtr_viewToggle" style="display:none;gap:6px;display:none;">
-    <button id="dtr_btnMonthly"
+<div id="dtr_viewToggle" style="display:none;gap:6px;">
+  <button id="dtr_btnMonthly"
       onclick="dtr_setView('monthly')"
       style="padding:5px 14px;border:2px solid #00b8d9;border-radius:5px;background:#00b8d9;color:#fff;font-weight:bold;cursor:pointer;font-family:inherit;font-size:12px;">
       📅 التتبع الشهري
@@ -6876,8 +6876,9 @@ window.addEventListener('load', function () {
           if (typeof vr_loadData === 'function') vr_loadData();
         }
     }},
-    { delay: 4000, fn: function () {
-        if (typeof dtr_initLoad === 'function') dtr_initLoad();
+   { delay: 4000, fn: function () {
+        // dtr_initLoad تُستدعى من DOMContentLoaded
+    }},
     }},
     { delay: 4500, fn: function () {
         if (typeof ani_loadData === 'function') ani_loadData();
