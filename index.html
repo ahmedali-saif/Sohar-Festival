@@ -2403,7 +2403,10 @@ document.addEventListener('DOMContentLoaded', function(){ dim_loadData(); });
       <button id="tr_clearSearchDatesBtn" style="background:#95a5a6;color:#fff">🧹 مسح التواريخ</button>
       <button id="tr_backToMainBtn" style="background:#e67e22;color:#fff">⬅️ رجوع</button>
     </div>
-    <div style="text-align:center;margin-bottom:10px"><input type="text" id="tr_searchKeyword" placeholder="اكتب كلمة البحث..." style="width:250px"></div>
+<div style="text-align:center;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:10px">
+  <input type="text" id="tr_searchKeyword" placeholder="اكتب كلمة البحث..." style="width:250px">
+  <span id="tr_searchStatus" style="font-size:13px;font-weight:bold;color:#9b59b6;display:none;">⏳ جاري البحث...</span>
+</div>
     <div class="table-container"><table id="tr_searchTable"></table></div>
   </div>
   <div class="card full-width" id="tr_animalsReportCard" style="display:none;">
@@ -3249,6 +3252,10 @@ async function trperformSearch() {
     return;
   }
 
+  // إظهار رسالة "جاري البحث"
+  const statusEl = document.getElementById("tr_searchStatus");
+  if (statusEl) { statusEl.style.display = "inline"; }
+
   trblockButtons();
   try {
     const res = await trcallApi("trsearchInTreatmentSheet", {
@@ -3280,6 +3287,8 @@ async function trperformSearch() {
     trshowMessage("خطأ في البحث: " + err.message, true);
   } finally {
     trunblockButtons();
+     const statusEl = document.getElementById("tr_searchStatus");
+    if (statusEl) { statusEl.style.display = "none"; }
   }
 }
 
