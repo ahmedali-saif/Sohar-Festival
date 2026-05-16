@@ -7477,7 +7477,9 @@ function permAutoFill(userName) {
   if (!userName) return;
   var ids = [
     "tr_dataEntryInput","bd_dataEntryInput",
-    "vacc_dataEntryInput","dataEntryInput"
+    "vacc_dataEntryInput","dataEntryInput",
+    "tr_dataUpdaterInput","bd_dataUpdaterInput",
+    "vacc_dataUpdaterInput","dataUpdaterInput"
   ];
   ids.forEach(function(id) {
     var el = document.getElementById(id);
@@ -7511,6 +7513,7 @@ document.addEventListener("click", function(e) {
     if (el && !el.value) el.value = name;
   });
 }, true);
+
 
 /* ─────────────────────────────────────────────────────────────────────
    ١٣. شارة الدور
