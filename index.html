@@ -4194,8 +4194,8 @@ bd_init();
   <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:6px 0;">
   <div id="vacc_maResultCount" style="font-weight:bold;color:#27ae60;font-size:13px;"></div>
   <label style="display:flex;align-items:center;gap:5px;font-weight:bold;font-size:13px;cursor:pointer;background:#e8f5e9;padding:4px 10px;border-radius:20px;border:1px solid #27ae60;">
-    <input type="checkbox" id="vacc_showTotalRow" onchange="vacc_toggleTotalRow(this.checked)">
-    إظهار صف الإجمالي
+   <input type="checkbox" id="vacc_showTotalRow" onchange="vacc_toggleTotalRow(this.checked)">
+إظهار الإجمالي فقط
   </label>
 </div>
 <div id="vacc_maxAnimalsResults" style="overflow:auto;max-height:80vh;margin-top:8px;font-size:13px;border:1px solid #ddd;border-radius:3px;"></div>
@@ -4719,24 +4719,27 @@ displayRows.forEach(function(row,idx){
 });
     html+='</tbody>';
     if(res.totals&&res.totals.length){ html+='<tfoot><tr><td colspan="2">الإجمالي الكلي</td>'+res.totals.map(function(t){ return '<td>'+(t||0)+'</td>'; }).join('')+'</tr></tfoot>'; }
-   html+='</table>';
+html+='</table>';
 div.innerHTML = html;
 
-// تطبيق حالة مربع الاختيار على الـ tfoot
+// تطبيق حالة مربع الاختيار بعد كل بحث
 var cb = document.getElementById('vacc_showTotalRow');
-var tfoot = div.querySelector('tfoot');
-if (tfoot && cb) {
-  tfoot.style.display = cb.checked ? '' : 'none';
+if (cb && cb.checked) {
+  var tbody = div.querySelector('tbody');
+  var thead = div.querySelector('thead');
+  if (tbody) tbody.style.display = 'none';
+  if (thead) thead.style.display = 'none';
 }
   } catch(err){ div.innerHTML='<p style="color:red;">خطأ: '+err.message+'</p>'; }
   finally{ btn.textContent=orig; btn.disabled=false; }
 }
 
 function vacc_toggleTotalRow(show) {
-  var tfoot = document.querySelector('#vacc_maxAnimalsResults tfoot');
-  if (tfoot) {
-    tfoot.style.display = show ? '' : 'none';
-  }
+  var tbody = document.querySelector('#vacc_maxAnimalsResults tbody');
+  var thead = document.querySelector('#vacc_maxAnimalsResults thead');
+  if (tbody) tbody.style.display = show ? 'none' : '';
+  if (thead) thead.style.display = show ? 'none' : '';
+}
 }
   
 function vaccBindEvents() {
