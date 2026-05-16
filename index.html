@@ -4726,9 +4726,7 @@ div.innerHTML = html;
 var cb = document.getElementById('vacc_showTotalRow');
 if (cb && cb.checked) {
   var tbody = div.querySelector('tbody');
-  var thead = div.querySelector('thead');
   if (tbody) tbody.style.display = 'none';
-  if (thead) thead.style.display = 'none';
 }
   } catch(err){ div.innerHTML='<p style="color:red;">خطأ: '+err.message+'</p>'; }
   finally{ btn.textContent=orig; btn.disabled=false; }
@@ -4736,9 +4734,7 @@ if (cb && cb.checked) {
 
 function vacc_toggleTotalRow(show) {
   var tbody = document.querySelector('#vacc_maxAnimalsResults tbody');
-  var thead = document.querySelector('#vacc_maxAnimalsResults thead');
   if (tbody) tbody.style.display = show ? 'none' : '';
-  if (thead) thead.style.display = show ? 'none' : '';
 }
 function vaccBindEvents() {
   document.getElementById('vacc_saveBtn').onclick = vaccSaveData;
