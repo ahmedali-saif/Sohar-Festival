@@ -186,29 +186,21 @@ button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 3px 8px
    ============================================================ */
 #comprehensiveReport .sw {
   max-height: none !important;
-  overflow-x: auto !important;
-  overflow-y: visible !important;
+  overflow: visible !important;
 }
 
-#comprehensiveReport .tabs {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: #d9d9d9;
+#comprehensiveReport .sw table {
+  display: block;
+  overflow-x: auto;
+  width: 100%;
 }
 
-#comprehensiveReport .fb {
+#comprehensiveReport .sw table thead tr th {
   position: sticky;
   top: 0;
-  z-index: 10;
-  background: #f8ffff;
-  padding: 8px 0;
-}
-
-#comprehensiveReport table thead tr th {
-  position: sticky;
-  top: 0;
-  z-index: 5;
+  z-index: 15;
+  background-color: #00b8d9;
+  color: #fff;
 }
 /* ============================================================
    ١١. MODALS
@@ -6744,7 +6736,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <div id="tab-medicines" class="tab-pane">
   <div class="card"><h3>الأدوية المصروفة</h3>
     <div class="fb"><input type="text" id="rpt_s4" placeholder="🔍 بحث عن دواء..." oninput="rpt_filterT('rpt_s4','rpt_tb4')"><button class="bp" onclick="rpt_printTab('tab-medicines')">🖨️ طباعة</button></div>
-    <div class="sw"><table><thead><tr><th>S/No</th><th>اسم الدواء</th><th>الوحدة</th><th>المستخدم</th></tr></thead><tbody id="rpt_tb4"></tbody></table></div>
+    <div class="sw"><table><thead><tr><th>م</th><th>اسم الدواء</th><th>الوحدة</th><th>المستخدم</th></tr></thead><tbody id="rpt_tb4"></tbody></table></div>
   </div>
 </div>
 
