@@ -7452,14 +7452,13 @@ function permApplyBtns(allowedActions) {
 
       els.forEach(function(el) {
         if (allowedActions.indexOf(def.action) === -1) {
-          el.disabled        = true;
+          // لا نضع disabled حتى يصل حدث النقر ويظهر التنبيه
           el.style.opacity   = "0.35";
           el.style.cursor    = "not-allowed";
           el.dataset.permLock = "1";
           el.removeEventListener("click", permBlockedClick, true);
           el.addEventListener("click", permBlockedClick, true);
         } else {
-          el.disabled        = false;
           el.style.opacity   = "";
           el.style.cursor    = "";
           delete el.dataset.permLock;
