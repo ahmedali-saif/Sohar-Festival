@@ -2201,7 +2201,7 @@ function printCertificateLandscape() {
     <button class="dim_calc-close" id="dim_calcCloseBtn">إغلاق</button>
   </div>
 </div>
-<div class="card merged-empty-card" style="height:calc(100vh - 120px);display:flex;flex-direction:column;">
+<div class="card merged-empty-card">
   <h3>الأدوية المصروفة</h3>
   <div class="date-row" style="display:flex;gap:12px;justify-content:center;align-items:center;margin:10px 0;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:6px"><label style="font-weight:bold">من تاريخ:</label><input type="date" id="dim_dateFrom"></div>
@@ -2210,7 +2210,7 @@ function printCertificateLandscape() {
     <button class="print-btn" onclick="dim_printTable()">🖨️ طباعة</button>
     <button class="update" onclick="dim_loadData()">🔄 تحديث</button>
   </div>
-   <div id="dim_searchResultsContainer" style="flex:1;overflow:auto;">
+   <div id="dim_searchResultsContainer">
     <table id="dim_searchResultsTable">
       <thead><tr><th>م</th><th>الصنف</th><th>الكمية المستهلكة</th><th>عدد مرات الصرف</th></tr></thead>
       <tbody id="dim_searchResultsBody"></tbody>
@@ -2265,8 +2265,24 @@ async function dim_loadData() {
 function dim_renderTable(data) {
   var tbody = document.getElementById('dim_searchResultsBody');
   var tfoot = document.getElementById('dim_searchResultsFoot');
+  var card  = tbody.closest('.card');
   tbody.innerHTML = ''; tfoot.innerHTML = '';
-  if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="4">لا توجد بيانات في النطاق المحدد</td></tr>'; return; }
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4">لا توجد بيانات في النطاق المحدد</td></tr>';
+    // إعادة البطاقة لحجمها الطبيعي عند عدم وجود بيانات
+    if (card) { card.style.height = ''; card.style.display = ''; }
+    return;
+  }
+
+  // تمديد البطاقة عند وجود بيانات
+  if (card) {
+    card.style.height = 'calc(100vh - 120px)';
+    card.style.display = 'flex';
+    card.style.flexDirection = 'column';
+  }
+  document.getElementById('dim_searchResultsContainer').style.flex = '1';
+  document.getElementById('dim_searchResultsContainer').style.overflow = 'auto';
   var totalQty = 0, totalCount = 0;
   data.forEach(function(row, i) {
     var tr = document.createElement('tr');
