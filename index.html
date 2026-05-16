@@ -2210,7 +2210,7 @@ function printCertificateLandscape() {
     <button class="print-btn" onclick="dim_printTable()">🖨️ طباعة</button>
     <button class="update" onclick="dim_loadData()">🔄 تحديث</button>
   </div>
-  <div id="dim_searchResultsContainer">
+  <div id="dim_searchResultsContainer" style="flex:1;overflow:auto;">
     <table id="dim_searchResultsTable">
       <thead><tr><th>م</th><th>الصنف</th><th>الكمية المستهلكة</th><th>عدد مرات الصرف</th></tr></thead>
       <tbody id="dim_searchResultsBody"></tbody>
@@ -5805,7 +5805,7 @@ if (document.readyState === 'loading') {
 </div>
 
 <div id="financialInventory" class="page">
-  <div class="card merged-empty-card">
+<div class="card merged-empty-card" style="height:calc(100vh - 120px);display:flex;flex-direction:column;">
   <h3 style="background:#00b8d9;color:#fff;padding:6px;text-align:center;margin:-8px -8px 8px -8px;font-size:1rem">الجرد المالي</h3>
 
   <div style="display:flex;gap:8px;justify-content:center;align-items:center;margin:8px 0;background:#e8f8f5;padding:10px;border-radius:5px;border:2px solid #2bb673">
