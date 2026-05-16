@@ -7111,6 +7111,660 @@ function foDismissOverdueAlert() {
   overdueSessionDismissed = true;
   foCloseOverdueAlert();
 }
+"use strict";
+
+/* ─────────────────────────────────────────────────────────────────────
+   ١. تعريف الأدوار الافتراضية
+   ─────────────────────────────────────────────────────────────────────*/
+const PERM_DEFAULT_ROLES = {
+
+  admin: {
+    label: "إداري",
+    pages: [
+      "breeder","treatment","vaccination","vaccinationRequests",
+      "samples","dashboard","settings","reports","financialInventory",
+      "diseaseTracking","animalDistribution","comprehensiveReport","home"
+    ],
+    actions: ["save","update","delete","print","search","export"]
+  },
+
+  vet: {
+    label: "طبيب بيطري",
+    pages: [
+      "breeder","treatment","vaccination","vaccinationRequests",
+      "samples","dashboard","settings","reports","diseaseTracking",
+      "animalDistribution","comprehensiveReport"
+    ],
+    actions: ["save","update","print","search"]
+  },
+
+  tech: {
+    label: "فني بيطري",
+    pages: [
+      "breeder","treatment","vaccination","vaccinationRequests","samples"
+    ],
+    actions: ["save","search"]
+  }
+};
+
+/* ─────────────────────────────────────────────────────────────────────
+   ٢. ربط أزرار الصفحات بصلاحيات الأفعال
+   ─────────────────────────────────────────────────────────────────────
+   المفتاح: معرّف الصفحة
+   القيمة : مصفوفة {selector, action, label}
+   ─────────────────────────────────────────────────────────────────────*/
+const PERM_PAGE_BUTTONS = {
+
+  treatment: [
+    { id: "tr_saveBtn",       action: "save",   label: "حفظ" },
+    { id: "tr_updateBtn",     action: "update", label: "تحديث" },
+    { id: "tr_deleteBtn",     action: "delete", label: "حذف" },
+    { id: "tr_searchBtn",     action: "search", label: "بحث" },
+    { id: "tr_tempSaveBtn",   action: "save",   label: "حفظ مؤقت" },
+    { id: "tr_tempUpdateBtn", action: "update", label: "تحديث مؤقت" },
+    { id: "tr_mainMenuBtn",   action: "search", label: "إجمالي الحيوانات" },
+    { id: "tr_searchRecordBtn", action: "search", label: "البحث في السجل" }
+  ],
+
+  breeder: [
+    { id: "bd_saveBtn",               action: "save",   label: "حفظ" },
+    { id: "bd_updateBtn",             action: "update", label: "تحديث" },
+    { id: "bd_deleteBtn",             action: "delete", label: "حذف" },
+    { id: "bd_saveVaccinationBtn",    action: "save",   label: "حفظ تحصين" },
+    { id: "bd_updateVaccinationBtn",  action: "update", label: "تحديث تحصين" },
+    { id: "bd_deleteVaccinationBtn",  action: "delete", label: "حذف تحصين" },
+    { id: "bd_updatePossessionBtn",   action: "update", label: "تحديث الحيازة" }
+  ],
+
+  vaccination: [
+    { id: "vacc_saveBtn",   action: "save",   label: "حفظ" },
+    { id: "vacc_updateBtn", action: "update", label: "تحديث" },
+    { id: "vacc_deleteBtn", action: "delete", label: "حذف" },
+    { id: "vacc_searchBtn", action: "search", label: "بحث" }
+  ],
+
+  samples: [
+    { id: "saveBtn",   action: "save",   label: "حفظ" },
+    { id: "updateBtn", action: "update", label: "تحديث" },
+    { id: "deleteBtn", action: "delete", label: "حذف" },
+    { id: "searchBtn", action: "search", label: "بحث" }
+  ],
+
+  dashboard: [
+    { id: "db_printBtn", action: "print", label: "طباعة" }
+  ],
+
+  settings: [
+    { selector: ".print-btn", action: "print", label: "طباعة الشهادة" }
+  ],
+
+  reports: [
+    { selector: "#reports .print-btn", action: "print", label: "طباعة" }
+  ],
+
+  financialInventory: [
+    { selector: "#financialInventory .print-btn", action: "print", label: "طباعة" }
+  ]
+};
+
+/* ─────────────────────────────────────────────────────────────────────
+   ٣. الحالة العامة للنظام
+   ─────────────────────────────────────────────────────────────────────*/
+window.PERM = {
+  currentUser:  null,   // بيانات المستخدم الحالي
+  allowedPages: [],     // الصفحات المسموح بها
+  allowedActions: [],   // الأفعال المسموح بها
+  role: null            // الدور الوظيفي
+};
+
+/* ─────────────────────────────────────────────────────────────────────
+   ٤. تطبيق الصلاحيات بعد تسجيل الدخول
+   ─────────────────────────────────────────────────────────────────────*/
+function permApply(userData) {
+
+  /* تحديد الدور */
+  const role = (userData.role || "tech").trim().toLowerCase();
+  const defaultRole = PERM_DEFAULT_ROLES[role] || PERM_DEFAULT_ROLES.tech;
+
+  /* الصفحات المسموح بها */
+  const pagesRaw = (userData.pages || "").trim();
+  const allowedPages = pagesRaw
+    ? pagesRaw.split(",").map(p => p.trim()).filter(Boolean)
+    : [...defaultRole.pages];
+
+  /* الأفعال المسموح بها */
+  const actionsRaw = (userData.actions || "").trim();
+  const allowedActions = actionsRaw
+    ? actionsRaw.split(",").map(a => a.trim()).filter(Boolean)
+    : [...defaultRole.actions];
+
+  /* حفظ في الحالة العامة */
+  window.PERM.currentUser    = userData;
+  window.PERM.allowedPages   = allowedPages;
+  window.PERM.allowedActions = allowedActions;
+  window.PERM.role           = role;
+
+  /* تطبيق قيود الصفحات على القائمة */
+  permApplyNavRestrictions(allowedPages);
+
+  /* تطبيق قيود الأفعال على الأزرار */
+  permApplyActionRestrictions(allowedActions);
+
+  /* تعبئة حقول مدخل البيانات تلقائياً */
+  permAutoFillDataEntry(userData.name || userData.username);
+
+  /* عرض شارة الدور */
+  permShowRoleBadge(role, defaultRole.label, userData.name || userData.username);
+
+  console.log("[PERM] تم تطبيق الصلاحيات:", { role, allowedPages, allowedActions });
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ٥. تقييد القائمة العلوية
+   ─────────────────────────────────────────────────────────────────────*/
+function permApplyNavRestrictions(allowedPages) {
+  document.querySelectorAll("nav button").forEach(btn => {
+    const onclick = btn.getAttribute("onclick") || "";
+    const match   = onclick.match(/showPage\(['"](\w+)['"]\)/);
+    if (!match) return;
+    const pageId = match[1];
+
+    /* صفحة login و home دائماً متاحة */
+    if (pageId === "login" || pageId === "home") return;
+
+    if (!allowedPages.includes(pageId)) {
+      btn.style.display  = "none";
+      btn.disabled       = true;
+      btn.dataset.hidden = "perm";
+    } else {
+      btn.style.display  = "";
+      btn.disabled       = false;
+      delete btn.dataset.hidden;
+    }
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ٦. تقييد الأزرار داخل الصفحات
+   ─────────────────────────────────────────────────────────────────────*/
+function permApplyActionRestrictions(allowedActions) {
+  Object.entries(PERM_PAGE_BUTTONS).forEach(([pageId, buttons]) => {
+    buttons.forEach(btnDef => {
+      let elements = [];
+
+      if (btnDef.id) {
+        const el = document.getElementById(btnDef.id);
+        if (el) elements = [el];
+      } else if (btnDef.selector) {
+        elements = Array.from(document.querySelectorAll(btnDef.selector));
+      }
+
+      elements.forEach(el => {
+        if (!allowedActions.includes(btnDef.action)) {
+          el.disabled          = true;
+          el.style.opacity     = "0.35";
+          el.style.cursor      = "not-allowed";
+          el.title             = `⛔ لا تملك صلاحية: ${btnDef.label}`;
+          el.dataset.permLock  = "1";
+          el.addEventListener("click", permBlockedClick, true);
+        } else {
+          el.disabled          = false;
+          el.style.opacity     = "";
+          el.style.cursor      = "";
+          el.title             = "";
+          delete el.dataset.permLock;
+          el.removeEventListener("click", permBlockedClick, true);
+        }
+      });
+    });
+  });
+}
+
+function permBlockedClick(e) {
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  showToast("⛔ ليس لديك صلاحية لتنفيذ هذا الإجراء", "warning");
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ٧. تعبئة حقول مدخل البيانات تلقائياً
+   ─────────────────────────────────────────────────────────────────────*/
+function permAutoFillDataEntry(userName) {
+  if (!userName) return;
+
+  /* قائمة بحقول مدخل البيانات في جميع الصفحات */
+  const entryFields = [
+    "tr_dataEntryInput",
+    "bd_dataEntryInput",
+    "vacc_dataEntryInput",
+    "dataEntryInput"   // samples
+  ];
+
+  entryFields.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.value) {
+      el.value = userName;
+    }
+  });
+
+  /* مراقبة مسح النموذج لإعادة التعبئة */
+  permWatchFormClears(userName);
+}
+
+function permWatchFormClears(userName) {
+  /* عند مسح النموذج يُعيد الحقل تعبئته بعد 100ms */
+  const watchFields = [
+    { id: "tr_dataEntryInput",   page: "treatment" },
+    { id: "bd_dataEntryInput",   page: "breeder" },
+    { id: "vacc_dataEntryInput", page: "vaccination" },
+    { id: "dataEntryInput",      page: "samples" }
+  ];
+
+  watchFields.forEach(({ id }) => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.permWatching) return;
+    el.dataset.permWatching = "1";
+
+    const observer = new MutationObserver(() => {
+      if (el.value === "" || el.value === null) {
+        setTimeout(() => { if (!el.value) el.value = userName; }, 120);
+      }
+    });
+    observer.observe(el, { attributes: true, attributeFilter: ["value"] });
+
+    /* أيضاً عبر input event */
+    el.addEventListener("change", () => {
+      if (!el.value) setTimeout(() => { el.value = userName; }, 120);
+    });
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ٨. شارة الدور (تظهر بجانب اسم المستخدم في القائمة)
+   ─────────────────────────────────────────────────────────────────────*/
+function permShowRoleBadge(role, roleLabel, userName) {
+  /* إزالة شارة قديمة إن وجدت */
+  const old = document.getElementById("perm_roleBadge");
+  if (old) old.remove();
+
+  const colors = {
+    admin: { bg: "#00b8d9", text: "#fff" },
+    vet:   { bg: "#2bb673", text: "#fff" },
+    tech:  { bg: "#f39c12", text: "#fff" }
+  };
+  const c = colors[role] || colors.tech;
+
+  const badge = document.createElement("div");
+  badge.id = "perm_roleBadge";
+  Object.assign(badge.style, {
+    position:    "fixed",
+    bottom:      "12px",
+    right:       "12px",
+    background:  c.bg,
+    color:       c.text,
+    padding:     "6px 14px",
+    borderRadius:"20px",
+    fontSize:    "12px",
+    fontWeight:  "bold",
+    fontFamily:  "Tahoma, Arial, sans-serif",
+    zIndex:      "9999",
+    boxShadow:   "0 2px 8px rgba(0,0,0,0.2)",
+    cursor:      "pointer",
+    direction:   "rtl"
+  });
+  badge.textContent = `👤 ${userName}  |  ${roleLabel}`;
+  badge.title = "انقر لعرض صلاحياتك";
+  badge.onclick = permShowPermissionsModal;
+  document.body.appendChild(badge);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ٩. نافذة عرض الصلاحيات
+   ─────────────────────────────────────────────────────────────────────*/
+function permShowPermissionsModal() {
+  const old = document.getElementById("perm_modal");
+  if (old) { old.remove(); return; }
+
+  const PAGE_LABELS = {
+    breeder:             "سجل المربي",
+    treatment:           "سجل العلاج",
+    vaccination:         "سجل التحصين",
+    vaccinationRequests: "طلبات التحصين",
+    samples:             "نموذج العينات",
+    dashboard:           "طباعة نماذج العينات",
+    settings:            "طباعة شهادة التحصين",
+    reports:             "الأدوية المصروفة",
+    financialInventory:  "الجرد المالي",
+    diseaseTracking:     "تتبع المرض",
+    animalDistribution:  "توزيع الحيوانات",
+    comprehensiveReport: "التقرير الشامل",
+    home:                "الإعدادات"
+  };
+
+  const ACTION_LABELS = {
+    save:   "إضافة / حفظ",
+    update: "تعديل / تحديث",
+    delete: "حذف",
+    print:  "طباعة",
+    search: "بحث / عرض",
+    export: "تصدير"
+  };
+
+  const { allowedPages, allowedActions, role, currentUser } = window.PERM;
+  const roleLabel = (PERM_DEFAULT_ROLES[role] || {}).label || role;
+
+  let pagesHTML = allowedPages.map(p =>
+    `<span style="display:inline-block;background:#e0f7fa;color:#006064;border-radius:12px;padding:3px 10px;margin:3px;font-size:12px;">${PAGE_LABELS[p] || p}</span>`
+  ).join("");
+
+  let actionsHTML = allowedActions.map(a =>
+    `<span style="display:inline-block;background:#e8f5e9;color:#1b5e20;border-radius:12px;padding:3px 10px;margin:3px;font-size:12px;">${ACTION_LABELS[a] || a}</span>`
+  ).join("");
+
+  const overlay = document.createElement("div");
+  overlay.id = "perm_modal";
+  Object.assign(overlay.style, {
+    position:       "fixed",
+    inset:          "0",
+    background:     "rgba(0,0,0,0.55)",
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    zIndex:         "99999",
+    direction:      "rtl"
+  });
+
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:12px;padding:24px 28px;width:90%;max-width:480px;font-family:Tahoma,Arial;box-shadow:0 8px 30px rgba(0,0,0,0.3);max-height:85vh;overflow-y:auto;">
+      <div style="background:#00b8d9;color:#fff;margin:-24px -28px 16px -28px;padding:14px 20px;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-weight:bold;font-size:15px;">🔐 صلاحياتي</span>
+        <button onclick="document.getElementById('perm_modal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:16px;line-height:1;">✕</button>
+      </div>
+      
+      <div style="background:#f5f5f5;border-radius:8px;padding:10px 14px;margin-bottom:14px;">
+        <div style="font-size:13px;color:#555;">المستخدم</div>
+        <div style="font-size:15px;font-weight:bold;color:#004e66;">${currentUser.name || currentUser.username || "—"}</div>
+        <div style="font-size:12px;background:#00b8d9;color:#fff;display:inline-block;border-radius:10px;padding:2px 10px;margin-top:4px;">${roleLabel}</div>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <div style="font-weight:bold;color:#333;font-size:13px;margin-bottom:6px;">📋 الصفحات المتاحة (${allowedPages.length})</div>
+        <div>${pagesHTML || '<span style="color:#999;font-size:12px;">لا توجد صفحات</span>'}</div>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <div style="font-weight:bold;color:#333;font-size:13px;margin-bottom:6px;">⚡ الإجراءات المسموح بها (${allowedActions.length})</div>
+        <div>${actionsHTML || '<span style="color:#999;font-size:12px;">لا توجد صلاحيات</span>'}</div>
+      </div>
+
+      <div style="text-align:center;margin-top:16px;">
+        <button onclick="document.getElementById('perm_modal').remove()" style="background:#00b8d9;color:#fff;border:none;border-radius:8px;padding:8px 24px;font-family:Tahoma;font-weight:bold;cursor:pointer;font-size:13px;">إغلاق</button>
+      </div>
+    </div>`;
+
+  overlay.addEventListener("click", e => {
+    if (e.target === overlay) overlay.remove();
+  });
+  document.body.appendChild(overlay);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ١٠. إلغاء الصلاحيات عند تسجيل الخروج
+   ─────────────────────────────────────────────────────────────────────*/
+function permRevoke() {
+  /* إظهار جميع الأزرار مجدداً */
+  document.querySelectorAll("nav button").forEach(btn => {
+    if (btn.dataset.hidden === "perm") {
+      btn.style.display  = "";
+      btn.disabled       = false;
+      delete btn.dataset.hidden;
+    }
+  });
+
+  /* رفع تقييد الأزرار */
+  document.querySelectorAll("[data-perm-lock]").forEach(el => {
+    el.disabled        = false;
+    el.style.opacity   = "";
+    el.style.cursor    = "";
+    el.title           = "";
+    delete el.dataset.permLock;
+    el.removeEventListener("click", permBlockedClick, true);
+  });
+
+  /* إزالة الشارة */
+  const badge = document.getElementById("perm_roleBadge");
+  if (badge) badge.remove();
+
+  /* إزالة النافذة */
+  const modal = document.getElementById("perm_modal");
+  if (modal) modal.remove();
+
+  /* إعادة تعيين الحالة */
+  window.PERM = { currentUser: null, allowedPages: [], allowedActions: [], role: null };
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ١١. التقاط تسجيل الدخول الناجح وتطبيق الصلاحيات
+   ─────────────────────────────────────────────────────────────────────
+   نعترض دالة unlockNav الموجودة ونضيف فيها تطبيق الصلاحيات
+   ─────────────────────────────────────────────────────────────────────*/
+(function patchLoginSystem() {
+
+  /* انتظر حتى يكتمل تحميل نظام الدخول الأصلي */
+  function waitAndPatch() {
+
+    /* ── التقاط unlockNav (تُستدعى عند نجاح الدخول) ── */
+    const originalUnlock = window.unlockNav;
+    window.unlockNav = function() {
+      originalUnlock.apply(this, arguments);
+
+      /* استخراج بيانات المستخدم من نظام الدخول الأصلي */
+      setTimeout(() => {
+        const userData = extractCurrentUserData();
+        if (userData) {
+          permApply(userData);
+        } else {
+          /* إذا لم تتوفر بيانات الصلاحيات → طبّق دور فني بيطري افتراضي */
+          permApply({ role: "tech", pages: "", actions: "", name: "مستخدم" });
+        }
+      }, 300);
+    };
+
+    /* ── التقاط lockNav (تُستدعى عند تسجيل الخروج) ── */
+    const originalLock = window.lockNav;
+    window.lockNav = function() {
+      originalLock.apply(this, arguments);
+      permRevoke();
+    };
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", waitAndPatch);
+  } else {
+    setTimeout(waitAndPatch, 500);
+  }
+})();
+
+/* ─────────────────────────────────────────────────────────────────────
+   ١٢. استخراج بيانات المستخدم الحالي من نظام الدخول
+   ─────────────────────────────────────────────────────────────────────
+   يتعامل مع البنية الموجودة في الكود الأصلي (المتغير lCU الداخلي)
+   ─────────────────────────────────────────────────────────────────────*/
+function extractCurrentUserData() {
+  /*
+   * نظام الدخول الأصلي يستخدم المتغير lCU داخل IIFE
+   * لا يمكن الوصول إليه مباشرةً، لذا نعتمد على بيانات DOM:
+   *  - اسم المستخدم: #l_welcomeName
+   *  - username: #l_username (قيمة الحقل قبل الدخول)
+   *
+   * الحل الأفضل: في Google Sheets أضف أعمدة role/pages/actions
+   * ثم اعترض الاستجابة بالطريقة الموضحة في permPatchFetch أدناه
+   */
+
+  /* إذا تم التقاط البيانات عبر permPatchFetch (انظر أدناه) */
+  if (window._permLastUserData) {
+    return window._permLastUserData;
+  }
+
+  /* Fallback: محاولة قراءة الاسم من الشاشة */
+  const welcomeEl = document.getElementById("l_welcomeName");
+  if (welcomeEl) {
+    const text = welcomeEl.textContent.replace("مرحباً،", "").trim().replace("!", "");
+    return { name: text, role: "tech", pages: "", actions: "" };
+  }
+
+  return null;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ١٣. اعتراض طلب CSV لالتقاط بيانات الصلاحيات
+   ─────────────────────────────────────────────────────────────────────
+   هذا الاعتراض يعمل مع Google Sheets CSV الذي يستخدمه نظام الدخول
+   ─────────────────────────────────────────────────────────────────────*/
+(function permPatchFetch() {
+  const originalFetch = window.fetch;
+
+  window.fetch = async function(...args) {
+    const response = await originalFetch.apply(this, args);
+    const url = (typeof args[0] === "string") ? args[0] : (args[0]?.url || "");
+
+    /* هل هذا طلب CSV الخاص بنظام الدخول؟ */
+    if (url.includes("export?format=csv") && url.includes("spreadsheets")) {
+      /* نسخ الاستجابة لقراءتها دون استهلاكها */
+      const clone = response.clone();
+      clone.text().then(csvText => {
+        try {
+          const rows = permParseCSV(csvText);
+          /* احتفظ بالبيانات للاستخدام لاحقاً */
+          window._permCSVRows = rows;
+        } catch (e) { /* تجاهل */ }
+      });
+    }
+
+    return response;
+  };
+})();
+
+/* ─────────────────────────────────────────────────────────────────────
+   ١٤. استخراج بيانات المستخدم من CSV بعد نجاح الدخول
+   ─────────────────────────────────────────────────────────────────────*/
+(function permListenForLogin() {
+  /* مراقبة ظهور شاشة الترحيب كمؤشر على نجاح الدخول */
+  const observer = new MutationObserver(() => {
+    const welcomeView = document.getElementById("l_welcomeView");
+    if (!welcomeView || welcomeView.style.display === "none") return;
+
+    /* الشاشة ظهرت → ابحث عن بيانات المستخدم في CSV المحفوظ */
+    const usernameEl = document.getElementById("l_username");
+    const username   = usernameEl ? usernameEl.value.trim() : "";
+
+    if (window._permCSVRows && username) {
+      const rows    = window._permCSVRows;
+      const userRow = rows.find(r => {
+        const uk = Object.keys(r).find(k => k.includes("user") || k.includes("اسم"));
+        return uk && (r[uk] || "").toLowerCase() === username.toLowerCase();
+      });
+
+      if (userRow) {
+        /* استخراج حقول الصلاحيات */
+        const nameKey    = Object.keys(userRow).find(k => k.includes("name") || k.includes("الاسم")) || "";
+        const roleKey    = Object.keys(userRow).find(k => k.includes("role") || k.includes("الدور")) || "";
+        const pagesKey   = Object.keys(userRow).find(k => k.includes("pages") || k.includes("صفحات")) || "";
+        const actionsKey = Object.keys(userRow).find(k => k.includes("actions") || k.includes("صلاحيات")) || "";
+
+        window._permLastUserData = {
+          username: username,
+          name:    nameKey    ? userRow[nameKey]    : username,
+          role:    roleKey    ? userRow[roleKey]    : "tech",
+          pages:   pagesKey   ? userRow[pagesKey]   : "",
+          actions: actionsKey ? userRow[actionsKey] : ""
+        };
+      }
+    }
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["style"] });
+})();
+
+/* ─────────────────────────────────────────────────────────────────────
+   ١٥. مساعد: تحليل CSV
+   ─────────────────────────────────────────────────────────────────────*/
+function permParseCSV(text) {
+  const lines = text.trim().split("\n");
+  const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, "").toLowerCase());
+  return lines.slice(1).map(line => {
+    const vals = line.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
+    const obj  = {};
+    headers.forEach((h, i) => { obj[h] = vals[i] || ""; });
+    return obj;
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   ١٦. تحديث حقل محدث البيانات تلقائياً
+   ─────────────────────────────────────────────────────────────────────*/
+(function permAutoFillUpdater() {
+  const updaterFields = [
+    "tr_dataUpdaterInput",
+    "bd_dataUpdaterInput",
+    "vacc_dataUpdaterInput",
+    "dataUpdaterInput"
+  ];
+
+  /* مراقبة نقر أزرار التحديث لتعبئة حقل "محدث البيانات" */
+  document.addEventListener("click", e => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+
+    const isUpdateBtn = btn.id && (
+      btn.id.endsWith("updateBtn") ||
+      btn.id.endsWith("UpdateBtn") ||
+      btn.id.includes("update")
+    );
+
+    if (!isUpdateBtn) return;
+
+    const userName = window.PERM.currentUser?.name || window.PERM.currentUser?.username;
+    if (!userName) return;
+
+    updaterFields.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && !el.value) el.value = userName;
+    });
+  }, true);
+})();
+
+/* ─────────────────────────────────────────────────────────────────────
+   ١٧. التحقق من صلاحية الوصول للصفحة عند التنقل
+   ─────────────────────────────────────────────────────────────────────*/
+(function permGuardNavigation() {
+  const originalShowPage = window.showPage;
+  if (!originalShowPage) return;
+
+  window.showPage = function(pageId) {
+    /* إذا لم يسجل الدخول → اسمح بـ login فقط */
+    if (!window._isLoggedIn) {
+      return originalShowPage.apply(this, arguments);
+    }
+
+    /* صفحات مفتوحة دائماً */
+    const alwaysOpen = ["login", "home"];
+    if (alwaysOpen.includes(pageId)) {
+      return originalShowPage.apply(this, arguments);
+    }
+
+    /* التحقق من الصلاحية */
+    if (window.PERM.allowedPages.length > 0 && !window.PERM.allowedPages.includes(pageId)) {
+      showToast("⛔ ليس لديك صلاحية للوصول إلى هذه الصفحة", "warning");
+      return;
+    }
+
+    originalShowPage.apply(this, arguments);
+  };
+})();
+
+
+  
 </script>
 
 </body>
