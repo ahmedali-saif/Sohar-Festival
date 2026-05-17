@@ -7480,6 +7480,7 @@ function permAutoFill(userName) {
     "tr_dataUpdaterInput","bd_dataUpdaterInput","vacc_dataUpdaterInput","dataUpdaterInput"
   ];
 
+  // ① إجبار القيمة في الحقول دائماً
   function fillAll() {
     allIds.forEach(function(id) {
       var el = document.getElementById(id);
@@ -7489,8 +7490,63 @@ function permAutoFill(userName) {
 
   fillAll();
 
+  // ② Polling كل 300ms
   if (window._permAutoFillInterval) clearInterval(window._permAutoFillInterval);
   window._permAutoFillInterval = setInterval(fillAll, 300);
+
+  // ③ اعتراض دوال trcollectFormData و vaccCollectFormData و focollectFormData و bd_collectBreederDataForUpdate
+  // بحيث يُجبر اسم المستخدم قبل أي إرسال للـ API
+  setTimeout(function() {
+
+    // --- treatment ---
+    if (window.trcollectFormData && !window.trcollectFormData._permWrapped) {
+      var _orig = window.trcollectFormData;
+      window.trcollectFormData = function() {
+        var data = _orig.apply(this, arguments);
+        data.dataEntry   = userName;
+        data.dataUpdater = userName;
+        return data;
+      };
+      window.trcollectFormData._permWrapped = true;
+    }
+
+    // --- vaccination ---
+    if (window.vaccCollectFormData && !window.vaccCollectFormData._permWrapped) {
+      var _origV = window.vaccCollectFormData;
+      window.vaccCollectFormData = function() {
+        var data = _origV.apply(this, arguments);
+        data.dataEntry   = userName;
+        data.dataUpdater = userName;
+        return data;
+      };
+      window.vaccCollectFormData._permWrapped = true;
+    }
+
+    // --- samples ---
+    if (window.focollectFormData && !window.focollectFormData._permWrapped) {
+      var _origF = window.focollectFormData;
+      window.focollectFormData = function() {
+        var data = _origF.apply(this, arguments);
+        data.dataEntry   = userName;
+        data.dataUpdater = userName;
+        return data;
+      };
+      window.focollectFormData._permWrapped = true;
+    }
+
+    // --- breeder ---
+    if (window.bd_collectBreederDataForUpdate && !window.bd_collectBreederDataForUpdate._permWrapped) {
+      var _origB = window.bd_collectBreederDataForUpdate;
+      window.bd_collectBreederDataForUpdate = function() {
+        var data = _origB.apply(this, arguments);
+        data.dataEntry   = userName;
+        data.dataUpdater = userName;
+        return data;
+      };
+      window.bd_collectBreederDataForUpdate._permWrapped = true;
+    }
+
+  }, 8000);
 }
 /* ─────────────────────────────────────────────────────────────────────
    ١٣. شارة الدور
