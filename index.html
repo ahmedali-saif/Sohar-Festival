@@ -4461,8 +4461,8 @@ function vaccCollectFormData() {
     notes: vaccGetValue('vacc_notes'),
     financialDate: vaccGetValue('vacc_financialDate'),
     // الفرق هنا
-    dataEntry: isUpdate ? '' : vaccGetValue('vacc_dataEntryInput'),
-    dataUpdater: isUpdate ? vaccGetValue('vacc_dataUpdaterInput') : ''
+dataEntry: vaccGetValue('vacc_dataEntryInput'),
+dataUpdater: isUpdate ? vaccGetValue('vacc_dataUpdaterInput') : ''
   };
 }
 
