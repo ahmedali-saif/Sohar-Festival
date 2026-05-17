@@ -7475,57 +7475,23 @@ function permApplyBtns(allowedActions) {
 function permAutoFill(userName) {
   if (!userName) return;
 
-  var entryIds   = ["tr_dataEntryInput","bd_dataEntryInput","vacc_dataEntryInput","dataEntryInput"];
-  var updaterIds = ["tr_dataUpdaterInput","bd_dataUpdaterInput","vacc_dataUpdaterInput","dataUpdaterInput"];
-  var allIds     = entryIds.concat(updaterIds);
+  var allIds = [
+    "tr_dataEntryInput","bd_dataEntryInput","vacc_dataEntryInput","dataEntryInput",
+    "tr_dataUpdaterInput","bd_dataUpdaterInput","vacc_dataUpdaterInput","dataUpdaterInput"
+  ];
 
-  // تعبئة فورية
-  allIds.forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el && !el.value) el.value = userName;
-  });
-
-  // مراقبة تغيير القيمة عبر MutationObserver (يلتقط التغييرات البرمجية)
-  allIds.forEach(function(id) {
-    var el = document.getElementById(id);
-    if (!el || el.dataset.permWatched) return;
-    el.dataset.permWatched = "1";
-
-    // مراقبة تغيير خاصية value برمجياً
-    var obs = new MutationObserver(function() {
-      if (!el.value) {
-        requestAnimationFrame(function() {
-          if (!el.value) el.value = userName;
-        });
-      }
+  function fillAll() {
+    allIds.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el && !el.value) el.value = userName;
     });
-    obs.observe(el, { attributes: true, attributeFilter: ["value"] });
+  }
 
-    // مراقبة حدث input (عند الكتابة اليدوية ثم المسح)
-    el.addEventListener("input", function() {
-      if (!el.value) {
-        setTimeout(function() { if (!el.value) el.value = userName; }, 200);
-      }
-    });
-  });
+  fillAll();
 
-  // اعتراض دوال المسح الأصلية لإعادة التعبئة بعدها
-  var clearFuncs = ["trclearForm","bd_clearForm","vaccClearForm","fochearForm"];
-  clearFuncs.forEach(function(funcName) {
-    if (!window[funcName] || window[funcName]._permWrapped) return;
-    var _orig = window[funcName];
-    window[funcName] = function() {
-      _orig.apply(this, arguments);
-      // إعادة التعبئة بعد اكتمال المسح
-      setTimeout(function() {
-        allIds.forEach(function(id) {
-          var el = document.getElementById(id);
-          if (el && !el.value) el.value = userName;
-        });
-      }, 100);
-    };
-    window[funcName]._permWrapped = true;
-  });
+  if (window._permAutoFillInterval) clearInterval(window._permAutoFillInterval);
+  window._permAutoFillInterval = setInterval(fillAll, 300);
+}
 
   // اعتراض دوال المسح الجزئي أيضاً
   var partialClearFuncs = ["trclearFormExcept"];
@@ -7648,6 +7614,11 @@ function permModal() {
    ١٥. إلغاء الصلاحيات عند تسجيل الخروج
    ─────────────────────────────────────────────────────────────────────*/
 function permRevoke() {
+    if (window._permAutoFillInterval) {
+    clearInterval(window._permAutoFillInterval);
+    window._permAutoFillInterval = null;
+  }
+
   // إظهار أزرار القائمة المخفية
   document.querySelectorAll("nav button[data-perm-hide]").forEach(function(btn) {
     btn.style.display = "";
