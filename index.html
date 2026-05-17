@@ -7487,30 +7487,30 @@ function permAutoFill(userName) {
     });
   }
 
+  // تعبئة فورية
   fillAll();
 
+  // Polling كل 500ms — يضمن التعبئة بعد أي عملية مسح
   if (window._permAutoFillInterval) clearInterval(window._permAutoFillInterval);
-  window._permAutoFillInterval = setInterval(fillAll, 300);
-}
+  window._permAutoFillInterval = setInterval(fillAll, 500);
 
-  // اعتراض دوال المسح الجزئي أيضاً
-  var partialClearFuncs = ["trclearFormExcept"];
-  partialClearFuncs.forEach(function(funcName) {
-    if (!window[funcName] || window[funcName]._permWrapped) return;
-    var _orig = window[funcName];
-    window[funcName] = function() {
-      _orig.apply(this, arguments);
-      setTimeout(function() {
-        allIds.forEach(function(id) {
-          var el = document.getElementById(id);
-          if (el && !el.value) el.value = userName;
-        });
-      }, 100);
-    };
-    window[funcName]._permWrapped = true;
-  });
+  // اعتراض دوال المسح — لكن بعد تأخير حتى تكون الدوال محملة
+  setTimeout(function() {
+    var clearFuncs = [
+      "trclearForm","bd_clearForm","vaccClearForm","fochearForm",
+      "trclearFormExcept"
+    ];
+    clearFuncs.forEach(function(funcName) {
+      if (!window[funcName] || window[funcName]._permWrapped) return;
+      var _orig = window[funcName];
+      window[funcName] = function() {
+        _orig.apply(this, arguments);
+        setTimeout(fillAll, 150);
+      };
+      window[funcName]._permWrapped = true;
+    });
+  }, 8000); // بعد اكتمال تهيئة الصفحة (آخر خطوة عند 7000ms)
 }
-
 /* ─────────────────────────────────────────────────────────────────────
    ١٣. شارة الدور
    ─────────────────────────────────────────────────────────────────────*/
