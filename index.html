@@ -8144,11 +8144,17 @@ function syncShowUpdateIndicator(topic) {
   closeBtn.onmouseout = function() { this.style.opacity = '0.8'; };
   closeBtn.onclick = function() {
     toast.remove();
+    clearTimeout(autoClose);
   };
   
   toast.appendChild(msg);
   toast.appendChild(closeBtn);
   document.body.appendChild(toast);
+  
+  // إغلاق تلقائي بعد 5 ثوانٍ
+  var autoClose = setTimeout(function() {
+    if (toast.parentNode) toast.remove();
+  }, 6000);
 }
 
 // إضافة المؤشر المرئي للـ handler
@@ -8168,7 +8174,6 @@ if (syncChannel) {
     syncHandleMessage(e.data);
   };
 }
-
   
 </script>
 
