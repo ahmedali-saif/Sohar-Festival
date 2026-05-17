@@ -6948,18 +6948,12 @@ function saveAppearance() {
   // ===== تحديث قوائم الهاتف في جميع الصفحات =====
 async function globalRefreshPhoneLists() {
   try {
-    // جلب أرقام الهواتف من مصدر واحد موثوق (سجل المربي)
-    var res = await bd_callApi("bd_getPhoneNumbers");
-    if (!res.success || !res.data) return;
-    
-    var phones = res.data;
-    
-    var datalistIds = [
-      "bd_phoneList",
-      "tr_phoneList", 
-      "vacc_phoneList",
-      "phoneList"
-    ];
+    var results = await Promise.all([
+      bd_callApi("bd_getPhoneNumbers"),
+      trcallApi("trgetPhoneNumbers"),
+      vaccCallApi("getPhoneNumbers"),
+      focallApi("fogetPhoneNumbers")
+    ]);
     
     datalistIds.forEach(function(id) {
       var dl = document.getElementById(id);
