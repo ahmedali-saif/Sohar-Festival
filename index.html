@@ -8127,9 +8127,28 @@ function syncShowUpdateIndicator(topic) {
     reports:    "التقرير"
   };
   var label = labels[topic] || topic;
-  if (typeof showToast === "function") {
-    showToast("🔄 تم تحديث " + label + " من تبويبة أخرى", "info");
-  }
+  
+  // إنشاء عنصر Toast مخصص مع زر إغلاق فقط
+  var toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#17a2b8;color:#fff;padding:12px 20px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;display:flex;align-items:center;gap:15px;font-family:system-ui;font-size:14px;direction:rtl;';
+  
+  // نص الرسالة
+  var msg = document.createElement('span');
+  msg.textContent = '🔄 تم تحديث ' + label + ' من تبويبة أخرى';
+  
+  // زر الإغلاق فقط
+  var closeBtn = document.createElement('button');
+  closeBtn.textContent = '×';
+  closeBtn.style.cssText = 'background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 4px;line-height:1;opacity:0.8;';
+  closeBtn.onmouseover = function() { this.style.opacity = '1'; };
+  closeBtn.onmouseout = function() { this.style.opacity = '0.8'; };
+  closeBtn.onclick = function() {
+    toast.remove();
+  };
+  
+  toast.appendChild(msg);
+  toast.appendChild(closeBtn);
+  document.body.appendChild(toast);
 }
 
 // إضافة المؤشر المرئي للـ handler
@@ -8138,9 +8157,8 @@ syncHandleMessage = function(msg) {
   if (!msg || !msg.topic) return;
   if (msg.tabId === window._syncTabId) return;
   if (Date.now() - (msg.timestamp || 0) > 10000) return;
-  // إظهار المؤشر
+  
   syncShowUpdateIndicator(msg.topic);
-  // تنفيذ المنطق الأصلي
   _origHandleMessage(msg);
 };
 
