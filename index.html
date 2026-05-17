@@ -979,12 +979,16 @@ if (pageId === 'treatment' && !window._treatmentInitialized) {
   if (typeof trinit === 'function') trinit();
 }
 
-  if (pageId === 'vaccination' && !window._vaccinationInitialized) {
+if (pageId === 'vaccination' && !window._vaccinationInitialized) {
     window._vaccinationInitialized = true;
     if (typeof vaccInit === 'function') vaccInit();
   }
-}
 
+  if (pageId === 'vaccinationRequests' && !window._vrInitialized) {
+    window._vrInitialized = true;
+    if (typeof vr_loadData === 'function') vr_loadData();
+  }
+}
 function lockNav() {
   window._isLoggedIn = false;
   document.querySelectorAll("nav button").forEach(function(btn) {
@@ -6975,42 +6979,8 @@ async function globalRefreshPhoneLists() {
     console.warn("خطأ في تحديث قوائم الهاتف:", err);
   }
 }
-    datalistIds.forEach(function(id) {
-      var dl = document.getElementById(id);
-      if (!dl) return;
-      dl.innerHTML = "";
-      phones.sort().forEach(function(v) {
-        var o = document.createElement("option");
-        o.value = v;
-        dl.appendChild(o);
-      });
-    });
-    
-    showToast("✅ تم تحديث قوائم الهاتف", "success");
-  } catch(err) {
-    console.warn("خطأ في تحديث قوائم الهاتف:", err);
-  }
-}
 
-    function fillDatalist(id, arr) {
-      var dl = document.getElementById(id);
-      if (!dl) return;
-      dl.innerHTML = "";
-      (arr || []).sort().forEach(function(v) {
-        var o = document.createElement("option");
-        o.value = v;
-        dl.appendChild(o);
-      });
-    }
-
-    if (results[0].success) fillDatalist("bd_phoneList",  results[0].data);
-    if (results[1].success) fillDatalist("tr_phoneList",  results[1].data);
-    if (results[2].success) fillDatalist("vacc_phoneList", results[2].data);
-    if (results[3].success) fillDatalist("phoneList",     results[3].data);
-  } catch(err) {
-    console.warn("خطأ في تحديث قوائم الهاتف:", err);
-  }
-}
+function resetAppearance() {
   
 function resetAppearance() {
 ['app_bg','app_txt','app_fs','app_nav','app_card'].forEach(function(k){localStorage.removeItem(k);});
