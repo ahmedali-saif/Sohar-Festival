@@ -7773,407 +7773,267 @@ function permRevoke() {
 })();
 
 
-/**
- * =====================================================================
- * نظام تزامن البيانات بين التبويبات  v1.0
- * يُضاف قبل </body> مباشرةً في الملف الأصلي
- * =====================================================================
- *
- * كيف يعمل:
- *  1. عند أي عملية حفظ/تحديث/حذف → يُرسل رسالة broadcast
- *  2. التبويبات الأخرى تستقبل الرسالة → تُحدّث فقط البيانات المعنية
- *  3. fallback عبر localStorage للمتصفحات القديمة
- *  4. throttling: لا يتم إعادة التحديث أكثر من مرة كل 3 ثوانٍ لنفس الموضوع
- *
- * لإضافة النظام للملف الأصلي: انسخ هذا الكود كاملاً وألصقه قبل </body>
- * =====================================================================
- */
 "use strict";
 
-// ─────────────────────────────────────────────────────────────────────
-// ١. إعداد القناة
-// ─────────────────────────────────────────────────────────────────────
-var SYNC_CHANNEL_NAME = "vetclinic_sync";
-var SYNC_LS_KEY       = "vetclinic_sync_event";
+// ─────────────────────────────────────────────────────
+// نظام المزامنة بين الأجهزة v3.0
+// يعتمد على Polling للـ Google Apps Script
+// ─────────────────────────────────────────────────────
 
-var syncChannel = null;
-try {
-  syncChannel = new BroadcastChannel(SYNC_CHANNEL_NAME);
-} catch (e) {
-  console.warn("[SYNC] BroadcastChannel غير مدعوم، سيُستخدم localStorage");
-}
+var REMOTE_SYNC_URL = "https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec";
+var REMOTE_SYNC_INTERVAL = 15000; // كل 15 ثانية
+var REMOTE_SYNC_LAST_TS  = Date.now(); // نتتبع آخر وقت تحديث
+var remoteSyncTimer = null;
 
-// ─────────────────────────────────────────────────────────────────────
-// ٢. تعريف الأحداث وربطها بدوال التحديث
-// ─────────────────────────────────────────────────────────────────────
-/**
- * خريطة: نوع الحدث → دوال التحديث المقابلة
- * أضف أي حدث جديد هنا دون تعديل بقية الكود
- */
-var SYNC_HANDLERS = {
-  "treatment": function() {
-    // تحديث الجدول اليومي في صفحة العلاج
-    if (typeof trloadData === "function" && !document.hidden) {
-      trloadData();
-    }
-    // تحديث عداد الحالات غير المكتملة
-    if (typeof trloadIncompleteCount === "function") {
-      trloadIncompleteCount();
-    }
-  },
+// معرّف فريد لكل جهاز/تبويبة (لتجنب تطبيق التحديث على مُرسِله)
+window._syncTabId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
-  "breeder": function() {
-    // تحديث القوائم المنسدلة في جميع الصفحات
-    if (typeof bd_refreshDropdowns === "function" && !document.hidden) {
-      bd_refreshDropdowns();
-    }
-    if (typeof globalRefreshPhoneLists === "function") {
-      globalRefreshPhoneLists();
-    }
-  },
-
-  "vaccination": function() {
-    // لا يوجد جدول محلي يحتاج تحديث فوري في التحصين
-    // لكن تحديث قوائم الهواتف مفيد
-    if (typeof globalRefreshPhoneLists === "function") {
-      globalRefreshPhoneLists();
-    }
-  },
-
-  "samples": function() {
-    // تحديث عداد المستفيدين وآخر رقم عينة
-    if (typeof foloadUniqueCount === "function" && !document.hidden) {
-      foloadUniqueCount();
-    }
-    // تحديث نتائج البحث إذا كانت البطاقة مفتوحة
-    var searchCard = document.getElementById("searchResultsCard");
-    if (searchCard && searchCard.classList.contains("show")) {
-      if (typeof foperformSamplesSearch === "function") {
-        foperformSamplesSearch(true);
-      }
-    }
-  },
-
-  "financial": function() {
-    if (typeof fin_loadFinancialData === "function" && !document.hidden) {
-      fin_loadFinancialData();
-    }
-    if (typeof dim_loadData === "function" && !document.hidden) {
-      dim_loadData();
-    }
-  },
-
-  "reports": function() {
-    if (typeof rpt_refreshData === "function" && !document.hidden) {
-      rpt_refreshData();
-    }
-  }
-};
-
-// ─────────────────────────────────────────────────────────────────────
-// ٣. Throttle — منع التحديثات المتكررة
-// ─────────────────────────────────────────────────────────────────────
-var syncThrottleMap = {};
-var SYNC_THROTTLE_MS = 3000; // 3 ثوانٍ بين كل تحديث لنفس الموضوع
-
-function syncIsThrottled(topic) {
-  var now = Date.now();
-  var last = syncThrottleMap[topic] || 0;
-  if (now - last < SYNC_THROTTLE_MS) return true;
-  syncThrottleMap[topic] = now;
-  return false;
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// ٤. إرسال حدث التزامن (يُستدعى بعد أي عملية ناجحة)
-// ─────────────────────────────────────────────────────────────────────
-/**
- * @param {string} topic  - نوع البيانات: "treatment" | "breeder" | "vaccination" | "samples" | "financial" | "reports"
- * @param {string} action - العملية: "save" | "update" | "delete"
- * @param {*}      data   - بيانات إضافية اختيارية (للتتبع فقط)
- */
-window.syncBroadcast = function(topic, action, data) {
-  var msg = {
-    topic:     topic,
-    action:    action,
-    data:      data || null,
-    timestamp: Date.now(),
-    tabId:     window._syncTabId
-  };
-
-  // BroadcastChannel (الطريقة الرئيسية)
-  if (syncChannel) {
-    try { syncChannel.postMessage(msg); } catch(e) {}
-  }
-
-  // localStorage fallback
+// ─────────────────────────────────────────────────────
+// ١. إرسال حدث التغيير للـ API (بعد أي حفظ/تحديث/حذف)
+// ─────────────────────────────────────────────────────
+window.syncBroadcast = async function(topic, action, data) {
   try {
-    localStorage.setItem(SYNC_LS_KEY, JSON.stringify(msg));
-    // حذف فوري حتى يُطلق حدث storage في كل مرة
-    setTimeout(function() {
-      localStorage.removeItem(SYNC_LS_KEY);
-    }, 100);
+    var body = JSON.stringify({
+      action: "syncNotify",
+      topic:  topic,
+      op:     action,
+      tabId:  window._syncTabId,
+      ts:     Date.now()
+    });
+    await fetch(REMOTE_SYNC_URL, {
+      method: "POST", mode: "cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: body, redirect: "follow"
+    });
+  } catch(e) {
+    // صامت — لا يعطّل العمل الأساسي
+  }
+
+  // مزامنة المتصفح الحالي أيضاً (للتبويبات المتعددة)
+  try {
+    if (window._localSyncChannel) {
+      window._localSyncChannel.postMessage({ topic: topic, action: action, tabId: window._syncTabId, ts: Date.now() });
+    }
   } catch(e) {}
 };
 
-// ─────────────────────────────────────────────────────────────────────
-// ٥. استقبال أحداث التزامن
-// ─────────────────────────────────────────────────────────────────────
-function syncHandleMessage(msg) {
-  if (!msg || !msg.topic) return;
-
-  // تجاهل رسائل التبويب الحالي (هو من أرسلها)
-  if (msg.tabId === window._syncTabId) return;
-
-  // تجاهل الرسائل القديمة (أكثر من 10 ثوانٍ)
-  if (Date.now() - (msg.timestamp || 0) > 10000) return;
-
-  // Throttle
-  if (syncIsThrottled(msg.topic)) return;
-
-  console.log("[SYNC] ← استقبل:", msg.topic, msg.action);
-
-  var handler = SYNC_HANDLERS[msg.topic];
-  if (typeof handler === "function") {
-    // تأخير بسيط حتى لا يتعارض مع عمليات جارية
-    setTimeout(function() {
-      try { handler(msg); } catch(e) {
-        console.warn("[SYNC] خطأ في handler:", msg.topic, e);
-      }
-    }, 300);
-  }
-}
-
-// استقبال عبر BroadcastChannel
-if (syncChannel) {
-  syncChannel.onmessage = function(e) {
-    syncHandleMessage(e.data);
-  };
-}
-
-// استقبال عبر localStorage (fallback)
-window.addEventListener("storage", function(e) {
-  if (e.key !== SYNC_LS_KEY || !e.newValue) return;
+// ─────────────────────────────────────────────────────
+// ٢. استطلاع الـ API (Polling)
+// ─────────────────────────────────────────────────────
+async function remoteSyncPoll() {
+  if (!window._isLoggedIn) return;
   try {
-    var msg = JSON.parse(e.newValue);
-    syncHandleMessage(msg);
-  } catch(e2) {}
-});
+    var body = JSON.stringify({
+      action: "syncGetEvents",
+      since:  REMOTE_SYNC_LAST_TS,
+      tabId:  window._syncTabId
+    });
+    var r = await fetch(REMOTE_SYNC_URL, {
+      method: "POST", mode: "cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: body, redirect: "follow"
+    });
+    if (!r.ok) return;
+    var res = await r.json();
 
-// ─────────────────────────────────────────────────────────────────────
-// ٦. معرّف فريد لكل تبويبة
-// ─────────────────────────────────────────────────────────────────────
-window._syncTabId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    if (res.events && res.events.length > 0) {
+      // حدّث الطابع الزمني
+      REMOTE_SYNC_LAST_TS = Date.now();
 
-// ─────────────────────────────────────────────────────────────────────
-// ٧. الربط التلقائي مع دوال الحفظ/التحديث/الحذف الموجودة
-//    يعمل عبر تغليف (wrapping) الدوال بعد تحميل الصفحة
-// ─────────────────────────────────────────────────────────────────────
-function syncWrapApiCalls() {
-
-  // ── أ. سجل العلاج ──────────────────────────────────────────────
-  function wrapTreatment(fnName, topic, action) {
-    if (!window[fnName] || window[fnName]._syncWrapped) return;
-    var _orig = window[fnName];
-    window[fnName] = async function() {
-      var result = await _orig.apply(this, arguments);
-      syncBroadcast(topic, action);
-      return result;
-    };
-    window[fnName]._syncWrapped = true;
-  }
-
-  // نغلف دوال النتائج الناجحة فقط
-  // (الدوال تُظهر Toast عند النجاح، نعترض ذلك)
-  var _origTrSave = window.trsaveData;
-  if (_origTrSave && !_origTrSave._syncWrapped) {
-    window.trsaveData = async function() {
-      await _origTrSave.apply(this, arguments);
-      // لا يمكن معرفة النجاح مباشرة، نعتمد على Toast
-    };
-    window.trsaveData._syncWrapped = true;
-  }
-
-  // ── ب. الطريقة الأفضل: اعتراض trcallApi ──────────────────────
-  if (window.trcallApi && !window.trcallApi._syncWrapped) {
-    var _origTrCall = window.trcallApi;
-    window.trcallApi = async function(action, payload) {
-      var res = await _origTrCall.apply(this, arguments);
-      if (res && res.success) {
-        if (["trsaveData","trupdateData","trdeleteData",
-             "trsaveTempData","trupdateTempData"].indexOf(action) !== -1) {
-          syncBroadcast("treatment", action);
+      // جمّع المواضيع الفريدة فقط (لتجنب تحديثات مكررة)
+      var topics = {};
+      res.events.forEach(function(ev) {
+        if (ev.tabId !== window._syncTabId) {
+          topics[ev.topic] = ev.op;
         }
-        if (["bd_saveData","bd_updateData","bd_deleteData",
-             "bd_saveVaccinationData","bd_updateVaccinationData",
-             "bd_deleteVaccinationData"].indexOf(action) !== -1) {
-          syncBroadcast("breeder", action);
-        }
-      }
-      return res;
-    };
-    window.trcallApi._syncWrapped = true;
-  }
+      });
 
-  // ── ج. vaccCallApi ─────────────────────────────────────────────
-  if (window.vaccCallApi && !window.vaccCallApi._syncWrapped) {
-    var _origVacc = window.vaccCallApi;
-    window.vaccCallApi = async function(action, payload) {
-      var res = await _origVacc.apply(this, arguments);
-      if (res && res.success) {
-        if (["saveData","updateData","deleteData"].indexOf(action) !== -1) {
-          syncBroadcast("vaccination", action);
-        }
-      }
-      return res;
-    };
-    window.vaccCallApi._syncWrapped = true;
-  }
-
-  // ── د. bd_callApi ──────────────────────────────────────────────
-  if (window.bd_callApi && !window.bd_callApi._syncWrapped) {
-    var _origBd = window.bd_callApi;
-    window.bd_callApi = async function(action, payload) {
-      var res = await _origBd.apply(this, arguments);
-      if (res && res.success) {
-        if (["bd_saveData","bd_updateData","bd_deleteData",
-             "bd_saveVaccinationData","bd_updateVaccinationData",
-             "bd_deleteVaccinationData",
-             "bd_updatePossessionInTreatment"].indexOf(action) !== -1) {
-          syncBroadcast("breeder", action);
-        }
-      }
-      return res;
-    };
-    window.bd_callApi._syncWrapped = true;
-  }
-
-  // ── هـ. focallApi (العينات) ────────────────────────────────────
-  if (window.focallApi && !window.focallApi._syncWrapped) {
-    var _origFo = window.focallApi;
-    window.focallApi = async function(action, payload) {
-      var res = await _origFo.apply(this, arguments);
-      if (res && res.success) {
-        if (["fosaveData","foupdateData","fodeleteData"].indexOf(action) !== -1) {
-          syncBroadcast("samples", action);
-        }
-      }
-      return res;
-    };
-    window.focallApi._syncWrapped = true;
-  }
-
-  // ── و. fin_callApi (الجرد المالي) ─────────────────────────────
-  if (window.fin_callApi && !window.fin_callApi._syncWrapped) {
-    var _origFin = window.fin_callApi;
-    window.fin_callApi = async function(action, payload) {
-      var res = await _origFin.apply(this, arguments);
-      if (res && res.success) {
-        syncBroadcast("financial", action);
-      }
-      return res;
-    };
-    window.fin_callApi._syncWrapped = true;
-  }
-
-  // ── ز. dim_callApi (الأدوية المصروفة) ─────────────────────────
-  if (window.dim_callApi && !window.dim_callApi._syncWrapped) {
-    var _origDim = window.dim_callApi;
-    window.dim_callApi = async function(action, payload) {
-      var res = await _origDim.apply(this, arguments);
-      if (res && res.success) {
-        syncBroadcast("financial", action);
-      }
-      return res;
-    };
-    window.dim_callApi._syncWrapped = true;
-  }
-
-  console.log("[SYNC] ✅ تم ربط دوال API");
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// ٨. تشغيل الربط بعد تحميل الصفحة
-//    نُعيد المحاولة لأن بعض الدوال تُعرَّف بعد DOMContentLoaded
-// ─────────────────────────────────────────────────────────────────────
-var syncWrapAttempts = 0;
-function syncTryWrap() {
-  syncWrapAttempts++;
-  syncWrapApiCalls();
-  // أعد المحاولة حتى 3 مرات للتأكد من التقاط جميع الدوال
-  if (syncWrapAttempts < 3) {
-    setTimeout(syncTryWrap, 3000);
+      // طبّق التحديثات
+      Object.keys(topics).forEach(function(topic) {
+        remoteSyncApply(topic, topics[topic]);
+        remoteSyncShowToast(topic);
+      });
+    }
+  } catch(e) {
+    // صامت
   }
 }
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", function() {
-    setTimeout(syncTryWrap, 1000);
-  });
-} else {
-  setTimeout(syncTryWrap, 1000);
+// ─────────────────────────────────────────────────────
+// ٣. تطبيق التحديث المناسب لكل موضوع
+// ─────────────────────────────────────────────────────
+function remoteSyncApply(topic, action) {
+  var handlers = {
+    "treatment": function() {
+      if (typeof trloadData === "function") trloadData();
+      if (typeof trloadIncompleteCount === "function") trloadIncompleteCount();
+    },
+    "breeder": function() {
+      if (typeof bd_refreshDropdowns === "function") bd_refreshDropdowns();
+      if (typeof globalRefreshPhoneLists === "function") globalRefreshPhoneLists();
+    },
+    "vaccination": function() {
+      if (typeof globalRefreshPhoneLists === "function") globalRefreshPhoneLists();
+    },
+    "samples": function() {
+      if (typeof foloadUniqueCount === "function") foloadUniqueCount();
+      var sc = document.getElementById("searchResultsCard");
+      if (sc && sc.classList.contains("show") && typeof foperformSamplesSearch === "function") {
+        foperformSamplesSearch(true);
+      }
+    },
+    "financial": function() {
+      if (typeof fin_loadFinancialData === "function") fin_loadFinancialData();
+      if (typeof dim_loadData === "function") dim_loadData();
+    }
+  };
+
+  var fn = handlers[topic];
+  if (typeof fn === "function") {
+    setTimeout(fn, 300);
+  }
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// ٩. مؤشر مرئي عند استقبال تحديث (اختياري — يمكن حذفه)
-// ─────────────────────────────────────────────────────────────────────
-function syncShowUpdateIndicator(topic) {
+// ─────────────────────────────────────────────────────
+// ٤. إشعار مرئي عند استقبال تحديث من جهاز آخر
+// ─────────────────────────────────────────────────────
+function remoteSyncShowToast(topic) {
   var labels = {
-    treatment:  "سجل العلاج",
-    breeder:    "سجل المربي",
-    vaccination:"سجل التحصين",
-    samples:    "العينات",
-    financial:  "الجرد المالي",
-    reports:    "التقرير"
+    treatment: "سجل العلاج", breeder: "سجل المربي",
+    vaccination: "التحصين", samples: "العينات",
+    financial: "الجرد المالي"
   };
   var label = labels[topic] || topic;
-  
-  // إنشاء عنصر Toast مخصص مع زر إغلاق فقط
-  var toast = document.createElement('div');
-  toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#17a2b8;color:#fff;padding:12px 20px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;display:flex;align-items:center;gap:15px;font-family:system-ui;font-size:14px;direction:rtl;';
-  
-  // نص الرسالة
-  var msg = document.createElement('span');
-  msg.textContent = '🔄 تم تحديث ' + label + ' من تبويبة أخرى';
-  
-  // زر الإغلاق فقط
-  var closeBtn = document.createElement('button');
-  closeBtn.textContent = '×';
-  closeBtn.style.cssText = 'background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 4px;line-height:1;opacity:0.8;';
-  closeBtn.onmouseover = function() { this.style.opacity = '1'; };
-  closeBtn.onmouseout = function() { this.style.opacity = '0.8'; };
-  closeBtn.onclick = function() {
-    toast.remove();
-    clearTimeout(autoClose);
-  };
-  
-  toast.appendChild(msg);
-  toast.appendChild(closeBtn);
+
+  var toast = document.createElement("div");
+  Object.assign(toast.style, {
+    position: "fixed", bottom: "60px", left: "50%",
+    transform: "translateX(-50%)",
+    background: "#0097a7", color: "#fff",
+    padding: "10px 20px", borderRadius: "20px",
+    fontFamily: "Tahoma,Arial", fontSize: "13px",
+    fontWeight: "bold", zIndex: "99999",
+    boxShadow: "0 4px 12px rgba(0,0,0,.25)",
+    direction: "rtl", whiteSpace: "nowrap",
+    transition: "opacity .3s", opacity: "0"
+  });
+  toast.textContent = "🔄 تم تحديث " + label + " من جهاز آخر";
   document.body.appendChild(toast);
-  
-  // إغلاق تلقائي بعد 5 ثوانٍ
-  var autoClose = setTimeout(function() {
-    if (toast.parentNode) toast.remove();
-  }, 6000);
+
+  requestAnimationFrame(function() { toast.style.opacity = "1"; });
+  setTimeout(function() {
+    toast.style.opacity = "0";
+    setTimeout(function() { if (toast.parentNode) toast.remove(); }, 300);
+  }, 4000);
 }
 
-// إضافة المؤشر المرئي للـ handler
-var _origHandleMessage = syncHandleMessage;
-syncHandleMessage = function(msg) {
-  if (!msg || !msg.topic) return;
-  if (msg.tabId === window._syncTabId) return;
-  if (Date.now() - (msg.timestamp || 0) > 10000) return;
-  
-  syncShowUpdateIndicator(msg.topic);
-  _origHandleMessage(msg);
-};
+// ─────────────────────────────────────────────────────
+// ٥. تشغيل/إيقاف الـ Polling مع تسجيل الدخول/الخروج
+// ─────────────────────────────────────────────────────
+function remoteSyncStart() {
+  if (remoteSyncTimer) return;
+  REMOTE_SYNC_LAST_TS = Date.now();
+  remoteSyncTimer = setInterval(remoteSyncPoll, REMOTE_SYNC_INTERVAL);
+  console.log("[SYNC] ✅ مزامنة بين الأجهزة نشطة (كل", REMOTE_SYNC_INTERVAL/1000, "ث)");
+}
 
-// إعادة ربط المستقبلات بالدالة الجديدة
-if (syncChannel) {
-  syncChannel.onmessage = function(e) {
-    syncHandleMessage(e.data);
+function remoteSyncStop() {
+  if (remoteSyncTimer) { clearInterval(remoteSyncTimer); remoteSyncTimer = null; }
+}
+
+// ربط مع تسجيل الدخول/الخروج
+(function() {
+  function patchNav() {
+    if (typeof window.unlockNav !== "function") return setTimeout(patchNav, 100);
+    if (window.unlockNav._rsPatch) return;
+    var _u = window.unlockNav;
+    window.unlockNav = function() { _u.apply(this, arguments); remoteSyncStart(); };
+    window.unlockNav._rsPatch = true;
+
+    if (typeof window.lockNav === "function") {
+      var _l = window.lockNav;
+      window.lockNav = function() { _l.apply(this, arguments); remoteSyncStop(); };
+    }
+  }
+  patchNav();
+})();
+
+// ─────────────────────────────────────────────────────
+// ٦. مزامنة محلية (نفس الجهاز/متصفح) — BroadcastChannel
+// ─────────────────────────────────────────────────────
+try {
+  window._localSyncChannel = new BroadcastChannel("vetclinic_local");
+  window._localSyncChannel.onmessage = function(e) {
+    var msg = e.data;
+    if (!msg || msg.tabId === window._syncTabId) return;
+    remoteSyncApply(msg.topic, msg.action);
+    remoteSyncShowToast(msg.topic);
   };
+} catch(e) {}
+
+// ─────────────────────────────────────────────────────
+// ٧. ربط API calls الموجودة (نفس منطق الكود الأصلي)
+// ─────────────────────────────────────────────────────
+function syncWrapApiCalls() {
+  // trcallApi
+  if (window.trcallApi && !window.trcallApi._sw) {
+    var _t = window.trcallApi;
+    window.trcallApi = async function(action, payload) {
+      var res = await _t.apply(this, arguments);
+      if (res && res.success) {
+        if (["trsaveData","trupdateData","trdeleteData","trsaveTempData","trupdateTempData"].indexOf(action) !== -1)
+          syncBroadcast("treatment", action);
+        if (["bd_saveData","bd_updateData","bd_deleteData","bd_saveVaccinationData","bd_updateVaccinationData","bd_deleteVaccinationData"].indexOf(action) !== -1)
+          syncBroadcast("breeder", action);
+      }
+      return res;
+    };
+    window.trcallApi._sw = true;
+  }
+
+  // vaccCallApi
+  if (window.vaccCallApi && !window.vaccCallApi._sw) {
+    var _v = window.vaccCallApi;
+    window.vaccCallApi = async function(action, payload) {
+      var res = await _v.apply(this, arguments);
+      if (res && res.success && ["saveData","updateData","deleteData"].indexOf(action) !== -1)
+        syncBroadcast("vaccination", action);
+      return res;
+    };
+    window.vaccCallApi._sw = true;
+  }
+
+  // bd_callApi
+  if (window.bd_callApi && !window.bd_callApi._sw) {
+    var _b = window.bd_callApi;
+    window.bd_callApi = async function(action, payload) {
+      var res = await _b.apply(this, arguments);
+      if (res && res.success && ["bd_saveData","bd_updateData","bd_deleteData","bd_saveVaccinationData","bd_updateVaccinationData","bd_deleteVaccinationData","bd_updatePossessionInTreatment"].indexOf(action) !== -1)
+        syncBroadcast("breeder", action);
+      return res;
+    };
+    window.bd_callApi._sw = true;
+  }
+
+  // focallApi
+  if (window.focallApi && !window.focallApi._sw) {
+    var _f = window.focallApi;
+    window.focallApi = async function(action, payload) {
+      var res = await _f.apply(this, arguments);
+      if (res && res.success && ["fosaveData","foupdateData","fodeleteData"].indexOf(action) !== -1)
+        syncBroadcast("samples", action);
+      return res;
+    };
+    window.focallApi._sw = true;
+  }
 }
+
+var _wrapAttempts = 0;
+function tryWrap() {
+  syncWrapApiCalls();
+  if (++_wrapAttempts < 3) setTimeout(tryWrap, 3000);
+}
+setTimeout(tryWrap, 1000);
   
 </script>
 
