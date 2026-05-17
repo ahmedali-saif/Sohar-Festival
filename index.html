@@ -6948,12 +6948,35 @@ function saveAppearance() {
   // ===== تحديث قوائم الهاتف في جميع الصفحات =====
 async function globalRefreshPhoneLists() {
   try {
-    var results = await Promise.all([
-      bd_callApi("bd_getPhoneNumbers"),
-      trcallApi("trgetPhoneNumbers"),
-      vaccCallApi("getPhoneNumbers"),
-      focallApi("fogetPhoneNumbers")
-    ]);
+    // جلب أرقام الهواتف من مصدر واحد موثوق (سجل المربي)
+    var res = await bd_callApi("bd_getPhoneNumbers");
+    if (!res.success || !res.data) return;
+    
+    var phones = res.data;
+    
+    var datalistIds = [
+      "bd_phoneList",
+      "tr_phoneList", 
+      "vacc_phoneList",
+      "phoneList"
+    ];
+    
+    datalistIds.forEach(function(id) {
+      var dl = document.getElementById(id);
+      if (!dl) return;
+      dl.innerHTML = "";
+      phones.sort().forEach(function(v) {
+        var o = document.createElement("option");
+        o.value = v;
+        dl.appendChild(o);
+      });
+    });
+    
+    showToast("✅ تم تحديث قوائم الهاتف", "success");
+  } catch(err) {
+    console.warn("خطأ في تحديث قوائم الهاتف:", err);
+  }
+}
 
     function fillDatalist(id, arr) {
       var dl = document.getElementById(id);
