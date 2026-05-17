@@ -7510,17 +7510,23 @@ function permAutoFill(userName) {
       window.trcollectFormData._permWrapped = true;
     }
 
-    // --- vaccination ---
-    if (window.vaccCollectFormData && !window.vaccCollectFormData._permWrapped) {
-      var _origV = window.vaccCollectFormData;
-      window.vaccCollectFormData = function() {
-        var data = _origV.apply(this, arguments);
-        data.dataEntry   = userName;
-        data.dataUpdater = userName;
-        return data;
-      };
-      window.vaccCollectFormData._permWrapped = true;
+// --- vaccination ---
+if (window.vaccCollectFormData && !window.vaccCollectFormData._permWrapped) {
+  var _origV = window.vaccCollectFormData;
+  window.vaccCollectFormData = function() {
+    var data = _origV.apply(this, arguments);
+    if (data.caseNumber && data.caseNumber.trim() !== '') {
+      // وضع تحديث — مدخل التحديث فقط
+      data.dataUpdater = userName;
+    } else {
+      // وضع حفظ جديد — مدخل البيانات فقط
+      data.dataEntry = userName;
+      data.dataUpdater = '';
     }
+    return data;
+  };
+  window.vaccCollectFormData._permWrapped = true;
+}
 
     // --- samples ---
     if (window.focollectFormData && !window.focollectFormData._permWrapped) {
