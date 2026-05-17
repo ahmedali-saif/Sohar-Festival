@@ -4432,20 +4432,37 @@ function vaccClearForm() {
 }
 
 function vaccCollectFormData() {
+  var caseNumber = vaccGetValue('vacc_caseNumber');
+  var isUpdate = caseNumber && caseNumber.trim() !== '';
+  
   return {
-    caseNumber:vaccGetValue('vacc_caseNumber'), phone:vaccGetValue('vacc_phoneInput'),
-    name:vaccGetValue('vacc_nameInput'), possession:"'"+vaccGetValue('vacc_possessionInput'),
-    region:vaccGetValue('vacc_regionInput'), civil:vaccGetValue('vacc_civilInput'),
-    intox_sheep:vaccGetValue('vacc_intox_sheep'), intox_goat:vaccGetValue('vacc_intox_goat'),
-    pock_sheep:vaccGetValue('vacc_pock_sheep'), pock_goat:vaccGetValue('vacc_pock_goat'),
-    fmd_sheep:vaccGetValue('vacc_fmd_sheep'), fmd_goat:vaccGetValue('vacc_fmd_goat'),
-    fmd_cow:vaccGetValue('vacc_fmd_cow'), lumpy_cow:vaccGetValue('vacc_lumpy_cow'),
-    lumpy_sheep:vaccGetValue('vacc_lumpy_sheep'), lumpy_goat:vaccGetValue('vacc_lumpy_goat'),
-    lumpy_camel:vaccGetValue('vacc_lumpy_camel'), rabies_sheep:vaccGetValue('vacc_rabies_sheep'),
-    rabies_goat:vaccGetValue('vacc_rabies_goat'), rabies_cow:vaccGetValue('vacc_rabies_cow'),
-    rabies_camel:vaccGetValue('vacc_rabies_camel'), rabies_horse:vaccGetValue('vacc_rabies_horse'),
-    notes:vaccGetValue('vacc_notes'),dataEntry: isUpdate ? '' : vaccGetValue('vacc_dataEntryInput'),
-    dataUpdater: isUpdate ? vaccGetValue('vacc_dataUpdaterInput'), financialDate:vaccGetValue('vacc_financialDate')
+    caseNumber: caseNumber,
+    phone: vaccGetValue('vacc_phoneInput'),
+    name: vaccGetValue('vacc_nameInput'),
+    possession: "'" + vaccGetValue('vacc_possessionInput'),
+    region: vaccGetValue('vacc_regionInput'),
+    civil: vaccGetValue('vacc_civilInput'),
+    intox_sheep: vaccGetValue('vacc_intox_sheep'),
+    intox_goat: vaccGetValue('vacc_intox_goat'),
+    pock_sheep: vaccGetValue('vacc_pock_sheep'),
+    pock_goat: vaccGetValue('vacc_pock_goat'),
+    fmd_sheep: vaccGetValue('vacc_fmd_sheep'),
+    fmd_goat: vaccGetValue('vacc_fmd_goat'),
+    fmd_cow: vaccGetValue('vacc_fmd_cow'),
+    lumpy_cow: vaccGetValue('vacc_lumpy_cow'),
+    lumpy_sheep: vaccGetValue('vacc_lumpy_sheep'),
+    lumpy_goat: vaccGetValue('vacc_lumpy_goat'),
+    lumpy_camel: vaccGetValue('vacc_lumpy_camel'),
+    rabies_sheep: vaccGetValue('vacc_rabies_sheep'),
+    rabies_goat: vaccGetValue('vacc_rabies_goat'),
+    rabies_cow: vaccGetValue('vacc_rabies_cow'),
+    rabies_camel: vaccGetValue('vacc_rabies_camel'),
+    rabies_horse: vaccGetValue('vacc_rabies_horse'),
+    notes: vaccGetValue('vacc_notes'),
+    financialDate: vaccGetValue('vacc_financialDate'),
+    // الفرق هنا
+    dataEntry: isUpdate ? '' : vaccGetValue('vacc_dataEntryInput'),
+    dataUpdater: isUpdate ? vaccGetValue('vacc_dataUpdaterInput') : ''
   };
 }
 
