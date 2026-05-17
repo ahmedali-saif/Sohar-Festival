@@ -3858,7 +3858,7 @@ async function bd_saveData() {
   try{
     var res=await bd_callApi("bd_saveData",{data:data});
 if(res.success){bd_showMessage("تم الحفظ بنجاح",false);bd_clearForm();bd_refreshDropdowns();if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists();}
-\else bd_showMessage(res.message,true);
+else bd_showMessage(res.message,true);
   }catch(err){bd_showMessage("خطأ: "+err.message,true);}
   finally{btn.disabled=false;}
 }
@@ -6979,9 +6979,7 @@ async function globalRefreshPhoneLists() {
     console.warn("خطأ في تحديث قوائم الهاتف:", err);
   }
 }
-
-function resetAppearance() {
-  
+ 
 function resetAppearance() {
 ['app_bg','app_txt','app_fs','app_nav','app_card'].forEach(function(k){localStorage.removeItem(k);});
   document.querySelectorAll('.card').forEach(function(c){c.style.background='#f8ffff';});
