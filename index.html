@@ -4444,8 +4444,8 @@ function vaccCollectFormData() {
     lumpy_camel:vaccGetValue('vacc_lumpy_camel'), rabies_sheep:vaccGetValue('vacc_rabies_sheep'),
     rabies_goat:vaccGetValue('vacc_rabies_goat'), rabies_cow:vaccGetValue('vacc_rabies_cow'),
     rabies_camel:vaccGetValue('vacc_rabies_camel'), rabies_horse:vaccGetValue('vacc_rabies_horse'),
-    notes:vaccGetValue('vacc_notes'), dataEntry:vaccGetValue('vacc_dataEntryInput'),
-    dataUpdater:vaccGetValue('vacc_dataUpdaterInput'), financialDate:vaccGetValue('vacc_financialDate')
+    notes:vaccGetValue('vacc_notes'),dataEntry: isUpdate ? '' : vaccGetValue('vacc_dataEntryInput'),
+    dataUpdater: isUpdate ? vaccGetValue('vacc_dataUpdaterInput'), financialDate:vaccGetValue('vacc_financialDate')
   };
 }
 
