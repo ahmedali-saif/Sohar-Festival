@@ -6954,7 +6954,27 @@ async function globalRefreshPhoneLists() {
       vaccCallApi("getPhoneNumbers"),
       focallApi("fogetPhoneNumbers")
     ]);
-    
+
+    function fillDatalist(id, arr) {
+      var dl = document.getElementById(id);
+      if (!dl) return;
+      dl.innerHTML = "";
+      (arr || []).sort().forEach(function(v) {
+        var o = document.createElement("option");
+        o.value = v;
+        dl.appendChild(o);
+      });
+    }
+
+    if (results[0].success) fillDatalist("bd_phoneList",   results[0].data);
+    if (results[1].success) fillDatalist("tr_phoneList",   results[1].data);
+    if (results[2].success) fillDatalist("vacc_phoneList", results[2].data);
+    if (results[3].success) fillDatalist("phoneList",      results[3].data);
+
+  } catch(err) {
+    console.warn("خطأ في تحديث قوائم الهاتف:", err);
+  }
+}
     datalistIds.forEach(function(id) {
       var dl = document.getElementById(id);
       if (!dl) return;
