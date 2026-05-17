@@ -7532,19 +7532,18 @@ if (window.vaccCollectFormData && !window.vaccCollectFormData._permWrapped) {
   var _origV = window.vaccCollectFormData;
   window.vaccCollectFormData = function() {
     var data = _origV.apply(this, arguments);
-    if (data.caseNumber && data.caseNumber.trim() !== '') {
-      // وضع تحديث — مدخل التحديث فقط
+    var isUpdate = data.caseNumber && data.caseNumber.trim() !== '';
+    if (isUpdate) {
+      // تحديث — لا تلمس dataEntry، فقط dataUpdater
       data.dataUpdater = userName;
     } else {
-      // وضع حفظ جديد — مدخل البيانات فقط
+      // حفظ جديد — لا تلمس dataUpdater، فقط dataEntry
       data.dataEntry = userName;
-      data.dataUpdater = '';
     }
     return data;
   };
   window.vaccCollectFormData._permWrapped = true;
 }
-
     // --- samples ---
     if (window.focollectFormData && !window.focollectFormData._permWrapped) {
       var _origF = window.focollectFormData;
