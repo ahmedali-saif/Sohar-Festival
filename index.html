@@ -7474,45 +7474,76 @@ function permApplyBtns(allowedActions) {
    ─────────────────────────────────────────────────────────────────────*/
 function permAutoFill(userName) {
   if (!userName) return;
-  var ids = [
-    "tr_dataEntryInput","bd_dataEntryInput",
-    "vacc_dataEntryInput","dataEntryInput",
-    "tr_dataUpdaterInput","bd_dataUpdaterInput",
-    "vacc_dataUpdaterInput","dataUpdaterInput"
-  ];
-  ids.forEach(function(id) {
+
+  var entryIds   = ["tr_dataEntryInput","bd_dataEntryInput","vacc_dataEntryInput","dataEntryInput"];
+  var updaterIds = ["tr_dataUpdaterInput","bd_dataUpdaterInput","vacc_dataUpdaterInput","dataUpdaterInput"];
+  var allIds     = entryIds.concat(updaterIds);
+
+  // تعبئة فورية
+  allIds.forEach(function(id) {
     var el = document.getElementById(id);
     if (el && !el.value) el.value = userName;
   });
 
-  // إعادة التعبئة عند المسح
-  ids.forEach(function(id) {
+  // مراقبة تغيير القيمة عبر MutationObserver (يلتقط التغييرات البرمجية)
+  allIds.forEach(function(id) {
     var el = document.getElementById(id);
     if (!el || el.dataset.permWatched) return;
     el.dataset.permWatched = "1";
+
+    // مراقبة تغيير خاصية value برمجياً
+    var obs = new MutationObserver(function() {
+      if (!el.value) {
+        requestAnimationFrame(function() {
+          if (!el.value) el.value = userName;
+        });
+      }
+    });
+    obs.observe(el, { attributes: true, attributeFilter: ["value"] });
+
+    // مراقبة حدث input (عند الكتابة اليدوية ثم المسح)
     el.addEventListener("input", function() {
       if (!el.value) {
-        setTimeout(function() { if (!el.value) el.value = userName; }, 150);
+        setTimeout(function() { if (!el.value) el.value = userName; }, 200);
       }
     });
   });
-}
 
-// تعبئة محدث البيانات عند نقر أزرار التحديث
-document.addEventListener("click", function(e) {
-  var btn = e.target && e.target.closest ? e.target.closest("button") : null;
-  if (!btn || !btn.id) return;
-  if (btn.id.toLowerCase().indexOf("update") === -1) return;
-  var u = window.PERM.currentUser;
-  if (!u) return;
-  var name = u.name || u.username;
-  ["tr_dataUpdaterInput","bd_dataUpdaterInput",
-   "vacc_dataUpdaterInput","dataUpdaterInput"].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el && !el.value) el.value = name;
+  // اعتراض دوال المسح الأصلية لإعادة التعبئة بعدها
+  var clearFuncs = ["trclearForm","bd_clearForm","vaccClearForm","fochearForm"];
+  clearFuncs.forEach(function(funcName) {
+    if (!window[funcName] || window[funcName]._permWrapped) return;
+    var _orig = window[funcName];
+    window[funcName] = function() {
+      _orig.apply(this, arguments);
+      // إعادة التعبئة بعد اكتمال المسح
+      setTimeout(function() {
+        allIds.forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el && !el.value) el.value = userName;
+        });
+      }, 100);
+    };
+    window[funcName]._permWrapped = true;
   });
-}, true);
 
+  // اعتراض دوال المسح الجزئي أيضاً
+  var partialClearFuncs = ["trclearFormExcept"];
+  partialClearFuncs.forEach(function(funcName) {
+    if (!window[funcName] || window[funcName]._permWrapped) return;
+    var _orig = window[funcName];
+    window[funcName] = function() {
+      _orig.apply(this, arguments);
+      setTimeout(function() {
+        allIds.forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el && !el.value) el.value = userName;
+        });
+      }, 100);
+    };
+    window[funcName]._permWrapped = true;
+  });
+}
 
 /* ─────────────────────────────────────────────────────────────────────
    ١٣. شارة الدور
