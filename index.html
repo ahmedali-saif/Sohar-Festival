@@ -1370,36 +1370,36 @@ function lAlert(elId, icoId, txId, type, msg) {
   }
 
 async function lDoLogin() {
-    const u=document.getElementById('l_username').value.trim();
-    const p=document.getElementById('l_password').value.trim();
-document.getElementById('l_loginErr').style.display='none';
-document.getElementById('l_loginBtn').disabled=true;
+  const u=document.getElementById('l_username').value.trim();
+  const p=document.getElementById('l_password').value.trim();
+  document.getElementById('l_loginErr').style.display='none';
 
-if (!u || !p) {
-  lAlert('l_loginErr','l_loginErrIco','l_loginErrTx','error','الرجاء إدخال اسم المستخدم وكلمة المرور.');
-  document.getElementById('l_loginBtn').disabled=false;
-  return;
-}
-
-// ← هنا الموقع الصحيح لشرط الأوف لاين
-if (!navigator.onLine) {
-  var localLogin = localAuthCheck(u, p);
-  if (localLogin.success) {
-    document.getElementById('l_welcomeName').textContent = 'مرحباً، ' + localLogin.name + '! (وضع غير متصل)';
-    lShow(lViews.welcome);
-    unlockNav();
-    showToast('⚠️ وضع غير متصل — بعض الميزات غير متاحة', 'warning');
-  } else {
-    lAlert('l_loginErr','','l_loginErrTx','error','❌ لا يوجد اتصال ولا توجد بيانات محفوظة مسبقاً.');
-    document.getElementById('l_loginBtn').disabled=false;
+  if (!u || !p) {
+    lAlert('l_loginErr','l_loginErrIco','l_loginErrTx','error','الرجاء إدخال اسم المستخدم وكلمة المرور.');
+    return;
   }
-  return;
-}
 
-document.getElementById('l_lsp').style.display='block';
-document.getElementById('l_lbt').textContent='جارٍ التحقق...';
-document.getElementById('l_lbi').style.display='none';
-    try {
+  if (!navigator.onLine) {
+    var localLogin = localAuthCheck(u, p);
+    if (localLogin.success) {
+      document.getElementById('l_welcomeName').textContent = 'مرحباً، ' + localLogin.name + '! (وضع غير متصل)';
+      lShow(lViews.welcome);
+      unlockNav();
+      showToast('⚠️ وضع غير متصل — بعض الميزات غير متاحة', 'warning');
+    } else {
+      lAlert('l_loginErr','','l_loginErrTx','error','❌ لا يوجد اتصال ولا توجد بيانات محفوظة مسبقاً.');
+    }
+    return;
+  }
+
+  // ← فقط هنا نعطّل الزر (قبل الاتصال بالـ API)
+  document.getElementById('l_loginBtn').disabled=true;
+  document.getElementById('l_lsp').style.display='block';
+  document.getElementById('l_lbt').textContent='جارٍ التحقق...';
+  document.getElementById('l_lbi').style.display='none';
+
+  try {
+    // ... باقي الكود كما هو
       const r=await fetch(CSV_URL);
       if(!r.ok) throw new Error();
       const users=lParseCSV(await r.text());
