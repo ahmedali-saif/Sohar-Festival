@@ -8511,6 +8511,405 @@ setTimeout(tryWrap, 1000);
   console.log('[IDB] ✅ نظام IndexedDB جاهز — DB:', DB_NAME);
 
 })();
+
+
+// ─────────────────────────────────────────────────────
+// تخزين القوائم المنسدلة في IndexedDB — v1.0
+// ─────────────────────────────────────────────────────
+"use strict";
+
+(function() {
+
+  // ── فتح قاعدة بيانات القوائم ─────────────────────
+  var LISTS_DB_NAME    = 'VetClinicListsDB';
+  var LISTS_DB_VERSION = 1;
+  var listsDb = null;
+
+  function listsDbOpen() {
+    return new Promise(function(resolve, reject) {
+      if (listsDb) { resolve(listsDb); return; }
+      var req = indexedDB.open(LISTS_DB_NAME, LISTS_DB_VERSION);
+
+      req.onupgradeneeded = function(e) {
+        var d = e.target.result;
+        if (!d.objectStoreNames.contains('lists')) {
+          d.createObjectStore('lists', { keyPath: 'key' });
+        }
+      };
+
+      req.onsuccess = function(e) { listsDb = e.target.result; resolve(listsDb); };
+      req.onerror   = function(e) { reject(e.target.error); };
+    });
+  }
+
+  function listsSave(key, data) {
+    return listsDbOpen().then(function(d) {
+      return new Promise(function(resolve, reject) {
+        var tx  = d.transaction('lists', 'readwrite');
+        var req = tx.objectStore('lists').put({ key: key, data: data, savedAt: Date.now() });
+        req.onsuccess = function() { resolve(); };
+        req.onerror   = function() { reject(req.error); };
+      });
+    });
+  }
+
+  function listsLoad(key) {
+    return listsDbOpen().then(function(d) {
+      return new Promise(function(resolve, reject) {
+        var tx  = d.transaction('lists', 'readonly');
+        var req = tx.objectStore('lists').get(key);
+        req.onsuccess = function() { resolve(req.result ? req.result.data : null); };
+        req.onerror   = function() { reject(req.error); };
+      });
+    });
+  }
+
+  // ── تعريض API عام ───────────────────────────────────
+  window.ListsCache = { save: listsSave, load: listsLoad };
+
+  // ── دالة مساعدة: ملء datalist من مصفوفة ────────────
+  function fillDatalist(id, arr) {
+    var dl = document.getElementById(id);
+    if (!dl || !arr || !arr.length) return;
+    dl.innerHTML = '';
+    arr.sort().forEach(function(v) {
+      var o = document.createElement('option');
+      o.value = v;
+      dl.appendChild(o);
+    });
+  }
+
+  // ══════════════════════════════════════════════════════
+  // اعتراض dوال تحميل القوائم وحفظها/قراءتها من IDB
+  // ══════════════════════════════════════════════════════
+
+  // ── مفاتيح التخزين ──────────────────────────────────
+  var CACHE_KEYS = {
+    phones:    'list_phones',
+    diseases:  'list_diseases',
+    drugs:     'list_drugs',
+    dataEntry: 'list_dataEntry',
+    regions:   'list_regions',
+    tests:     'list_tests',
+    sampleTypes: 'list_sampleTypes'
+  };
+
+  // ── واجهة التحميل مع Fallback ─────────────────────
+  async function fetchWithFallback(apiFn, action, cacheKey, fallbackDefault) {
+    if (navigator.onLine) {
+      try {
+        var res = await apiFn(action);
+        if (res && res.success && res.data && res.data.length) {
+          await listsSave(cacheKey, res.data);
+          return res.data;
+        }
+      } catch(e) {
+        console.warn('[LISTS] فشل جلب', action, '- سيُستخدم الكاش');
+      }
+    }
+
+    // Offline أو فشل الاتصال — نقرأ من IDB
+    var cached = await listsLoad(cacheKey);
+    if (cached && cached.length) {
+      console.log('[LISTS] تحميل من الكاش:', cacheKey, '(' + cached.length + ' عنصر)');
+      return cached;
+    }
+
+    return fallbackDefault || [];
+  }
+
+  // ══════════════════════════════════════════════════════
+  // 1. سجل العلاج — trloadDropdowns
+  // ══════════════════════════════════════════════════════
+  setTimeout(function() {
+    if (typeof window.trloadDropdowns !== 'function') return;
+    if (window.trloadDropdowns._cached) return;
+
+    var _origTR = window.trloadDropdowns;
+    window.trloadDropdowns = async function() {
+      try {
+        var [phones, diseases, drugs, dataEntry] = await Promise.all([
+          fetchWithFallback(window.trcallApi, 'trgetPhoneNumbers',    CACHE_KEYS.phones,    []),
+          fetchWithFallback(window.trcallApi, 'trgetDiseases',        CACHE_KEYS.diseases,  []),
+          fetchWithFallback(window.trcallApi, 'trgetDrugs',           CACHE_KEYS.drugs,     []),
+          fetchWithFallback(window.trcallApi, 'trgetDataEntryOptions',CACHE_KEYS.dataEntry, [])
+        ]);
+
+        fillDatalist('tr_phoneList',      phones);
+        fillDatalist('tr_diseaseList',    diseases);
+        fillDatalist('tr_drugList',       drugs);
+        fillDatalist('tr_dataEntryList',  dataEntry);
+        fillDatalist('tr_dataUpdaterList',dataEntry);
+
+        if (!navigator.onLine) {
+          showToast('📋 القوائم محملة من الذاكرة المحلية', 'warning');
+        }
+      } catch(e) {
+        console.error('[LISTS] خطأ في trloadDropdowns:', e);
+        if (typeof _origTR === 'function') _origTR();
+      }
+    };
+    window.trloadDropdowns._cached = true;
+
+  }, 9500);
+
+  // ══════════════════════════════════════════════════════
+  // 2. سجل المربي — bd_refreshDropdowns
+  // ══════════════════════════════════════════════════════
+  setTimeout(function() {
+    if (typeof window.bd_refreshDropdowns !== 'function') return;
+    if (window.bd_refreshDropdowns._cached) return;
+
+    var _origBD = window.bd_refreshDropdowns;
+    window.bd_refreshDropdowns = async function() {
+      try {
+        var [phones, dataEntry, regions] = await Promise.all([
+          fetchWithFallback(window.bd_callApi, 'bd_getPhoneNumbers',    CACHE_KEYS.phones,    []),
+          fetchWithFallback(window.bd_callApi, 'bd_getDataEntryOptions',CACHE_KEYS.dataEntry, []),
+          fetchWithFallback(window.bd_callApi, 'bd_getRegionOptions',   CACHE_KEYS.regions,   [])
+        ]);
+
+        fillDatalist('bd_phoneList',      phones);
+        fillDatalist('bd_dataEntryList',  dataEntry);
+        fillDatalist('bd_dataUpdaterList',dataEntry);
+        fillDatalist('bd_regionList',     regions);
+
+        if (!navigator.onLine) {
+          showToast('📋 قوائم المربي محملة من الذاكرة المحلية', 'warning');
+        }
+      } catch(e) {
+        console.error('[LISTS] خطأ في bd_refreshDropdowns:', e);
+        if (typeof _origBD === 'function') _origBD();
+      }
+    };
+    window.bd_refreshDropdowns._cached = true;
+
+  }, 9500);
+
+  // ══════════════════════════════════════════════════════
+  // 3. التحصين — vaccLoadDropdowns
+  // ══════════════════════════════════════════════════════
+  setTimeout(function() {
+    if (typeof window.vaccLoadDropdowns !== 'function') return;
+    if (window.vaccLoadDropdowns._cached) return;
+
+    var _origVACC = window.vaccLoadDropdowns;
+    window.vaccLoadDropdowns = async function() {
+      try {
+        var [phones, dataEntry] = await Promise.all([
+          fetchWithFallback(window.vaccCallApi, 'getPhoneNumbers',    CACHE_KEYS.phones,    []),
+          fetchWithFallback(window.vaccCallApi, 'getDataEntryOptions',CACHE_KEYS.dataEntry, [])
+        ]);
+
+        fillDatalist('vacc_phoneList',      phones);
+        fillDatalist('vacc_dataEntryList',  dataEntry);
+        fillDatalist('vacc_dataUpdaterList',dataEntry);
+
+        if (!navigator.onLine) {
+          showToast('📋 قوائم التحصين محملة من الذاكرة المحلية', 'warning');
+        }
+        return true;
+      } catch(e) {
+        console.error('[LISTS] خطأ في vaccLoadDropdowns:', e);
+        return false;
+      }
+    };
+    window.vaccLoadDropdowns._cached = true;
+
+  }, 9500);
+
+  // ══════════════════════════════════════════════════════
+  // 4. العينات — foloadDropdowns
+  // ══════════════════════════════════════════════════════
+  setTimeout(function() {
+    if (typeof window.foloadDropdowns !== 'function') return;
+    if (window.foloadDropdowns._cached) return;
+
+    var _origFO = window.foloadDropdowns;
+    window.foloadDropdowns = async function() {
+      try {
+        var [phones, dataEntry, tests, sampleTypes] = await Promise.all([
+          fetchWithFallback(window.focallApi, 'fogetPhoneNumbers',    CACHE_KEYS.phones,       []),
+          fetchWithFallback(window.focallApi, 'fogetDataEntryOptions',CACHE_KEYS.dataEntry,    []),
+          fetchWithFallback(window.focallApi, 'fogetTestOptions',     CACHE_KEYS.tests,        []),
+          fetchWithFallback(window.focallApi, 'fogetSampleTypeOptions',CACHE_KEYS.sampleTypes, [])
+        ]);
+
+        fillDatalist('phoneList',      phones);
+        fillDatalist('dataEntryList',  dataEntry);
+        fillDatalist('dataUpdaterList',dataEntry);
+        fillDatalist('testList',       tests);
+        fillDatalist('sampleTypeList', sampleTypes);
+
+        if (!navigator.onLine) {
+          showToast('📋 قوائم العينات محملة من الذاكرة المحلية', 'warning');
+        }
+        return true;
+      } catch(e) {
+        console.error('[LISTS] خطأ في foloadDropdowns:', e);
+        return false;
+      }
+    };
+    window.foloadDropdowns._cached = true;
+
+  }, 9500);
+
+  // ══════════════════════════════════════════════════════
+  // 5. globalRefreshPhoneLists — تحديث جميع قوائم الهاتف
+  // ══════════════════════════════════════════════════════
+  setTimeout(function() {
+    if (typeof window.globalRefreshPhoneLists !== 'function') return;
+    if (window.globalRefreshPhoneLists._cached) return;
+
+    var _origGR = window.globalRefreshPhoneLists;
+    window.globalRefreshPhoneLists = async function() {
+      try {
+        var phones = await fetchWithFallback(
+          window.bd_callApi, 'bd_getPhoneNumbers', CACHE_KEYS.phones, []
+        );
+
+        ['bd_phoneList','tr_phoneList','vacc_phoneList','phoneList'].forEach(function(id) {
+          fillDatalist(id, phones);
+        });
+      } catch(e) {
+        console.warn('[LISTS] خطأ في globalRefreshPhoneLists:', e);
+        if (typeof _origGR === 'function') _origGR();
+      }
+    };
+    window.globalRefreshPhoneLists._cached = true;
+
+  }, 9500);
+
+  // ══════════════════════════════════════════════════════
+  // تحديث الكاش تلقائياً كل 30 دقيقة عند الاتصال
+  // ══════════════════════════════════════════════════════
+  setInterval(async function() {
+    if (!navigator.onLine || !window._isLoggedIn) return;
+
+    try {
+      var fns = [
+        { fn: window.trcallApi,   action: 'trgetPhoneNumbers',      key: CACHE_KEYS.phones    },
+        { fn: window.trcallApi,   action: 'trgetDiseases',           key: CACHE_KEYS.diseases  },
+        { fn: window.trcallApi,   action: 'trgetDrugs',              key: CACHE_KEYS.drugs     },
+        { fn: window.trcallApi,   action: 'trgetDataEntryOptions',   key: CACHE_KEYS.dataEntry },
+        { fn: window.bd_callApi,  action: 'bd_getRegionOptions',     key: CACHE_KEYS.regions   },
+        { fn: window.focallApi,   action: 'fogetTestOptions',        key: CACHE_KEYS.tests     },
+        { fn: window.focallApi,   action: 'fogetSampleTypeOptions',  key: CACHE_KEYS.sampleTypes}
+      ];
+
+      for (var i = 0; i < fns.length; i++) {
+        var cfg = fns[i];
+        if (typeof cfg.fn !== 'function') continue;
+        try {
+          var res = await cfg.fn(cfg.action);
+          if (res && res.success && res.data && res.data.length) {
+            await listsSave(cfg.key, res.data);
+          }
+        } catch(e) { /* تجاهل صامت */ }
+      }
+      console.log('[LISTS] ✅ تم تحديث كاش القوائم');
+    } catch(e) {}
+
+  }, 30 * 60 * 1000);
+
+  // ══════════════════════════════════════════════════════
+  // إضافة زر "حالة الكاش" في صفحة الإعدادات
+  // ══════════════════════════════════════════════════════
+  window.showListsCacheStatus = async function() {
+    var keys = Object.keys(CACHE_KEYS);
+    var rows = '';
+
+    for (var i = 0; i < keys.length; i++) {
+      var k    = keys[i];
+      var data = await listsLoad(CACHE_KEYS[k]);
+      var count = data ? data.length : 0;
+      var badge = count > 0
+        ? '<span style="background:#d4f8d4;color:#1b5e20;border-radius:10px;padding:2px 8px;font-size:11px;">✓ ' + count + ' عنصر</span>'
+        : '<span style="background:#ffcccc;color:#7a0000;border-radius:10px;padding:2px 8px;font-size:11px;">فارغ</span>';
+
+      var arabicName = {
+        phones:'أرقام الهاتف', diseases:'الأمراض', drugs:'الأدوية',
+        dataEntry:'مدخلو البيانات', regions:'المناطق',
+        tests:'الفحوصات', sampleTypes:'أنواع العينات'
+      }[k] || k;
+
+      rows += '<tr><td style="padding:8px 12px;border-bottom:1px solid #eee;">' + arabicName + '</td>'
+            + '<td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;">' + badge + '</td></tr>';
+    }
+
+    var modal = document.createElement('div');
+    Object.assign(modal.style, {
+      position:'fixed', inset:'0', background:'rgba(0,0,0,.5)',
+      display:'flex', alignItems:'center', justifyContent:'center',
+      zIndex:'99999', direction:'rtl', fontFamily:'Tahoma,Arial'
+    });
+    modal.innerHTML =
+      '<div style="background:#fff;border-radius:12px;padding:24px;width:90%;max-width:440px;box-shadow:0 8px 30px rgba(0,0,0,.3);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+          '<strong style="font-size:15px;color:#00b8d9;">📋 حالة كاش القوائم</strong>' +
+          '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="background:#eee;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:16px;">✕</button>' +
+        '</div>' +
+        '<p style="font-size:12px;color:#666;margin:0 0 12px;background:#fff8e1;padding:8px 12px;border-radius:6px;border:1px solid #ffe082;">' +
+          '💡 القوائم المحفوظة تُستخدم تلقائياً عند انقطاع الاتصال' +
+        '</p>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+          '<tbody>' + rows + '</tbody>' +
+        '</table>' +
+        '<div style="display:flex;gap:8px;margin-top:16px;justify-content:center;">' +
+          '<button onclick="refreshAndCloseListsModal(this)" style="background:#2bb673;color:#fff;border:none;border-radius:8px;padding:8px 20px;cursor:pointer;font-family:Tahoma;font-weight:bold;">🔄 تحديث الآن</button>' +
+          '<button onclick="clearListsCache(this)" style="background:#e65050;color:#fff;border:none;border-radius:8px;padding:8px 20px;cursor:pointer;font-family:Tahoma;font-weight:bold;">🗑️ مسح الكاش</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', function(e){ if(e.target===modal) modal.remove(); });
+  };
+
+  window.refreshAndCloseListsModal = async function(btn) {
+    btn.textContent = '⏳ جارٍ...'; btn.disabled = true;
+    if (typeof window.trloadDropdowns   === 'function') await window.trloadDropdowns();
+    if (typeof window.bd_refreshDropdowns === 'function') await window.bd_refreshDropdowns();
+    if (typeof window.vaccLoadDropdowns === 'function') await window.vaccLoadDropdowns();
+    if (typeof window.foloadDropdowns   === 'function') await window.foloadDropdowns();
+    btn.closest('div[style*=fixed]').remove();
+    showToast('✅ تم تحديث جميع القوائم وحفظها', 'success');
+    setTimeout(window.showListsCacheStatus, 300);
+  };
+
+  window.clearListsCache = async function(btn) {
+    var keys = Object.keys(CACHE_KEYS);
+    for (var i = 0; i < keys.length; i++) {
+      await listsDbOpen().then(function(d) {
+        return new Promise(function(resolve) {
+          var tx = d.transaction('lists', 'readwrite');
+          tx.objectStore('lists').clear();
+          tx.oncomplete = resolve;
+        });
+      });
+    }
+    btn.closest('div[style*=fixed]').remove();
+    showToast('🗑️ تم مسح كاش القوائم', 'success');
+  };
+
+  // ── إضافة الزر في صفحة الإعدادات ───────────────────
+  window.addEventListener('load', function() {
+    var panel = document.getElementById('settingsPanel');
+    if (!panel) return;
+    var btn = document.createElement('button');
+    Object.assign(btn.style, {
+      background:'#9b59b6', color:'#fff', border:'none',
+      padding:'7px 16px', borderRadius:'5px', cursor:'pointer',
+      fontFamily:'Tahoma', fontWeight:'bold',
+      marginTop:'8px', display:'block'
+    });
+    btn.textContent = '📋 حالة كاش القوائم';
+    btn.onclick = window.showListsCacheStatus;
+    panel.appendChild(btn);
+  });
+
+  console.log('[LISTS] ✅ نظام كاش القوائم جاهز');
+
+})();
+  
 </script>
 
 </body>
