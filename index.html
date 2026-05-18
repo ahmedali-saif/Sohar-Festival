@@ -8107,7 +8107,410 @@ setTimeout(tryWrap, 1000);
   window.addEventListener('offline', update);
   update();
 })();
-  
+
+  // ─────────────────────────────────────────────────────
+// نظام التخزين المحلي IndexedDB v1.0
+// يُضاف قبل </body> مباشرة
+// ─────────────────────────────────────────────────────
+"use strict";
+
+(function() {
+
+  var DB_NAME    = 'VetClinicDB';
+  var DB_VERSION = 1;
+  var STORES = {
+    treatment:   { keyPath: 'caseNumber' },
+    breeder:     { keyPath: 'phone'       },
+    vaccination: { keyPath: 'caseNumber' },
+    samples:     { keyPath: 'caseNumberrt'},
+    settings:    { keyPath: 'key'         }
+  };
+
+  var db = null;
+
+  // ── فتح قاعدة البيانات ──────────────────────────────
+  function idbOpen() {
+    return new Promise(function(resolve, reject) {
+      if (db) { resolve(db); return; }
+      var req = indexedDB.open(DB_NAME, DB_VERSION);
+
+      req.onupgradeneeded = function(e) {
+        var d = e.target.result;
+        Object.keys(STORES).forEach(function(name) {
+          if (!d.objectStoreNames.contains(name)) {
+            var store = d.createObjectStore(name, { keyPath: STORES[name].keyPath });
+            store.createIndex('syncStatus', 'syncStatus', { unique: false });
+            store.createIndex('updatedAt',  'updatedAt',  { unique: false });
+          }
+        });
+      };
+
+      req.onsuccess  = function(e) { db = e.target.result; resolve(db); };
+      req.onerror    = function(e) { reject(e.target.error); };
+    });
+  }
+
+  // ── عمليات CRUD الأساسية ────────────────────────────
+  function idbPut(storeName, record) {
+    return idbOpen().then(function(d) {
+      return new Promise(function(resolve, reject) {
+        record.updatedAt  = Date.now();
+        record.syncStatus = record.syncStatus || 'pending';
+        var tx = d.transaction(storeName, 'readwrite');
+        var req = tx.objectStore(storeName).put(record);
+        req.onsuccess = function() { resolve(req.result); };
+        req.onerror   = function() { reject(req.error);  };
+      });
+    });
+  }
+
+  function idbGet(storeName, key) {
+    return idbOpen().then(function(d) {
+      return new Promise(function(resolve, reject) {
+        var tx  = d.transaction(storeName, 'readonly');
+        var req = tx.objectStore(storeName).get(key);
+        req.onsuccess = function() { resolve(req.result || null); };
+        req.onerror   = function() { reject(req.error); };
+      });
+    });
+  }
+
+  function idbGetAll(storeName) {
+    return idbOpen().then(function(d) {
+      return new Promise(function(resolve, reject) {
+        var tx  = d.transaction(storeName, 'readonly');
+        var req = tx.objectStore(storeName).getAll();
+        req.onsuccess = function() { resolve(req.result || []); };
+        req.onerror   = function() { reject(req.error); };
+      });
+    });
+  }
+
+  function idbDelete(storeName, key) {
+    return idbOpen().then(function(d) {
+      return new Promise(function(resolve, reject) {
+        var tx  = d.transaction(storeName, 'readwrite');
+        var req = tx.objectStore(storeName).delete(key);
+        req.onsuccess = function() { resolve(); };
+        req.onerror   = function() { reject(req.error); };
+      });
+    });
+  }
+
+  function idbGetPending(storeName) {
+    return idbOpen().then(function(d) {
+      return new Promise(function(resolve, reject) {
+        var tx    = d.transaction(storeName, 'readonly');
+        var index = tx.objectStore(storeName).index('syncStatus');
+        var req   = index.getAll('pending');
+        req.onsuccess = function() { resolve(req.result || []); };
+        req.onerror   = function() { reject(req.error); };
+      });
+    });
+  }
+
+  // ── تعريض API عام ───────────────────────────────────
+  window.IDB = {
+    put:        idbPut,
+    get:        idbGet,
+    getAll:     idbGetAll,
+    delete:     idbDelete,
+    getPending: idbGetPending,
+
+    markSynced: function(storeName, key) {
+      return idbGet(storeName, key).then(function(rec) {
+        if (!rec) return;
+        rec.syncStatus = 'synced';
+        return idbPut(storeName, rec);
+      });
+    }
+  };
+
+  // ── مزامنة تلقائية عند استعادة الاتصال ─────────────
+  async function idbSyncPending() {
+    if (!navigator.onLine) return;
+
+    var stores = Object.keys(STORES);
+    for (var i = 0; i < stores.length; i++) {
+      var storeName = stores[i];
+      try {
+        var pending = await idbGetPending(storeName);
+        if (!pending.length) continue;
+
+        for (var j = 0; j < pending.length; j++) {
+          var rec = pending[j];
+          var apiMap = {
+            treatment:   { fn: window.trcallApi,   action: rec._op === 'delete' ? 'trdeleteData'  : (rec._op === 'update' ? 'trupdateData'  : 'trsaveData')  },
+            breeder:     { fn: window.bd_callApi,   action: rec._op === 'delete' ? 'bd_deleteData' : (rec._op === 'update' ? 'bd_updateData' : 'bd_saveData') },
+            vaccination: { fn: window.vaccCallApi,  action: rec._op === 'delete' ? 'deleteData'    : (rec._op === 'update' ? 'updateData'    : 'saveData')    },
+            samples:     { fn: window.focallApi,    action: rec._op === 'delete' ? 'fodeleteData'  : (rec._op === 'update' ? 'foupdateData'  : 'fosaveData')  }
+          };
+
+          var cfg = apiMap[storeName];
+          if (!cfg || typeof cfg.fn !== 'function') continue;
+
+          try {
+            var payload = rec._op === 'delete'
+              ? { caseNumber: rec.caseNumber || rec.phone || rec.caseNumberrt }
+              : { data: rec };
+
+            var res = await cfg.fn(cfg.action, payload);
+            if (res && res.success) {
+              await window.IDB.markSynced(storeName, rec[STORES[storeName].keyPath]);
+              console.log('[IDB] تمت مزامنة:', storeName, rec[STORES[storeName].keyPath]);
+            }
+          } catch(e) {
+            console.warn('[IDB] فشل مزامنة سجل:', storeName, e.message);
+          }
+        }
+      } catch(e) {
+        console.warn('[IDB] خطأ في مزامنة:', storeName, e.message);
+      }
+    }
+  }
+
+  window.addEventListener('online', function() {
+    showToast('🟢 تم استعادة الاتصال — جاري مزامنة البيانات المحفوظة محلياً...', 'info');
+    setTimeout(idbSyncPending, 1000);
+  });
+
+  // ── اعتراض API calls وحفظها محلياً ─────────────────
+  setTimeout(function() {
+
+    // --- sجل العلاج ---
+    if (window.trcallApi && !window.trcallApi._idbWrapped) {
+      var _trOrig = window.trcallApi;
+      window.trcallApi = async function(action, payload) {
+        var opMap = {
+          trsaveData: { store:'treatment', op:'save' },
+          trupdateData: { store:'treatment', op:'update' },
+          trdeleteData: { store:'treatment', op:'delete' },
+          trsaveTempData: { store:'treatment', op:'save' },
+          trupdateTempData: { store:'treatment', op:'update' }
+        };
+
+        if (!navigator.onLine && opMap[action]) {
+          var cfg = opMap[action];
+          var rec = Object.assign({}, payload && payload.data || {});
+          rec._op = cfg.op;
+          rec.syncStatus = 'pending';
+          if (cfg.op === 'delete') {
+            rec.caseNumber = payload && payload.caseNumber;
+            rec.caseNumber = rec.caseNumber || rec.caseNumber;
+          }
+          await idbPut(cfg.store, rec);
+          showToast('📦 تم الحفظ محلياً — سيُرسل عند عودة الاتصال', 'warning');
+          return { success: true, offline: true, message: 'تم الحفظ محلياً' };
+        }
+
+        var res = await _trOrig.apply(this, arguments);
+
+        if (res && res.success && opMap[action]) {
+          var cfg2 = opMap[action];
+          if (cfg2.op !== 'delete' && payload && payload.data) {
+            var rec2 = Object.assign({}, payload.data, { syncStatus: 'synced', _op: cfg2.op });
+            idbPut(cfg2.store, rec2).catch(function(){});
+          } else if (cfg2.op === 'delete' && payload) {
+            idbDelete(cfg2.store, payload.caseNumber).catch(function(){});
+          }
+        }
+        return res;
+      };
+      window.trcallApi._idbWrapped = true;
+    }
+
+    // --- سجل المربي ---
+    if (window.bd_callApi && !window.bd_callApi._idbWrapped) {
+      var _bdOrig = window.bd_callApi;
+      window.bd_callApi = async function(action, payload) {
+        var opMap = {
+          bd_saveData:   { store:'breeder', op:'save'   },
+          bd_updateData: { store:'breeder', op:'update' },
+          bd_deleteData: { store:'breeder', op:'delete' }
+        };
+
+        if (!navigator.onLine && opMap[action]) {
+          var cfg = opMap[action];
+          var rec = Object.assign({}, payload && payload.data || {});
+          rec._op = cfg.op;
+          rec.syncStatus = 'pending';
+          if (cfg.op === 'delete') rec.phone = payload && payload.phone;
+          await idbPut(cfg.store, rec);
+          showToast('📦 تم الحفظ محلياً', 'warning');
+          return { success: true, offline: true };
+        }
+
+        var res = await _bdOrig.apply(this, arguments);
+        if (res && res.success && opMap[action]) {
+          var cfg2 = opMap[action];
+          if (cfg2.op !== 'delete' && payload && payload.data) {
+            idbPut(cfg2.store, Object.assign({}, payload.data, { syncStatus:'synced', _op:cfg2.op })).catch(function(){});
+          } else if (cfg2.op === 'delete' && payload) {
+            idbDelete(cfg2.store, payload.phone).catch(function(){});
+          }
+        }
+        return res;
+      };
+      window.bd_callApi._idbWrapped = true;
+    }
+
+    // --- التحصين ---
+    if (window.vaccCallApi && !window.vaccCallApi._idbWrapped) {
+      var _vOrig = window.vaccCallApi;
+      window.vaccCallApi = async function(action, payload) {
+        var opMap = {
+          saveData:   { store:'vaccination', op:'save'   },
+          updateData: { store:'vaccination', op:'update' },
+          deleteData: { store:'vaccination', op:'delete' }
+        };
+
+        if (!navigator.onLine && opMap[action]) {
+          var cfg = opMap[action];
+          var rec = Object.assign({}, payload && payload.data || {});
+          rec._op = cfg.op;
+          rec.syncStatus = 'pending';
+          await idbPut(cfg.store, rec);
+          showToast('📦 تم الحفظ محلياً', 'warning');
+          return { success: true, offline: true };
+        }
+
+        var res = await _vOrig.apply(this, arguments);
+        if (res && res.success && opMap[action]) {
+          var cfg2 = opMap[action];
+          if (cfg2.op !== 'delete' && payload && payload.data) {
+            idbPut(cfg2.store, Object.assign({}, payload.data, { syncStatus:'synced', _op:cfg2.op })).catch(function(){});
+          }
+        }
+        return res;
+      };
+      window.vaccCallApi._idbWrapped = true;
+    }
+
+    // --- العينات ---
+    if (window.focallApi && !window.focallApi._idbWrapped) {
+      var _fOrig = window.focallApi;
+      window.focallApi = async function(action, payload) {
+        var opMap = {
+          fosaveData:   { store:'samples', op:'save'   },
+          foupdateData: { store:'samples', op:'update' },
+          fodeleteData: { store:'samples', op:'delete' }
+        };
+
+        if (!navigator.onLine && opMap[action]) {
+          var cfg = opMap[action];
+          var rec = Object.assign({}, payload && payload.data || {});
+          rec._op = cfg.op;
+          rec.syncStatus = 'pending';
+          await idbPut(cfg.store, rec);
+          showToast('📦 تم الحفظ محلياً', 'warning');
+          return { success: true, offline: true };
+        }
+
+        var res = await _fOrig.apply(this, arguments);
+        if (res && res.success && opMap[action]) {
+          var cfg2 = opMap[action];
+          if (cfg2.op !== 'delete' && payload && payload.data) {
+            idbPut(cfg2.store, Object.assign({}, payload.data, { syncStatus:'synced', _op:cfg2.op })).catch(function(){});
+          } else if (cfg2.op === 'delete' && payload) {
+            idbDelete(cfg2.store, payload.caseNumber).catch(function(){});
+          }
+        }
+        return res;
+      };
+      window.focallApi._idbWrapped = true;
+    }
+
+  }, 9000); // بعد تهيئة جميع الدوال
+
+  // ── واجهة الإدارة ────────────────────────────────────
+  window.idbShowManager = async function() {
+    var stores  = Object.keys(STORES);
+    var summary = {};
+    for (var i = 0; i < stores.length; i++) {
+      var all     = await idbGetAll(stores[i]);
+      var pending = all.filter(function(r){ return r.syncStatus === 'pending'; });
+      summary[stores[i]] = { total: all.length, pending: pending.length };
+    }
+
+    var rows = Object.keys(summary).map(function(s) {
+      var pBadge = summary[s].pending > 0
+        ? '<span style="background:#ffcccc;color:#7a0000;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:bold;">' + summary[s].pending + ' معلق</span>'
+        : '<span style="background:#d4f8d4;color:#1b5e20;border-radius:10px;padding:2px 8px;font-size:11px;">✓ مزامن</span>';
+      return '<tr><td style="padding:8px 12px;border-bottom:1px solid #eee;">' + s + '</td>'
+           + '<td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;">' + summary[s].total + '</td>'
+           + '<td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;">' + pBadge + '</td></tr>';
+    }).join('');
+
+    var modal = document.createElement('div');
+    Object.assign(modal.style, {
+      position:'fixed', inset:'0', background:'rgba(0,0,0,.5)',
+      display:'flex', alignItems:'center', justifyContent:'center',
+      zIndex:'99999', direction:'rtl', fontFamily:'Tahoma,Arial'
+    });
+    modal.innerHTML =
+      '<div style="background:#fff;border-radius:12px;padding:24px;width:90%;max-width:500px;box-shadow:0 8px 30px rgba(0,0,0,.3);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+          '<strong style="font-size:15px;color:#00b8d9;">🗄️ إدارة التخزين المحلي</strong>' +
+          '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="background:#eee;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:16px;">✕</button>' +
+        '</div>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+          '<thead><tr style="background:#f5f5f5;">' +
+            '<th style="padding:8px 12px;text-align:right;font-weight:bold;">المخزن</th>' +
+            '<th style="padding:8px 12px;text-align:center;font-weight:bold;">الإجمالي</th>' +
+            '<th style="padding:8px 12px;text-align:center;font-weight:bold;">الحالة</th>' +
+          '</tr></thead>' +
+          '<tbody>' + rows + '</tbody>' +
+        '</table>' +
+        '<div style="display:flex;gap:8px;margin-top:16px;justify-content:center;">' +
+          '<button onclick="idbSyncNow(this)" style="background:#2bb673;color:#fff;border:none;border-radius:8px;padding:8px 20px;cursor:pointer;font-family:Tahoma;font-weight:bold;">🔄 مزامنة الآن</button>' +
+          '<button onclick="idbClearSynced(this)" style="background:#e65050;color:#fff;border:none;border-radius:8px;padding:8px 20px;cursor:pointer;font-family:Tahoma;font-weight:bold;">🗑️ حذف المزامَن</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', function(e){ if(e.target===modal) modal.remove(); });
+  };
+
+  window.idbSyncNow = async function(btn) {
+    if (btn) { btn.textContent = '⏳ جارٍ...'; btn.disabled = true; }
+    await idbSyncPending();
+    if (btn) { btn.closest('div[style*=fixed]').remove(); }
+    showToast('✅ اكتملت المزامنة', 'success');
+    setTimeout(window.idbShowManager, 300);
+  };
+
+  window.idbClearSynced = async function(btn) {
+    var stores = Object.keys(STORES);
+    for (var i = 0; i < stores.length; i++) {
+      var all = await idbGetAll(stores[i]);
+      for (var j = 0; j < all.length; j++) {
+        if (all[j].syncStatus === 'synced') {
+          await idbDelete(stores[i], all[j][STORES[stores[i]].keyPath]);
+        }
+      }
+    }
+    if (btn) btn.closest('div[style*=fixed]').remove();
+    showToast('✅ تم حذف السجلات المزامَنة', 'success');
+    setTimeout(window.idbShowManager, 300);
+  };
+
+  // ── زر إدارة IndexedDB في صفحة الإعدادات ───────────
+  window.addEventListener('load', function() {
+    var homeDiv = document.getElementById('settingsPanel');
+    if (!homeDiv) return;
+    var btn = document.createElement('button');
+    Object.assign(btn.style, {
+      background:'#00b8d9', color:'#fff', border:'none',
+      padding:'7px 16px', borderRadius:'5px', cursor:'pointer',
+      fontFamily:'Tahoma', fontWeight:'bold', marginTop:'8px', display:'block'
+    });
+    btn.textContent = '🗄️ إدارة التخزين المحلي';
+    btn.onclick = window.idbShowManager;
+    homeDiv.appendChild(btn);
+  });
+
+  console.log('[IDB] ✅ نظام IndexedDB جاهز — DB:', DB_NAME);
+
+})();
 </script>
 
 </body>
