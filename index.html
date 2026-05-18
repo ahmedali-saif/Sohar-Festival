@@ -1373,8 +1373,20 @@ async function lDoLogin() {
     const u=document.getElementById('l_username').value.trim();
     const p=document.getElementById('l_password').value.trim();
 document.getElementById('l_loginErr').style.display='none';
-
+document.getElementById('l_loginBtn').disabled=true;
 if (!u || !p) {
+  if (!navigator.onLine) {
+  var localLogin = localAuthCheck(u, p);
+  if (localLogin.success) {
+    document.getElementById('l_welcomeName').textContent = 'مرحباً، ' + localLogin.name + '! (وضع غير متصل)';
+    lShow(lViews.welcome);
+    unlockNav();
+    showToast('⚠️ وضع غير متصل — بعض الميزات غير متاحة', 'warning');
+  } else {
+    lAlert('l_loginErr','','l_loginErrTx','error','❌ لا يوجد اتصال ولا توجد بيانات محفوظة مسبقاً.');
+  }
+  return;
+}
   lAlert('l_loginErr','l_loginErrIco','l_loginErrTx','error','الرجاء إدخال اسم المستخدم وكلمة المرور.');
   return;
 }
@@ -1397,6 +1409,7 @@ if (!u || !p) {
         const m=users.find(u2=>(u2[lUK]||'').toLowerCase()===u.toLowerCase()&&(u2[lPK]||'')===p);
         if(m){
           lCU={...m, _u:u};
+          saveUserLocally(u, p, lNK ? (m[lNK] || u) : u);
           document.getElementById('l_welcomeName').textContent=`مرحباً، ${lNK?(m[lNK]||u):u}!`;
           lShow(lViews.welcome);
           unlockNav();
@@ -1522,7 +1535,9 @@ document.getElementById('l_logoutBtn').addEventListener('click', ()=>{
     document.getElementById('l_cpbt').textContent='تحديث كلمة المرور';
     document.getElementById('l_cpbi').style.display='block';
   });
-
+function saveUserLocally(username, password, name) { ... }
+function localAuthCheck(username, password) { ... }
+function simpleHash(str) { ... }
   lShow(lViews.login);
 })();
 </script>
@@ -8034,6 +8049,29 @@ function tryWrap() {
   if (++_wrapAttempts < 3) setTimeout(tryWrap, 3000);
 }
 setTimeout(tryWrap, 1000);
+
+// مؤشر الاتصال
+(function() {
+  var badge = document.createElement('div');
+  badge.id = 'connectionBadge';
+  Object.assign(badge.style, {
+    position:'fixed', top:'8px', right:'8px',
+    padding:'4px 12px', borderRadius:'20px',
+    fontSize:'12px', fontWeight:'bold',
+    zIndex:'99999', fontFamily:'Tahoma'
+  });
+  document.body.appendChild(badge);
+
+  function update() {
+    badge.textContent = navigator.onLine ? '🟢 متصل' : '🔴 غير متصل';
+    badge.style.background = navigator.onLine ? '#d4f8d4' : '#ffcccc';
+    badge.style.color = navigator.onLine ? '#1b5e20' : '#7a0000';
+  }
+
+  window.addEventListener('online', update);
+  window.addEventListener('offline', update);
+  update();
+})();
   
 </script>
 
