@@ -1537,10 +1537,42 @@ document.getElementById('l_logoutBtn').addEventListener('click', ()=>{
     document.getElementById('l_cpsp').style.display='none';
     document.getElementById('l_cpbt').textContent='تحديث كلمة المرور';
     document.getElementById('l_cpbi').style.display='block';
-  });
-function saveUserLocally(username, password, name) { ... }
-function localAuthCheck(username, password) { ... }
-function simpleHash(str) { ... }
+  });function simpleHash(str) {
+  var hash = 0;
+  for (var i = 0; i < str.length; i++) {
+    var char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash.toString(36);
+}
+
+function saveUserLocally(username, password, name) {
+  try {
+    var data = {
+      username: username,
+      hash: simpleHash(password),
+      name: name || username,
+      saved: Date.now()
+    };
+    localStorage.setItem('vc_user_' + username.toLowerCase(), JSON.stringify(data));
+  } catch(e) {}
+}
+
+function localAuthCheck(username, password) {
+  try {
+    var key = 'vc_user_' + username.toLowerCase();
+    var raw = localStorage.getItem(key);
+    if (!raw) return { success: false };
+    var data = JSON.parse(raw);
+    if (data.hash === simpleHash(password)) {
+      return { success: true, name: data.name || username };
+    }
+    return { success: false };
+  } catch(e) {
+    return { success: false };
+  }
+}
   lShow(lViews.login);
 })();
 </script>
