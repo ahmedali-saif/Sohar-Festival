@@ -1374,8 +1374,15 @@ async function lDoLogin() {
     const p=document.getElementById('l_password').value.trim();
 document.getElementById('l_loginErr').style.display='none';
 document.getElementById('l_loginBtn').disabled=true;
+
 if (!u || !p) {
-  if (!navigator.onLine) {
+  lAlert('l_loginErr','l_loginErrIco','l_loginErrTx','error','الرجاء إدخال اسم المستخدم وكلمة المرور.');
+  document.getElementById('l_loginBtn').disabled=false;
+  return;
+}
+
+// ← هنا الموقع الصحيح لشرط الأوف لاين
+if (!navigator.onLine) {
   var localLogin = localAuthCheck(u, p);
   if (localLogin.success) {
     document.getElementById('l_welcomeName').textContent = 'مرحباً، ' + localLogin.name + '! (وضع غير متصل)';
@@ -1384,18 +1391,14 @@ if (!u || !p) {
     showToast('⚠️ وضع غير متصل — بعض الميزات غير متاحة', 'warning');
   } else {
     lAlert('l_loginErr','','l_loginErrTx','error','❌ لا يوجد اتصال ولا توجد بيانات محفوظة مسبقاً.');
+    document.getElementById('l_loginBtn').disabled=false;
   }
   return;
 }
-  lAlert('l_loginErr','l_loginErrIco','l_loginErrTx','error','الرجاء إدخال اسم المستخدم وكلمة المرور.');
-  return;
-}
 
-    document.getElementById('l_loginBtn').disabled=true;
-    document.getElementById('l_lsp').style.display='block';
-    document.getElementById('l_lbt').textContent='جارٍ التحقق...';
-    document.getElementById('l_lbi').style.display='none';
-
+document.getElementById('l_lsp').style.display='block';
+document.getElementById('l_lbt').textContent='جارٍ التحقق...';
+document.getElementById('l_lbi').style.display='none';
     try {
       const r=await fetch(CSV_URL);
       if(!r.ok) throw new Error();
