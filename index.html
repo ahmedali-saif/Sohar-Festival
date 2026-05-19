@@ -7551,335 +7551,309 @@ function foDismissOverdueAlert() {
 }
 /**
  * =====================================================================
- * نظام صلاحيات المستخدمين — العيادة البيطرية  v2.0
+ * نظام صلاحيات موحد v4.0 — العيادة البيطرية
  * =====================================================================
- * يُضاف هذا الكود في نهاية الملف الأصلي قبل </body>
+ * يستبدل هذا الملف جميع أكواد الصلاحيات المتعارضة في الملف الأصلي:
+ *   - الكود القديم في نهاية الملف (PERM_DEFAULT_ROLES, permApply...)
+ *   - unlockNav الأصلية التي تقرأ من localStorage
+ *   - نظام PERM_PAGES في صفحة home
+ *
+ * طريقة التضمين:
+ *   ضع هذا الكود مرة واحدة فقط قبل </body> مباشرة.
+ *   احذف جميع أكواد الصلاحيات القديمة.
  * =====================================================================
  */
 
 "use strict";
 
 /* ─────────────────────────────────────────────────────────────────────
-   ١. الأدوار الافتراضية
+   0. الثوابت
    ─────────────────────────────────────────────────────────────────────*/
-var PERM_DEFAULT_ROLES = {
-  admin: {
-    label: "إداري",
-    pages: [
-      "breeder","treatment","vaccination","vaccinationRequests",
-      "samples","dashboard","settings","reports","financialInventory",
-      "diseaseTracking","animalDistribution","comprehensiveReport","home"
-    ],
-    actions: ["save","update","delete","print","search","export","tempsave","tempupdate"]
-  },
-  vet: {
-    label: "طبيب بيطري",
-    pages: [
-      "breeder","treatment","vaccination","vaccinationRequests",
-      "samples","dashboard","settings","reports","diseaseTracking",
-      "animalDistribution","comprehensiveReport"
-    ],
-    actions: ["save","update","print","search"]
-  },
-  tech: {
-    label: "فني بيطري",
-    pages: ["breeder","treatment","vaccination","vaccinationRequests","samples"],
-    actions: ["save","search"]
+
+var PERM = {
+  SHEET_ID:    "1TzE44MOz8OqPdR-FzZLn5fhq9NDwhGN_X20xsusv1qE",
+  SCRIPT_URL:  "https://script.google.com/macros/s/AKfycbwke264iU5mQ6he6CQ7zn7guHguL9DUnFMKARkgZsCGPT3QTG47psoaTYu5rEw0ijO7Mg/exec",
+  state: {
+    currentUser:    null,   // { username, name, role, pages[], actions[] }
+    allowedPages:   [],
+    allowedActions: [],
+    autoFillTimer:  null
   }
 };
 
 /* ─────────────────────────────────────────────────────────────────────
-   ٢. ربط الأزرار بالأفعال
+   1. تعريف الصفحات والأزرار
    ─────────────────────────────────────────────────────────────────────*/
-var PERM_PAGE_BUTTONS = {
+
+var PERM_PAGES_DEF = [
+  { id: "breeder",              name: "سجل المربي",              icon: "👤" },
+  { id: "treatment",            name: "سجل العلاج",              icon: "💉" },
+  { id: "vaccination",          name: "سجل التحصين",             icon: "💊" },
+  { id: "vaccinationRequests",  name: "طلبات التحصين",           icon: "📋" },
+  { id: "samples",              name: "نموذج العينات",            icon: "🧪" },
+  { id: "dashboard",            name: "طباعة نماذج العينات",     icon: "🖨️" },
+  { id: "settings",             name: "طباعة شهادة التحصين",     icon: "📜" },
+  { id: "reports",              name: "الأدوية المصروفة",         icon: "💊" },
+  { id: "financialInventory",   name: "الجرد المالي",             icon: "💰" },
+  { id: "diseaseTracking",      name: "تتبع المرض",              icon: "📊" },
+  { id: "animalDistribution",   name: "توزيع الحيوانات",         icon: "🐄" },
+  { id: "comprehensiveReport",  name: "التقرير الشامل",          icon: "📈" },
+  { id: "home",                 name: "الإعدادات",               icon: "⚙️" }
+];
+
+/* تعريف الأزرار مع إجراءاتها لكل صفحة */
+var PERM_BUTTONS = {
   treatment: [
-    { id:"tr_saveBtn",         action:"save"   },
-    { id:"tr_updateBtn",       action:"update" },
-    { id:"tr_deleteBtn",       action:"delete" },
-    { id:"tr_searchBtn",       action:"search" },
-    { id:"tr_tempSaveBtn",     action:"tempsave"   },
-    { id:"tr_tempUpdateBtn",   action:"tempupdate" },
-    { id:"tr_mainMenuBtn",     action:"search" },
-    { id:"tr_searchRecordBtn", action:"search" }
+    { id: "tr_saveBtn",         action: "save",       label: "حفظ"              },
+    { id: "tr_updateBtn",       action: "update",     label: "تحديث"            },
+    { id: "tr_deleteBtn",       action: "delete",     label: "حذف"              },
+    { id: "tr_searchBtn",       action: "search",     label: "بحث"              },
+    { id: "tr_tempSaveBtn",     action: "tempsave",   label: "حفظ مؤقت"        },
+    { id: "tr_tempUpdateBtn",   action: "tempupdate", label: "تحديث مؤقت"      },
+    { id: "tr_mainMenuBtn",     action: "search",     label: "إجمالي الحيوانات" },
+    { id: "tr_searchRecordBtn", action: "search",     label: "بحث في السجل"    }
   ],
   breeder: [
-    { id:"bd_saveBtn",              action:"save"   },
-    { id:"bd_updateBtn",            action:"update" },
-    { id:"bd_deleteBtn",            action:"delete" },
-    { id:"bd_saveVaccinationBtn",   action:"save"   },
-    { id:"bd_updateVaccinationBtn", action:"update" },
-    { id:"bd_deleteVaccinationBtn", action:"delete" },
-    { id:"bd_updatePossessionBtn",  action:"update" }
+    { id: "bd_saveBtn",              action: "save",   label: "حفظ"              },
+    { id: "bd_updateBtn",            action: "update", label: "تحديث"            },
+    { id: "bd_deleteBtn",            action: "delete", label: "حذف"              },
+    { id: "bd_saveVaccinationBtn",   action: "save",   label: "حفظ تحصين"       },
+    { id: "bd_updateVaccinationBtn", action: "update", label: "تحديث تحصين"     },
+    { id: "bd_deleteVaccinationBtn", action: "delete", label: "حذف تحصين"       },
+    { id: "bd_updatePossessionBtn",  action: "update", label: "تحديث الحيازة"   }
   ],
   vaccination: [
-    { id:"vacc_saveBtn",   action:"save"   },
-    { id:"vacc_updateBtn", action:"update" },
-    { id:"vacc_deleteBtn", action:"delete" },
-    { id:"vacc_searchBtn", action:"search" }
+    { id: "vacc_saveBtn",   action: "save",   label: "حفظ"   },
+    { id: "vacc_updateBtn", action: "update", label: "تحديث" },
+    { id: "vacc_deleteBtn", action: "delete", label: "حذف"   },
+    { id: "vacc_searchBtn", action: "search", label: "بحث"   }
   ],
   samples: [
-    { id:"saveBtn",   action:"save"   },
-    { id:"updateBtn", action:"update" },
-    { id:"deleteBtn", action:"delete" },
-    { id:"searchBtn", action:"search" }
+    { id: "saveBtn",   action: "save",   label: "حفظ"   },
+    { id: "updateBtn", action: "update", label: "تحديث" },
+    { id: "deleteBtn", action: "delete", label: "حذف"   },
+    { id: "searchBtn", action: "search", label: "بحث"   }
   ],
-  dashboard:         [{ id:"db_printBtn",                           action:"print" }],
-  settings:          [{ selector:"#settings .print-btn",            action:"print" }],
-  reports:           [{ selector:"#reports .print-btn",             action:"print" }],
-  financialInventory:[{ selector:"#financialInventory .print-btn",  action:"print" }]
+  dashboard: [
+    { id: "db_printBtn", action: "print", label: "طباعة" }
+  ],
+  settings: [
+    { selector: "#settings .print-btn", action: "print", label: "طباعة الشهادة" }
+  ],
+  reports: [
+    { selector: "#reports .print-btn", action: "print", label: "طباعة" }
+  ],
+  financialInventory: [
+    { selector: "#financialInventory .print-btn", action: "print", label: "طباعة" }
+  ]
+};
+
+/* تسميات الإجراءات بالعربية */
+var PERM_ACTION_LABELS = {
+  save:       "حفظ / إضافة",
+  update:     "تعديل / تحديث",
+  delete:     "حذف",
+  print:      "طباعة",
+  search:     "بحث / عرض",
+  tempsave:   "حفظ مؤقت",
+  tempupdate: "تحديث مؤقت"
 };
 
 /* ─────────────────────────────────────────────────────────────────────
-   ٣. الحالة العامة
+   2. جلب بيانات المستخدم من Google Sheets
    ─────────────────────────────────────────────────────────────────────*/
-window.PERM = {
-  currentUser:  null,
-  allowedPages: [],
-  allowedActions: [],
-  role: null
-};
 
-/* ─────────────────────────────────────────────────────────────────────
-   ٤. تحليل CSV الصحيح — يدعم الفاصلة داخل خلايا Google Sheets
-   ─────────────────────────────────────────────────────────────────────*/
-function permParseCSV(text) {
-  // إزالة BOM وأحرف الرجوع
-  text = text.replace(/^\uFEFF/, "").replace(/\r/g, "");
-  var lines = text.trim().split("\n");
-  if (lines.length < 2) return [];
-
-  function parseLine(line) {
-    var result = [], cur = "", inQ = false;
-    for (var i = 0; i < line.length; i++) {
-      var ch = line[i];
-      if (ch === '"') {
-        // علامة اقتباس مضاعفة داخل الخلية
-        if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
-        else inQ = !inQ;
-      } else if (ch === ',' && !inQ) {
-        result.push(cur.trim()); cur = "";
-      } else {
-        cur += ch;
-      }
-    }
-    result.push(cur.trim());
-    return result;
+/**
+ * يجلب بيانات المستخدم من Google Sheets CSV
+ * يبحث عن الأعمدة بمرونة (بالعربي أو الإنجليزي)
+ * @param {string} username
+ * @returns {Promise<object|null>}
+ */
+async function permFetchUserData(username) {
+  var CSV_URL = "https://docs.google.com/spreadsheets/d/" + PERM.SHEET_ID +
+                "/export?format=csv&gid=0&t=" + Date.now();
+  try {
+    var r = await fetch(CSV_URL);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    var text = await r.text();
+    return permParseAndFind(text, username);
+  } catch (e) {
+    console.warn("[PERM] خطأ جلب CSV:", e.message);
+    return null;
   }
-
-  var rawHeaders = parseLine(lines[0]);
-  var headers = rawHeaders.map(function(h) {
-    return h.toLowerCase().trim().replace(/['"]/g, "");
-  });
-
-  console.log("[PERM] CSV headers:", headers);
-
-  return lines.slice(1).filter(function(l) { return l.trim(); }).map(function(line) {
-    var vals = parseLine(line);
-    var obj = {};
-    headers.forEach(function(h, i) { obj[h] = (vals[i] || "").trim(); });
-    return obj;
-  });
 }
 
-/* ─────────────────────────────────────────────────────────────────────
-   ٥. البحث المرن عن مفتاح في الكائن
-   ─────────────────────────────────────────────────────────────────────*/
-function permFindKey(obj, candidates) {
-  var keys = Object.keys(obj);
-  for (var i = 0; i < candidates.length; i++) {
-    var cand = candidates[i];
-    // مطابقة تامة
-    var exact = keys.find(function(k) { return k === cand; });
-    if (exact) return exact;
-    // مطابقة جزئية
-    var partial = keys.find(function(k) { return k.indexOf(cand) !== -1; });
-    if (partial) return partial;
+/** تحليل CSV وإيجاد المستخدم */
+function permParseAndFind(csvText, username) {
+  csvText = csvText.replace(/^\uFEFF/, "").replace(/\r/g, "");
+  var lines = csvText.trim().split("\n");
+  if (lines.length < 2) return null;
+
+  var headers = permSplitCSVLine(lines[0]).map(function(h) {
+    return h.toLowerCase().trim().replace(/^"|"$/g, "");
+  });
+
+  /* البحث المرن عن الأعمدة */
+  function findCol(candidates) {
+    for (var i = 0; i < candidates.length; i++) {
+      var idx = headers.findIndex(function(h) {
+        return h === candidates[i] || h.indexOf(candidates[i]) !== -1;
+      });
+      if (idx !== -1) return idx;
+    }
+    return -1;
   }
+
+  var colUser    = findCol(["username","user","اسم المستخدم","userid"]);
+  var colPass    = findCol(["password","pass","كلمة المرور","كلمة"]);
+  var colName    = findCol(["name","الاسم","fullname","full name"]);
+  var colRole    = findCol(["role","الدور","الصلاحية","وظيفة"]);
+  var colPages   = findCol(["pages","الصفحات","صفحات"]);
+  var colActions = findCol(["actions","الاجراءات","الإجراءات","صلاحيات"]);
+
+  if (colUser === -1) {
+    console.warn("[PERM] عمود username غير موجود");
+    return null;
+  }
+
+  for (var i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    var cols = permSplitCSVLine(lines[i]);
+    var rowUser = (cols[colUser] || "").trim().toLowerCase();
+    if (rowUser !== username.toLowerCase().trim()) continue;
+
+    var userData = {
+      username: username,
+      name:     colName    !== -1 ? (cols[colName]    || username) : username,
+      role:     colRole    !== -1 ? (cols[colRole]    || "tech")   : "tech",
+      pagesRaw: colPages   !== -1 ? (cols[colPages]   || "")       : "",
+      actionsRaw: colActions !== -1 ? (cols[colActions] || "")     : ""
+    };
+
+    /* تحليل الصفحات والإجراءات من الخلية */
+    userData.pages   = permParseList(userData.pagesRaw);
+    userData.actions = permParseList(userData.actionsRaw);
+
+    console.log("[PERM] ✅ مستخدم موجود:", userData);
+    return userData;
+  }
+
+  console.warn("[PERM] مستخدم غير موجود:", username);
   return null;
 }
 
-/* ─────────────────────────────────────────────────────────────────────
-   ٦. استخراج بيانات المستخدم من صف CSV
-   ─────────────────────────────────────────────────────────────────────*/
-function permExtractUser(rows, username) {
-  if (!rows || !rows.length || !username) return null;
-  var sample = rows[0];
-
-  var UK = permFindKey(sample, ["username","user","اسم المستخدم","userid"]);
-  var NK = permFindKey(sample, ["name","الاسم","fullname","full name","الاسم الكامل"]);
-  var RK = permFindKey(sample, ["role","الدور","الصلاحية","وظيفة","الوظيفة"]);
-  var PK = permFindKey(sample, ["pages","الصفحات","صفحات","page"]);
-  var AK = permFindKey(sample, ["actions","الاجراءات","الإجراءات","صلاحيات"]);
-
-  console.log("[PERM] مفاتيح مكتشفة:", {UK:UK, NK:NK, RK:RK, PK:PK, AK:AK});
-
-  if (!UK) {
-    console.warn("[PERM] لم يُعثر على عمود username");
-    return null;
-  }
-
-  var row = null;
-  for (var i = 0; i < rows.length; i++) {
-    if ((rows[i][UK] || "").toLowerCase().trim() === username.toLowerCase().trim()) {
-      row = rows[i]; break;
+/** تقسيم سطر CSV مع دعم الاقتباسات */
+function permSplitCSVLine(line) {
+  var result = [], cur = "", inQ = false;
+  for (var i = 0; i < line.length; i++) {
+    var ch = line[i];
+    if (ch === '"') {
+      if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (ch === ',' && !inQ) {
+      result.push(cur.trim().replace(/^"|"$/g, ""));
+      cur = "";
+    } else {
+      cur += ch;
     }
   }
-
-  if (!row) {
-    console.warn("[PERM] المستخدم غير موجود:", username);
-    return null;
-  }
-
-  var result = {
-    username: username,
-    name:    NK ? (row[NK] || username)  : username,
-    role:    RK ? (row[RK] || "tech").toLowerCase().trim() : "tech",
-    pages:   PK ? (row[PK] || "")        : "",
-    actions: AK ? (row[AK] || "")        : ""
-  };
-
-  console.log("[PERM] بيانات المستخدم:", result);
+  result.push(cur.trim().replace(/^"|"$/g, ""));
   return result;
 }
 
-/* ─────────────────────────────────────────────────────────────────────
-   ٧. اعتراض fetch — حفظ CSV عند استدعائه
-   ─────────────────────────────────────────────────────────────────────*/
-(function() {
-  var _fetch = window.fetch;
-  window.fetch = function() {
-    var args = arguments;
-    return _fetch.apply(this, args).then(function(res) {
-      var url = (typeof args[0] === "string") ? args[0] : ((args[0] && args[0].url) || "");
-      if (url.indexOf("export?format=csv") !== -1 && url.indexOf("spreadsheets") !== -1) {
-        res.clone().text().then(function(csv) {
-          try {
-            window._permCSVRows = permParseCSV(csv);
-            console.log("[PERM] CSV محفوظ، صفوف:", window._permCSVRows.length);
-          } catch(e) {
-            console.error("[PERM] خطأ تحليل CSV:", e);
-          }
-        });
-      }
-      return res;
-    });
-  };
-})();
-
-/* ─────────────────────────────────────────────────────────────────────
-   ٨. مراقبة شاشة الترحيب — التقاط بيانات المستخدم فور الدخول
-   ─────────────────────────────────────────────────────────────────────*/
-(function() {
-  var lastDisplay = "";
-
-  var obs = new MutationObserver(function() {
-    var wv = document.getElementById("l_welcomeView");
-    if (!wv) return;
-    var cur = wv.style.display;
-    if (cur === lastDisplay) return;
-    lastDisplay = cur;
-
-    // الشاشة أصبحت مرئية (block أو أي قيمة غير none)
-    if (cur !== "none" && cur !== "") {
-      // انتظر قليلاً حتى يكتمل حفظ CSV
-      setTimeout(function() {
-        var unEl = document.getElementById("l_username");
-        var username = unEl ? unEl.value.trim() : "";
-
-        if (window._permCSVRows && username) {
-          var ud = permExtractUser(window._permCSVRows, username);
-          if (ud) { window._permLastUserData = ud; return; }
-        }
-
-        // Fallback: اسم من شاشة الترحيب
-        var nameEl = document.getElementById("l_welcomeName");
-        var displayName = nameEl
-          ? nameEl.textContent.replace(/مرحباً[،,]?\s*/g,"").replace("!","").trim()
-          : (username || "مستخدم");
-
-        window._permLastUserData = {
-          username: username,
-          name:    displayName,
-          role:    "tech",
-          pages:   "",
-          actions: ""
-        };
-      }, 300);
-    }
-  });
-
-  obs.observe(document.body, {
-    childList: true, subtree: true,
-    attributes: true, attributeFilter: ["style"]
-  });
-})();
-
-/* ─────────────────────────────────────────────────────────────────────
-   ٩. تطبيق الصلاحيات
-   ─────────────────────────────────────────────────────────────────────*/
-function permApply(userData) {
-  var role        = (userData.role || "tech").toLowerCase().trim();
-  var defaultRole = PERM_DEFAULT_ROLES[role] || PERM_DEFAULT_ROLES.tech;
-
-  // الصفحات
-  var pagesRaw = (userData.pages || "").trim();
-  var allowedPages = pagesRaw
-    ? pagesRaw.split(",").map(function(p){ return p.trim(); }).filter(Boolean)
-    : defaultRole.pages.slice();
-
-  // الأفعال
-  var actionsRaw = (userData.actions || "").trim();
-  var allowedActions = actionsRaw
-    ? actionsRaw.split(",").map(function(a){ return a.trim(); }).filter(Boolean)
-    : defaultRole.actions.slice();
-
-  window.PERM.currentUser    = userData;
-  window.PERM.allowedPages   = allowedPages;
-  window.PERM.allowedActions = allowedActions;
-  window.PERM.role           = role;
-
-  console.log("[PERM] ✅ تطبيق:", { role:role, pages:allowedPages, actions:allowedActions });
-
-  permApplyNav(allowedPages);
-  permApplyBtns(allowedActions);
-  permAutoFill(userData.name || userData.username);
-  permBadge(role, defaultRole.label, userData.name || userData.username);
+/** تحليل قائمة مفصولة بفاصلة أو مسافة أو سطر جديد */
+function permParseList(raw) {
+  if (!raw || !raw.trim()) return [];
+  return raw.split(/[,،\n]+/).map(function(s) {
+    return s.trim();
+  }).filter(Boolean);
 }
 
 /* ─────────────────────────────────────────────────────────────────────
-   ١٠. إخفاء أزرار القائمة
+   3. تطبيق الصلاحيات
    ─────────────────────────────────────────────────────────────────────*/
+
+/**
+ * النقطة المركزية: تُستدعى بعد نجاح تسجيل الدخول
+ * @param {string} username
+ */
+async function permApplyForUser(username) {
+  var userData = await permFetchUserData(username);
+
+  /* إذا لم يُعثر على بيانات → منح صلاحيات كاملة (للحساب الإداري القديم) */
+  if (!userData) {
+    console.warn("[PERM] لا توجد بيانات لـ", username, "→ صلاحيات كاملة");
+    userData = {
+      username: username,
+      name:     username,
+      role:     "admin",
+      pages:    PERM_PAGES_DEF.map(function(p) { return p.id; }),
+      actions:  Object.keys(PERM_ACTION_LABELS)
+    };
+  }
+
+  /* إذا لم تكن هناك قائمة صفحات في قاعدة البيانات → الكل مسموح */
+  if (!userData.pages || userData.pages.length === 0) {
+    userData.pages = PERM_PAGES_DEF.map(function(p) { return p.id; });
+  }
+  if (!userData.actions || userData.actions.length === 0) {
+    userData.actions = Object.keys(PERM_ACTION_LABELS);
+  }
+
+  /* حفظ الحالة */
+  PERM.state.currentUser    = userData;
+  PERM.state.allowedPages   = userData.pages;
+  PERM.state.allowedActions = userData.actions;
+
+  /* تطبيق على الواجهة */
+  permApplyNav(userData.pages);
+  permApplyButtons(userData.actions);
+  permAutoFill(userData.name || userData.username);
+  permShowBadge(userData);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   4. تطبيق على الـ Nav
+   ─────────────────────────────────────────────────────────────────────*/
+
 function permApplyNav(allowedPages) {
   document.querySelectorAll("nav button").forEach(function(btn) {
     var m = (btn.getAttribute("onclick") || "").match(/showPage\(['"](\w+)['"]\)/);
     if (!m) return;
     var pid = m[1];
-    if (pid === "login" || pid === "home") return;
+    if (pid === "login" || pid === "home") return; /* دائماً مرئيان */
 
     if (allowedPages.indexOf(pid) === -1) {
-      btn.style.display   = "none";
-      btn.disabled        = true;
+      btn.style.display    = "none";
+      btn.disabled         = true;
       btn.dataset.permHide = "1";
     } else {
-      btn.style.display   = "";
-      btn.disabled        = false;
+      btn.style.display = "";
+      btn.disabled      = false;
       delete btn.dataset.permHide;
+      /* إزالة علامة القفل إن وُجدت */
+      var orig = btn.getAttribute("data-original-text");
+      if (orig) { btn.textContent = orig; btn.removeAttribute("data-original-text"); }
     }
   });
+
+  /* تحديث window._userAllowedPages للتوافق مع الكود الأصلي */
+  window._userAllowedPages = allowedPages;
 }
 
 /* ─────────────────────────────────────────────────────────────────────
-   ١١. تقييد الأزرار
+   5. تطبيق على الأزرار
    ─────────────────────────────────────────────────────────────────────*/
-function permBlockedClick(e) {
+
+function permBlockHandler(e) {
   e.preventDefault();
   e.stopImmediatePropagation();
   showToast("⛔ ليس لديك صلاحية لتنفيذ هذا الإجراء", "warning");
 }
 
-function permApplyBtns(allowedActions) {
-  Object.keys(PERM_PAGE_BUTTONS).forEach(function(page) {
-    PERM_PAGE_BUTTONS[page].forEach(function(def) {
+function permApplyButtons(allowedActions) {
+  Object.keys(PERM_BUTTONS).forEach(function(page) {
+    PERM_BUTTONS[page].forEach(function(def) {
       var els = [];
       if (def.id) {
         var el = document.getElementById(def.id);
@@ -7889,18 +7863,20 @@ function permApplyBtns(allowedActions) {
       }
 
       els.forEach(function(el) {
+        /* إزالة المستمع القديم دائماً */
+        el.removeEventListener("click", permBlockHandler, true);
+
         if (allowedActions.indexOf(def.action) === -1) {
-          // لا نضع disabled حتى يصل حدث النقر ويظهر التنبيه
-          el.style.opacity   = "0.35";
-          el.style.cursor    = "not-allowed";
+          el.style.opacity    = "0.35";
+          el.style.cursor     = "not-allowed";
           el.dataset.permLock = "1";
-          el.removeEventListener("click", permBlockedClick, true);
-          el.addEventListener("click", permBlockedClick, true);
+          el.setAttribute("title", "⛔ غير مصرح: " + (PERM_ACTION_LABELS[def.action] || def.action));
+          el.addEventListener("click", permBlockHandler, true);
         } else {
-          el.style.opacity   = "";
-          el.style.cursor    = "";
+          el.style.opacity = "";
+          el.style.cursor  = "";
+          el.removeAttribute("title");
           delete el.dataset.permLock;
-          el.removeEventListener("click", permBlockedClick, true);
         }
       });
     });
@@ -7908,181 +7884,223 @@ function permApplyBtns(allowedActions) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────
-   ١٢. تعبئة مدخل البيانات تلقائياً
+   6. تعبئة مدخل البيانات تلقائياً
    ─────────────────────────────────────────────────────────────────────*/
+
 function permAutoFill(userName) {
   if (!userName) return;
 
-  var allIds = [
-    "tr_dataEntryInput","bd_dataEntryInput","vacc_dataEntryInput","dataEntryInput",
-    "tr_dataUpdaterInput","bd_dataUpdaterInput","vacc_dataUpdaterInput","dataUpdaterInput"
+  var IDS = [
+    "tr_dataEntryInput",   "tr_dataUpdaterInput",
+    "bd_dataEntryInput",   "bd_dataUpdaterInput",
+    "vacc_dataEntryInput", "vacc_dataUpdaterInput",
+    "dataEntryInput",      "dataUpdaterInput"
   ];
 
-  // ① إجبار القيمة في الحقول دائماً
-  function fillAll() {
-    allIds.forEach(function(id) {
+  function fill() {
+    IDS.forEach(function(id) {
       var el = document.getElementById(id);
-      if (el) el.value = userName;
+      if (el && !el.dataset.userModified) el.value = userName;
     });
   }
 
-  fillAll();
+  fill();
 
-  // ② Polling كل 300ms
-  if (window._permAutoFillInterval) clearInterval(window._permAutoFillInterval);
-  window._permAutoFillInterval = setInterval(fillAll, 300);
+  /* مستمع لتتبع التعديل اليدوي */
+  IDS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el || el.dataset.permListening) return;
+    el.dataset.permListening = "1";
+    el.addEventListener("change", function() {
+      /* إذا غيّر المستخدم يدوياً → احترم الاختيار */
+      this.dataset.userModified = "1";
+    });
+  });
 
-  // ③ اعتراض دوال trcollectFormData و vaccCollectFormData و focollectFormData و bd_collectBreederDataForUpdate
-  // بحيث يُجبر اسم المستخدم قبل أي إرسال للـ API
+  /* Polling كل 500ms للحقول التي لم تُعدَّل يدوياً */
+  if (PERM.state.autoFillTimer) clearInterval(PERM.state.autoFillTimer);
+  PERM.state.autoFillTimer = setInterval(fill, 500);
+
+  /* تغليف دوال جمع البيانات */
   setTimeout(function() {
-
-    // --- treatment ---
-    if (window.trcollectFormData && !window.trcollectFormData._permWrapped) {
-      var _orig = window.trcollectFormData;
-      window.trcollectFormData = function() {
-        var data = _orig.apply(this, arguments);
-        data.dataEntry   = userName;
-        data.dataUpdater = userName;
-        return data;
-      };
-      window.trcollectFormData._permWrapped = true;
-    }
-
-// --- vaccination ---
-if (window.vaccCollectFormData && !window.vaccCollectFormData._permWrapped) {
-  var _origV = window.vaccCollectFormData;
-  window.vaccCollectFormData = function() {
-    var data = _origV.apply(this, arguments);
-    var isUpdate = data.caseNumber && data.caseNumber.trim() !== '';
-    if (isUpdate) {
-      // تحديث — لا تلمس dataEntry، فقط dataUpdater
-      data.dataUpdater = userName;
-    } else {
-      // حفظ جديد — لا تلمس dataUpdater، فقط dataEntry
-      data.dataEntry = userName;
-    }
-    return data;
-  };
-  window.vaccCollectFormData._permWrapped = true;
+    permWrapDataCollectors(userName);
+  }, 6000);
 }
-    // --- samples ---
-    if (window.focollectFormData && !window.focollectFormData._permWrapped) {
-      var _origF = window.focollectFormData;
-      window.focollectFormData = function() {
-        var data = _origF.apply(this, arguments);
-        data.dataEntry   = userName;
-        data.dataUpdater = userName;
-        return data;
-      };
-      window.focollectFormData._permWrapped = true;
-    }
 
-    // --- breeder ---
-    if (window.bd_collectBreederDataForUpdate && !window.bd_collectBreederDataForUpdate._permWrapped) {
-      var _origB = window.bd_collectBreederDataForUpdate;
-      window.bd_collectBreederDataForUpdate = function() {
-        var data = _origB.apply(this, arguments);
-        data.dataEntry   = userName;
-        data.dataUpdater = userName;
-        return data;
-      };
-      window.bd_collectBreederDataForUpdate._permWrapped = true;
-    }
+function permWrapDataCollectors(userName) {
+  /* trcollectFormData */
+  if (window.trcollectFormData && !window.trcollectFormData._pw) {
+    var _t = window.trcollectFormData;
+    window.trcollectFormData = function() {
+      var d = _t.apply(this, arguments);
+      if (!d.dataEntry)   d.dataEntry   = userName;
+      if (!d.dataUpdater) d.dataUpdater = userName;
+      return d;
+    };
+    window.trcollectFormData._pw = true;
+  }
 
-  }, 8000);
+  /* vaccCollectFormData — منطق حفظ vs تحديث */
+  if (window.vaccCollectFormData && !window.vaccCollectFormData._pw) {
+    var _v = window.vaccCollectFormData;
+    window.vaccCollectFormData = function() {
+      var d = _v.apply(this, arguments);
+      var isUpdate = d.caseNumber && d.caseNumber.trim() !== "" &&
+                     document.getElementById("vacc_copyingdata") &&
+                     document.getElementById("vacc_copyingdata").value.trim() !== "";
+      if (isUpdate) {
+        if (!d.dataUpdater) d.dataUpdater = userName;
+      } else {
+        if (!d.dataEntry) d.dataEntry = userName;
+      }
+      return d;
+    };
+    window.vaccCollectFormData._pw = true;
+  }
+
+  /* focollectFormData */
+  if (window.focollectFormData && !window.focollectFormData._pw) {
+    var _f = window.focollectFormData;
+    window.focollectFormData = function() {
+      var d = _f.apply(this, arguments);
+      if (!d.dataEntry)   d.dataEntry   = userName;
+      if (!d.dataUpdater) d.dataUpdater = userName;
+      return d;
+    };
+    window.focollectFormData._pw = true;
+  }
+
+  /* bd_collectBreederDataForUpdate */
+  if (window.bd_collectBreederDataForUpdate && !window.bd_collectBreederDataForUpdate._pw) {
+    var _b = window.bd_collectBreederDataForUpdate;
+    window.bd_collectBreederDataForUpdate = function() {
+      var d = _b.apply(this, arguments);
+      if (!d.dataEntry)   d.dataEntry   = userName;
+      if (!d.dataUpdater) d.dataUpdater = userName;
+      return d;
+    };
+    window.bd_collectBreederDataForUpdate._pw = true;
+  }
 }
+
 /* ─────────────────────────────────────────────────────────────────────
-   ١٣. شارة الدور
+   7. شارة الدور
    ─────────────────────────────────────────────────────────────────────*/
-function permBadge(role, roleLabel, userName) {
-  var old = document.getElementById("permBadge");
+
+function permShowBadge(userData) {
+  var old = document.getElementById("permUnifiedBadge");
   if (old) old.remove();
 
-  var colors = { admin:"#00b8d9", vet:"#2bb673", tech:"#f39c12" };
-  var bg = colors[role] || "#888";
+  var roleColors = {
+    admin: "#00b8d9",
+    مدير:  "#00b8d9",
+    vet:   "#2bb673",
+    طبيب:  "#2bb673",
+    tech:  "#f39c12",
+    فني:   "#f39c12"
+  };
+  var role = (userData.role || "tech").toLowerCase();
+  var bg   = roleColors[role] || roleColors[userData.role] || "#888";
 
   var b = document.createElement("div");
-  b.id = "permBadge";
+  b.id = "permUnifiedBadge";
   Object.assign(b.style, {
-    position:"fixed", bottom:"12px", right:"12px",
-    background:bg, color:"#fff",
-    padding:"6px 16px", borderRadius:"20px",
-    fontSize:"12px", fontWeight:"bold",
-    fontFamily:"Tahoma,Arial,sans-serif",
-    zIndex:"9999", boxShadow:"0 2px 8px rgba(0,0,0,.25)",
-    cursor:"pointer", direction:"rtl", userSelect:"none"
+    position:    "fixed",
+    bottom:      "12px",
+    right:       "12px",
+    background:  bg,
+    color:       "#fff",
+    padding:     "6px 16px",
+    borderRadius:"20px",
+    fontSize:    "12px",
+    fontWeight:  "bold",
+    fontFamily:  "Tahoma,Arial,sans-serif",
+    zIndex:      "9999",
+    boxShadow:   "0 2px 8px rgba(0,0,0,.25)",
+    cursor:      "pointer",
+    direction:   "rtl",
+    userSelect:  "none"
   });
-  b.textContent = "\uD83D\uDC64 " + userName + "  |  " + roleLabel;
+  b.textContent = "👤 " + (userData.name || userData.username) + "  |  " + userData.role;
   b.title = "انقر لعرض صلاحياتك";
-  b.onclick = permModal;
+  b.onclick = permShowDetailsModal;
   document.body.appendChild(b);
 }
 
 /* ─────────────────────────────────────────────────────────────────────
-   ١٤. نافذة تفاصيل الصلاحيات
+   8. نافذة تفاصيل الصلاحيات
    ─────────────────────────────────────────────────────────────────────*/
-function permModal() {
-  var old = document.getElementById("permModalBox");
+
+function permShowDetailsModal() {
+  var old = document.getElementById("permDetailsModal");
   if (old) { old.remove(); return; }
 
-  var PL = {
-    breeder:"سجل المربي", treatment:"سجل العلاج",
-    vaccination:"سجل التحصين", vaccinationRequests:"طلبات التحصين",
-    samples:"نموذج العينات", dashboard:"طباعة نماذج العينات",
-    settings:"طباعة شهادة التحصين", reports:"الأدوية المصروفة",
-    financialInventory:"الجرد المالي", diseaseTracking:"تتبع المرض",
-    animalDistribution:"توزيع الحيوانات",
-    comprehensiveReport:"التقرير الشامل", home:"الإعدادات"
-  };
-  var AL = {
-    save:"حفظ/إضافة", update:"تعديل/تحديث",
-    delete:"حذف", print:"طباعة",
-    search:"بحث/عرض", export:"تصدير"
-  };
+  var cu = PERM.state.currentUser;
+  var ap = PERM.state.allowedPages;
+  var aa = PERM.state.allowedActions;
+  if (!cu) return;
 
-  var ap = window.PERM.allowedPages;
-  var aa = window.PERM.allowedActions;
-  var role = window.PERM.role;
-  var cu   = window.PERM.currentUser;
-  var rl   = (PERM_DEFAULT_ROLES[role] || {}).label || role;
-
-  var pHtml = ap.map(function(p) {
-    return '<span style="display:inline-block;background:#e0f7fa;color:#006064;border-radius:10px;padding:2px 9px;margin:2px;font-size:11px;">' + (PL[p] || p) + '</span>';
+  var pHtml = PERM_PAGES_DEF.map(function(p) {
+    var allowed = ap.indexOf(p.id) !== -1;
+    return '<span style="display:inline-flex;align-items:center;gap:4px;' +
+      'background:' + (allowed ? '#e0f7fa' : '#ffeaea') + ';' +
+      'color:'      + (allowed ? '#006064' : '#c62828') + ';' +
+      'border-radius:10px;padding:3px 10px;margin:2px;font-size:11px;">' +
+      (allowed ? '✅' : '❌') + ' ' + p.icon + ' ' + p.name + '</span>';
   }).join("");
 
-  var aHtml = aa.map(function(a) {
-    return '<span style="display:inline-block;background:#e8f5e9;color:#1b5e20;border-radius:10px;padding:2px 9px;margin:2px;font-size:11px;">' + (AL[a] || a) + '</span>';
+  var allActions = Object.keys(PERM_ACTION_LABELS);
+  var aHtml = allActions.map(function(a) {
+    var allowed = aa.indexOf(a) !== -1;
+    return '<span style="display:inline-flex;align-items:center;gap:4px;' +
+      'background:' + (allowed ? '#e8f5e9' : '#ffeaea') + ';' +
+      'color:'      + (allowed ? '#1b5e20' : '#c62828') + ';' +
+      'border-radius:10px;padding:3px 10px;margin:2px;font-size:11px;">' +
+      (allowed ? '✅' : '❌') + ' ' + PERM_ACTION_LABELS[a] + '</span>';
   }).join("");
 
   var ov = document.createElement("div");
-  ov.id = "permModalBox";
+  ov.id = "permDetailsModal";
   Object.assign(ov.style, {
-    position:"fixed", inset:"0", top:"0", left:"0", right:"0", bottom:"0",
-    background:"rgba(0,0,0,.55)",
-    display:"flex", alignItems:"center", justifyContent:"center",
-    zIndex:"99999", direction:"rtl"
+    position: "fixed", inset: "0",
+    background: "rgba(0,0,0,.55)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    zIndex: "99999", direction: "rtl"
   });
+
   ov.innerHTML =
-    '<div style="background:#fff;border-radius:12px;padding:24px 26px;width:90%;max-width:460px;font-family:Tahoma,Arial;box-shadow:0 8px 30px rgba(0,0,0,.3);max-height:85vh;overflow-y:auto;">' +
-      '<div style="background:#00b8d9;color:#fff;margin:-24px -26px 16px;padding:13px 18px;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">' +
-        '<span style="font-weight:bold;font-size:14px;">\uD83D\uDD10 صلاحياتي</span>' +
-        '<button onclick="document.getElementById(\'permModalBox\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:15px;">&#x2715;</button>' +
+    '<div style="background:#fff;border-radius:12px;padding:24px 26px;width:90%;max-width:520px;' +
+    'font-family:Tahoma,Arial;box-shadow:0 8px 30px rgba(0,0,0,.3);max-height:85vh;overflow-y:auto;">' +
+      '<div style="background:#00b8d9;color:#fff;margin:-24px -26px 16px;padding:13px 18px;' +
+      'border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">' +
+        '<span style="font-weight:bold;font-size:14px;">🔐 صلاحياتي</span>' +
+        '<button onclick="document.getElementById(\'permDetailsModal\').remove()" ' +
+        'style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;' +
+        'width:26px;height:26px;cursor:pointer;font-size:15px;">✕</button>' +
       '</div>' +
+      /* بيانات المستخدم */
       '<div style="background:#f5f5f5;border-radius:8px;padding:10px 13px;margin-bottom:13px;">' +
         '<div style="font-size:12px;color:#777;">المستخدم</div>' +
-        '<div style="font-size:15px;font-weight:bold;color:#004e66;">' + (cu ? (cu.name || cu.username) : "") + '</div>' +
-        '<span style="font-size:11px;background:#00b8d9;color:#fff;border-radius:10px;padding:2px 10px;display:inline-block;margin-top:4px;">' + rl + '</span>' +
+        '<div style="font-size:15px;font-weight:bold;color:#004e66;">' + (cu.name || cu.username) + '</div>' +
+        '<span style="font-size:11px;background:#00b8d9;color:#fff;border-radius:10px;' +
+        'padding:2px 10px;display:inline-block;margin-top:4px;">' + cu.role + '</span>' +
       '</div>' +
+      /* الصفحات */
       '<div style="margin-bottom:12px;">' +
-        '<div style="font-weight:bold;font-size:12px;color:#333;margin-bottom:5px;">\uD83D\uDCCB الصفحات المتاحة (' + ap.length + ')</div>' +
-        '<div>' + (pHtml || '<span style="color:#999;font-size:11px;">لا توجد</span>') + '</div>' +
+        '<div style="font-weight:bold;font-size:12px;color:#333;margin-bottom:5px;">' +
+        '📋 الصفحات (' + ap.length + ' / ' + PERM_PAGES_DEF.length + ')</div>' +
+        '<div>' + pHtml + '</div>' +
       '</div>' +
+      /* الإجراءات */
       '<div style="margin-bottom:14px;">' +
-        '<div style="font-weight:bold;font-size:12px;color:#333;margin-bottom:5px;">&#x26A1; الإجراءات المسموح بها (' + aa.length + ')</div>' +
-        '<div>' + (aHtml || '<span style="color:#999;font-size:11px;">لا توجد</span>') + '</div>' +
+        '<div style="font-weight:bold;font-size:12px;color:#333;margin-bottom:5px;">' +
+        '⚡ الإجراءات المسموح بها (' + aa.length + ' / ' + allActions.length + ')</div>' +
+        '<div>' + aHtml + '</div>' +
       '</div>' +
       '<div style="text-align:center;">' +
-        '<button onclick="document.getElementById(\'permModalBox\').remove()" style="background:#00b8d9;color:#fff;border:none;border-radius:8px;padding:8px 24px;font-family:Tahoma;font-weight:bold;cursor:pointer;font-size:13px;">إغلاق</button>' +
+        '<button onclick="document.getElementById(\'permDetailsModal\').remove()" ' +
+        'style="background:#00b8d9;color:#fff;border:none;border-radius:8px;' +
+        'padding:8px 24px;font-family:Tahoma;font-weight:bold;cursor:pointer;">إغلاق</button>' +
       '</div>' +
     '</div>';
 
@@ -8091,103 +8109,389 @@ function permModal() {
 }
 
 /* ─────────────────────────────────────────────────────────────────────
-   ١٥. إلغاء الصلاحيات عند تسجيل الخروج
+   9. إلغاء الصلاحيات عند تسجيل الخروج
    ─────────────────────────────────────────────────────────────────────*/
+
 function permRevoke() {
-    if (window._permAutoFillInterval) {
-    clearInterval(window._permAutoFillInterval);
-    window._permAutoFillInterval = null;
+  /* إيقاف Polling */
+  if (PERM.state.autoFillTimer) {
+    clearInterval(PERM.state.autoFillTimer);
+    PERM.state.autoFillTimer = null;
   }
 
-  // إظهار أزرار القائمة المخفية
+  /* إظهار جميع أزرار القائمة */
   document.querySelectorAll("nav button[data-perm-hide]").forEach(function(btn) {
     btn.style.display = "";
     btn.disabled      = false;
     delete btn.dataset.permHide;
   });
-  // رفع قفل الأزرار
+
+  /* رفع قفل الأزرار */
   document.querySelectorAll("[data-perm-lock]").forEach(function(el) {
-    el.disabled      = false;
     el.style.opacity = "";
     el.style.cursor  = "";
+    el.removeAttribute("title");
     delete el.dataset.permLock;
-    el.removeEventListener("click", permBlockedClick, true);
+    el.removeEventListener("click", permBlockHandler, true);
   });
-  // إزالة الواجهة
-  ["permBadge","permModalBox"].forEach(function(id) {
-    var el = document.getElementById(id); if (el) el.remove();
+
+  /* إزالة الشارة والنافذة */
+  ["permUnifiedBadge", "permDetailsModal"].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.remove();
   });
-  window.PERM = { currentUser:null, allowedPages:[], allowedActions:[], role:null };
-  window._permLastUserData = null;
+
+  /* مسح الحالة */
+  PERM.state.currentUser    = null;
+  PERM.state.allowedPages   = [];
+  PERM.state.allowedActions = [];
+  window._userAllowedPages  = null;
 }
 
 /* ─────────────────────────────────────────────────────────────────────
-   ١٦. ربط مع unlockNav / lockNav
+   10. صفحة إدارة الصلاحيات (home) — بديل الكود القديم
    ─────────────────────────────────────────────────────────────────────*/
-(function() {
-  function patch() {
-    if (typeof window.unlockNav !== "function") {
-      return setTimeout(patch, 100);
+
+/**
+ * يُستدعى عند تحميل قائمة المستخدمين في تبويب الصلاحيات
+ */
+async function permMgr_loadUsers() {
+  var select   = document.getElementById("permUserSelect");
+  var loading  = document.getElementById("permLoading");
+  var noUser   = document.getElementById("permNoUser");
+  var container = document.getElementById("permPagesContainer");
+
+  if (!select) return;
+  loading.style.display   = "block";
+  container.style.display = "none";
+  noUser.style.display    = "none";
+
+  try {
+    var CSV_URL = "https://docs.google.com/spreadsheets/d/" + PERM.SHEET_ID +
+                  "/export?format=csv&gid=0&t=" + Date.now();
+    var r = await fetch(CSV_URL);
+    if (!r.ok) throw new Error("فشل جلب البيانات");
+
+    var text    = await r.text();
+    text        = text.replace(/^\uFEFF/, "").replace(/\r/g, "");
+    var lines   = text.trim().split("\n");
+    var headers = permSplitCSVLine(lines[0]).map(function(h) {
+      return h.toLowerCase().trim();
+    });
+
+    var uIdx = -1;
+    headers.forEach(function(h, i) {
+      if (h.indexOf("user") !== -1 || h.indexOf("اسم") !== -1) uIdx = i;
+    });
+
+    if (uIdx === -1) throw new Error("عمود اسم المستخدم غير موجود");
+
+    select.innerHTML = '<option value="">-- اختر مستخدم --</option>';
+    for (var i = 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      var cols = permSplitCSVLine(lines[i]);
+      var uname = (cols[uIdx] || "").trim();
+      if (!uname) continue;
+      var opt = document.createElement("option");
+      opt.value       = uname;
+      opt.textContent = uname;
+      select.appendChild(opt);
     }
-    if (window.unlockNav._permPatched) return;
+    showToast("✅ تم تحديث القائمة (" + (lines.length - 1) + " مستخدم)", "success");
+  } catch(err) {
+    showToast("❌ " + err.message, "error");
+  } finally {
+    loading.style.display = "none";
+    noUser.style.display  = "block";
+  }
+}
 
-    var _unlock = window.unlockNav;
+/**
+ * عند اختيار مستخدم → تحميل صلاحياته من قاعدة البيانات
+ * إذا لم يُعثر على بيانات في الـ Sheets → يجرب localStorage كـ fallback
+ */
+async function permMgr_loadUserPermissions() {
+  var select    = document.getElementById("permUserSelect");
+  var container = document.getElementById("permPagesContainer");
+  var noUser    = document.getElementById("permNoUser");
+  var loading   = document.getElementById("permLoading");
+  var username  = select ? select.value : "";
+
+  if (!username) {
+    if (container) container.style.display = "none";
+    if (noUser)    noUser.style.display    = "block";
+    return;
+  }
+
+  if (loading)   loading.style.display   = "block";
+  if (noUser)    noUser.style.display    = "none";
+  if (container) container.style.display = "none";
+
+  try {
+    /* بناء الـ checkboxes */
+    var grid = document.getElementById("permPagesGrid");
+    if (!grid) { loading.style.display = "none"; return; }
+    grid.innerHTML = "";
+
+    /* قسم الصفحات */
+    var pagesSection = document.createElement("div");
+    pagesSection.innerHTML = '<div style="font-weight:bold;color:#004e66;font-size:13px;' +
+      'margin-bottom:8px;padding:6px 10px;background:#e0f7fa;border-radius:6px;">📋 الصفحات</div>';
+    grid.appendChild(pagesSection);
+
+    var pagesGrid = document.createElement("div");
+    pagesGrid.style.cssText = "display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;margin-bottom:16px;";
+    PERM_PAGES_DEF.forEach(function(page) {
+      var div = document.createElement("div");
+      div.style.cssText = "display:flex;align-items:center;gap:8px;background:#fff;padding:7px 10px;" +
+        "border-radius:4px;border:1px solid #ddd;cursor:pointer;transition:all 0.15s;";
+      div.onmouseenter = function() { this.style.borderColor = "#00b8d9"; this.style.background = "#f0fbff"; };
+      div.onmouseleave = function() { this.style.borderColor = "#ddd";    this.style.background = "#fff"; };
+      div.innerHTML =
+        '<input type="checkbox" id="pperm_' + page.id + '" value="' + page.id +
+        '" style="width:16px;height:16px;cursor:pointer;" onchange="permMgr_updateCount()">' +
+        '<label for="pperm_' + page.id + '" style="cursor:pointer;font-size:12px;color:#333;">' +
+        page.icon + ' ' + page.name + '</label>';
+      pagesGrid.appendChild(div);
+    });
+    grid.appendChild(pagesGrid);
+
+    /* قسم الإجراءات */
+    var actionsSection = document.createElement("div");
+    actionsSection.innerHTML = '<div style="font-weight:bold;color:#004e66;font-size:13px;' +
+      'margin-bottom:8px;padding:6px 10px;background:#e8f5e9;border-radius:6px;">⚡ الإجراءات</div>';
+    grid.appendChild(actionsSection);
+
+    var actionsGrid = document.createElement("div");
+    actionsGrid.style.cssText = "display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;";
+    Object.keys(PERM_ACTION_LABELS).forEach(function(action) {
+      var div = document.createElement("div");
+      div.style.cssText = "display:flex;align-items:center;gap:8px;background:#fff;padding:7px 10px;" +
+        "border-radius:4px;border:1px solid #ddd;cursor:pointer;transition:all 0.15s;";
+      div.onmouseenter = function() { this.style.borderColor = "#2bb673"; this.style.background = "#f0fff4"; };
+      div.onmouseleave = function() { this.style.borderColor = "#ddd";    this.style.background = "#fff"; };
+      div.innerHTML =
+        '<input type="checkbox" id="aperm_' + action + '" value="' + action +
+        '" style="width:16px;height:16px;cursor:pointer;" onchange="permMgr_updateCount()">' +
+        '<label for="aperm_' + action + '" style="cursor:pointer;font-size:12px;color:#333;">' +
+        PERM_ACTION_LABELS[action] + '</label>';
+      actionsGrid.appendChild(div);
+    });
+    grid.appendChild(actionsGrid);
+
+    /* جلب الصلاحيات المحفوظة من قاعدة البيانات */
+    var userData = await permFetchUserData(username);
+    var savedPages   = (userData && userData.pages   && userData.pages.length)   ? userData.pages   : null;
+    var savedActions = (userData && userData.actions && userData.actions.length) ? userData.actions : null;
+
+    /* fallback → localStorage */
+    if (!savedPages) {
+      var ls = localStorage.getItem("perm_" + username);
+      if (ls) {
+        try { savedPages = JSON.parse(ls); } catch(e) {}
+      }
+    }
+
+    /* إذا لا يوجد شيء → الكل مسموح */
+    if (!savedPages)   savedPages   = PERM_PAGES_DEF.map(function(p) { return p.id; });
+    if (!savedActions) savedActions = Object.keys(PERM_ACTION_LABELS);
+
+    PERM_PAGES_DEF.forEach(function(p) {
+      var cb = document.getElementById("pperm_" + p.id);
+      if (cb) cb.checked = savedPages.indexOf(p.id) !== -1;
+    });
+    Object.keys(PERM_ACTION_LABELS).forEach(function(a) {
+      var cb = document.getElementById("aperm_" + a);
+      if (cb) cb.checked = savedActions.indexOf(a) !== -1;
+    });
+
+    permMgr_updateCount();
+    if (container) container.style.display = "block";
+  } catch(err) {
+    showToast("❌ " + err.message, "error");
+  } finally {
+    if (loading) loading.style.display = "none";
+  }
+}
+
+function permMgr_updateCount() {
+  var pCount = PERM_PAGES_DEF.filter(function(p) {
+    var cb = document.getElementById("pperm_" + p.id);
+    return cb && cb.checked;
+  }).length;
+  var aCount = Object.keys(PERM_ACTION_LABELS).filter(function(a) {
+    var cb = document.getElementById("aperm_" + a);
+    return cb && cb.checked;
+  }).length;
+  var el = document.getElementById("permSelectedCount");
+  if (el) el.textContent = pCount + " صفحة | " + aCount + " إجراء";
+}
+
+function permMgr_toggleAll(checked) {
+  PERM_PAGES_DEF.forEach(function(p) {
+    var cb = document.getElementById("pperm_" + p.id);
+    if (cb) cb.checked = checked;
+  });
+  Object.keys(PERM_ACTION_LABELS).forEach(function(a) {
+    var cb = document.getElementById("aperm_" + a);
+    if (cb) cb.checked = checked;
+  });
+  permMgr_updateCount();
+}
+
+/**
+ * حفظ الصلاحيات — يكتب في Google Sheets عبر Apps Script
+ * مع نسخة احتياطية في localStorage
+ */
+async function permMgr_save() {
+  var select   = document.getElementById("permUserSelect");
+  var username = select ? select.value : "";
+  if (!username) { showToast("❌ اختر مستخدماً أولاً", "error"); return; }
+
+  var pages = PERM_PAGES_DEF.filter(function(p) {
+    var cb = document.getElementById("pperm_" + p.id);
+    return cb && cb.checked;
+  }).map(function(p) { return p.id; });
+
+  var actions = Object.keys(PERM_ACTION_LABELS).filter(function(a) {
+    var cb = document.getElementById("aperm_" + a);
+    return cb && cb.checked;
+  });
+
+  showToast("⏳ جاري الحفظ...", "info");
+
+  try {
+    /* حفظ في Sheets عبر Apps Script */
+    var body = JSON.stringify({
+      action:   "saveUserPermissions",
+      username: username,
+      pages:    pages.join(","),
+      actions:  actions.join(",")
+    });
+    var r = await fetch(PERM.SCRIPT_URL + "?v=4", {
+      method:  "POST", mode: "cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: body, redirect: "follow"
+    });
+
+    if (r.ok) {
+      var res = await r.json();
+      if (!res.success) throw new Error(res.message || "فشل الحفظ في Sheets");
+    }
+  } catch(apiErr) {
+    console.warn("[PERM] Apps Script:", apiErr.message, "— الاحتفاظ بـ localStorage");
+  }
+
+  /* دائماً: احفظ في localStorage كنسخة احتياطية */
+  localStorage.setItem("perm_" + username, JSON.stringify(pages));
+  localStorage.setItem("permActions_" + username, JSON.stringify(actions));
+
+  showToast("✅ تم حفظ صلاحيات " + username + " (" + pages.length + " صفحة، " + actions.length + " إجراء)", "success");
+
+  /* إذا كان المستخدم المحرَّر هو المسجَّل حالياً → تحديث فوري */
+  if (PERM.state.currentUser && PERM.state.currentUser.username === username) {
+    PERM.state.allowedPages   = pages;
+    PERM.state.allowedActions = actions;
+    permApplyNav(pages);
+    permApplyButtons(actions);
+  }
+}
+
+function permMgr_clear() {
+  var select   = document.getElementById("permUserSelect");
+  var username = select ? select.value : "";
+  if (!username) return;
+  if (!confirm("هل أنت متأكد من مسح صلاحيات " + username + "؟")) return;
+  localStorage.removeItem("perm_" + username);
+  localStorage.removeItem("permActions_" + username);
+  permMgr_loadUserPermissions();
+  showToast("🗑️ تم مسح صلاحيات " + username, "warning");
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   11. ربط مع unlockNav / lockNav الأصليتين
+   ─────────────────────────────────────────────────────────────────────*/
+
+(function patchNavFunctions() {
+  function tryPatch() {
+    if (typeof window.unlockNav !== "function") {
+      return setTimeout(tryPatch, 100);
+    }
+    if (window.unlockNav._permV4) return;
+
+    /* تغليف unlockNav */
+    var _origUnlock = window.unlockNav;
     window.unlockNav = function() {
-      _unlock.apply(this, arguments);
-      // انتظر 400ms حتى تكتمل قراءة CSV ثم طبّق الصلاحيات
+      _origUnlock.apply(this, arguments);
+      /* جلب اسم المستخدم */
+      var username = window._currentUser ||
+                     (document.getElementById("l_username") && document.getElementById("l_username").value.trim()) ||
+                     "";
+      if (!username) return;
+      /* تطبيق الصلاحيات بعد 300ms (بعد اكتمال unlockNav الأصلية) */
       setTimeout(function() {
-        var ud = window._permLastUserData;
-        if (ud) {
-          permApply(ud);
-        } else {
-          // انتظر 800ms إضافية
-          setTimeout(function() {
-            var ud2 = window._permLastUserData;
-            permApply(ud2 || { role:"tech", pages:"", actions:"", name:"مستخدم" });
-          }, 800);
-        }
-      }, 400);
+        permApplyForUser(username);
+      }, 300);
     };
-    window.unlockNav._permPatched = true;
+    window.unlockNav._permV4 = true;
 
-    var _lock = window.lockNav;
-    if (typeof _lock === "function") {
+    /* تغليف lockNav */
+    if (typeof window.lockNav === "function" && !window.lockNav._permV4) {
+      var _origLock = window.lockNav;
       window.lockNav = function() {
-        _lock.apply(this, arguments);
+        _origLock.apply(this, arguments);
         permRevoke();
       };
+      window.lockNav._permV4 = true;
     }
+
+    console.log("[PERM] ✅ nav patched");
   }
-  patch();
+  tryPatch();
 })();
 
 /* ─────────────────────────────────────────────────────────────────────
-   ١٧. حماية التنقل بين الصفحات
+   12. حماية showPage
    ─────────────────────────────────────────────────────────────────────*/
-(function() {
-  function patch() {
+
+(function patchShowPage() {
+  function tryPatch() {
     if (typeof window.showPage !== "function") {
-      return setTimeout(patch, 100);
+      return setTimeout(tryPatch, 100);
     }
-    if (window.showPage._permPatched) return;
+    if (window.showPage._permV4) return;
 
-    var _sp = window.showPage;
+    var _orig = window.showPage;
     window.showPage = function(pageId) {
-      if (!window._isLoggedIn) return _sp.apply(this, arguments);
-      if (pageId === "login" || pageId === "home") return _sp.apply(this, arguments);
+      if (!window._isLoggedIn) return _orig.apply(this, arguments);
+      if (pageId === "login" || pageId === "home") return _orig.apply(this, arguments);
 
-      if (window.PERM.allowedPages.length > 0 &&
-          window.PERM.allowedPages.indexOf(pageId) === -1) {
+      var ap = PERM.state.allowedPages;
+      if (ap.length > 0 && ap.indexOf(pageId) === -1) {
         showToast("⛔ ليس لديك صلاحية للوصول إلى هذه الصفحة", "warning");
         return;
       }
-      return _sp.apply(this, arguments);
+      return _orig.apply(this, arguments);
     };
-    window.showPage._permPatched = true;
+    window.showPage._permV4 = true;
+    console.log("[PERM] ✅ showPage patched");
   }
-  patch();
+  tryPatch();
 })();
 
+/* ─────────────────────────────────────────────────────────────────────
+   13. تعريف الدوال العامة للاستخدام من HTML
+       (تحل محل الدوال القديمة في صفحة home)
+   ─────────────────────────────────────────────────────────────────────*/
+
+window.permRefreshUsers          = permMgr_loadUsers;
+window.permLoadUserPermissions   = permMgr_loadUserPermissions;
+window.permToggleAll             = permMgr_toggleAll;
+window.permSavePermissions       = permMgr_save;
+window.permClearPermissions      = permMgr_clear;
+window.permMgr_updateCount       = permMgr_updateCount;
+
+console.log("[PERM] ✅ نظام الصلاحيات الموحد v4.0 جاهز");
 
 "use strict";
 
