@@ -945,16 +945,21 @@ window.showToast = function(message, type) {
 <script>
 "use strict";
 
-// استبدل دالة showPage الموجودة بهذه:
 function showPage(pageId) {
-  // الصفحات المسموح بها دون تسجيل دخول
   var publicPages = ['login'];
   
   if (!window._isLoggedIn && !publicPages.includes(pageId)) {
     showToast('يرجى تسجيل الدخول أولاً', 'warning');
     return;
   }
-
+  
+  // التحقق من الصلاحيات
+  if (window._isLoggedIn && window._userAllowedPages && publicPages.indexOf(pageId) === -1) {
+    if (window._userAllowedPages.indexOf(pageId) === -1) {
+      showToast('⛔ ليس لديك صلاحية الوصول إلى هذه الصفحة', 'error');
+      return;
+    }
+  }
   document.querySelectorAll(".page").forEach(function(p) {
     p.classList.remove("active");
   });
@@ -1003,11 +1008,74 @@ function lockNav() {
 
 function unlockNav() {
   window._isLoggedIn = true;
-  document.querySelectorAll("nav button").forEach(function(btn) {
-    btn.disabled = false;
-    btn.style.opacity = '';
-    btn.style.cursor = '';
-  });
+  
+  // تطبيق الصلاحيات إذا وجدت
+  var currentUser = window._currentUser;
+  if (currentUser) {
+    var saved = localStorage.getItem('perm_' + currentUser);
+    var allowedPages = [];
+    
+    if (saved) {
+      try {
+        allowedPages = JSON.parse(saved);
+      } catch(e) {}
+    }
+    
+    // إذا لم تكن هناك صلاحيات محفوظة، اسمح بالكل
+    if (allowedPages.length === 0) {
+      allowedPages = ['breeder','treatment','vaccination','vaccinationRequests','samples','dashboard','settings','reports','financialInventory','diseaseTracking','animalDistribution','comprehensiveReport','home'];
+    }
+    
+    // تطبيق على الأزرار
+    document.querySelectorAll("nav button").forEach(function(btn) {
+      var onclick = btn.getAttribute('onclick') || '';
+      var match = onclick.match(/showPage\('([^']+)'\)/);
+      
+      if (match) {
+        var pageId = match[1];
+        // login مسموح دائماً
+        if (pageId === 'login') {
+          btn.disabled = false;
+          btn.style.opacity = '';
+          btn.style.cursor = '';
+        } else {
+          var hasAccess = allowedPages.indexOf(pageId) !== -1;
+          btn.disabled = !hasAccess;
+          btn.style.opacity = hasAccess ? '' : '0.3';
+          btn.style.cursor = hasAccess ? '' : 'not-allowed';
+          
+          // إضافة/إزالة علامة القفل
+          var originalText = btn.getAttribute('data-original-text');
+          if (!hasAccess) {
+            if (!originalText) {
+              btn.setAttribute('data-original-text', btn.textContent);
+              btn.textContent = '🔒 ' + btn.textContent;
+            }
+          } else {
+            if (originalText) {
+              btn.textContent = originalText;
+              btn.removeAttribute('data-original-text');
+            }
+          }
+        }
+      }
+    });
+    
+    // حفظ الصلاحيات في الذاكرة للاستخدام السريع
+    window._userAllowedPages = allowedPages;
+  } else {
+    // لا يوجد مستخدم محدد - اسمح بالكل
+    document.querySelectorAll("nav button").forEach(function(btn) {
+      btn.disabled = false;
+      btn.style.opacity = '';
+      btn.style.cursor = '';
+      var originalText = btn.getAttribute('data-original-text');
+      if (originalText) {
+        btn.textContent = originalText;
+        btn.removeAttribute('data-original-text');
+      }
+    });
+  }
 }
 
 // تأمين التنقل عند التحميل
@@ -1017,47 +1085,392 @@ lockNav();
 
 <!-- الصفحات -->
 <div id="home" class="page">
-  <h1>يمكنك التعديل على مظهر الصفحات</h1>
-  <button onclick="document.getElementById('settingsPanel').style.display='block'" style="margin-top:15px;background:#00b8d9;color:#fff;padding:8px 20px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:bold">⚙️ ضبط المظهر</button>
+  <h1>⚙️ الإعدادات</h1>
+  
+  <!-- تبويبات الإعدادات -->
+  <div class="tabs" style="margin-top:15px;">
+    <button class="tab-btn active" onclick="homeShowTab('appearance')">🎨 المظهر</button>
+    <button class="tab-btn" onclick="homeShowTab('permissions')">🔐 صلاحيات المستخدمين</button>
+  </div>
 
-  <div id="settingsPanel" style="display:none;margin-top:15px;background:#f8ffff;border:3px solid #00b8d9;border-radius:8px;padding:15px;max-width:350px">
-    <h3 style="margin:0 0 12px 0;color:#00b8d9">⚙️ ضبط المظهر</h3>
-    <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px">
-      <label style="font-weight:bold;width:130px">لون الخلفية:</label>
-      <input type="color" id="bgColor" value="#d9d9d9" oninput="document.body.style.background=this.value">
-    </div>
-<div style="margin-bottom:10px;display:flex;align-items:center;gap:10px">
-  <label style="font-weight:bold;width:130px">لون البطاقات:</label>
-  <input type="color" id="cardColor" value="#f8ffff" oninput="document.querySelectorAll('.card').forEach(function(c){c.style.background=this.value}.bind(this))">
-</div>
-    <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px">
-      <label style="font-weight:bold;width:130px">لون النص:</label>
-      <input type="color" id="txtColor" value="#000000" oninput="document.body.style.color=this.value">
-    </div>
-    <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px">
-      <label style="font-weight:bold;width:130px">حجم الخط:</label>
-      <input type="range" id="fontSize" min="10" max="20" value="13" style="flex:1" oninput="document.body.style.fontSize=this.value+'px';document.getElementById('fontSizeVal').textContent=this.value+'px'">
-      <span id="fontSizeVal" style="min-width:35px;font-weight:bold;color:#00b8d9">13px</span>
-    </div>
-    <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px">
-      <label style="font-weight:bold;width:130px">لون الشريط:</label>
-      <input type="color" id="navColor" value="#333333" oninput="document.querySelector('nav').style.background=this.value">
-    </div>
-    <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px">
-  <label style="font-weight:bold;width:130px">حجم الإشعارات:</label>
-  <input type="range" id="toastSize" min="10" max="22" value="14" style="flex:1"
-    oninput="
-      document.getElementById('toastSizeVal').textContent=this.value+'px';
-      document.getElementById('toastContainer').style.fontSize=this.value+'px';
-    ">
-  <span id="toastSizeVal" style="min-width:35px;font-weight:bold;color:#00b8d9">14px</span>
-</div>
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button onclick="saveAppearance()" style="background:#2bb673;color:#fff;padding:7px 16px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:bold">💾 حفظ</button>
-      <button onclick="resetAppearance()" style="background:#e65050;color:#fff;padding:7px 16px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:bold">↺ إعادة تعيين</button>
-      <button onclick="document.getElementById('settingsPanel').style.display='none'" style="background:#888;color:#fff;padding:7px 16px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:bold">✖ إغلاق</button>
+  <!-- تبويب المظهر -->
+  <div id="tab-appearance" class="tab-pane active">
+    <button onclick="document.getElementById('settingsPanel').style.display='block'" style="margin-top:15px;background:#00b8d9;color:#fff;padding:8px 20px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:bold">⚙️ ضبط المظهر</button>
+
+    <div id="settingsPanel" style="display:none;margin-top:15px;background:#f8ffff;border:3px solid #00b8d9;border-radius:8px;padding:15px;max-width:350px">
+      <h3 style="margin:0 0 12px 0;color:#00b8d9">⚙️ ضبط المظهر</h3>
+      <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px">
+        <label style="font-weight:bold;width:130px">لون الخلفية:</label>
+        <input type="color" id="bgColor" value="#d9d9d9" oninput="document.body.style.background=this.value">
+      </div>
+      <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px">
+        <label style="font-weight:bold;width:130px">لون البطاقات:</label>
+        <input type="color" id="cardColor" value="#f8ffff" oninput="document.querySelectorAll('.card').forEach(function(c){c.style.background=this.value}.bind(this))">
+      </div>
+      <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px">
+        <label style="font-weight:bold;width:130px">لون النص:</label>
+        <input type="color" id="txtColor" value="#000000" oninput="document.body.style.color=this.value">
+      </div>
+      <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px">
+        <label style="font-weight:bold;width:130px">حجم الخط:</label>
+        <input type="range" id="fontSize" min="10" max="20" value="13" style="flex:1" oninput="document.body.style.fontSize=this.value+'px';document.getElementById('fontSizeVal').textContent=this.value+'px'">
+        <span id="fontSizeVal" style="min-width:35px;font-weight:bold;color:#00b8d9">13px</span>
+      </div>
+      <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px">
+        <label style="font-weight:bold;width:130px">لون الشريط:</label>
+        <input type="color" id="navColor" value="#333333" oninput="document.querySelector('nav').style.background=this.value">
+      </div>
+      <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px">
+        <label style="font-weight:bold;width:130px">حجم الإشعارات:</label>
+        <input type="range" id="toastSize" min="10" max="22" value="14" style="flex:1"
+          oninput="
+            document.getElementById('toastSizeVal').textContent=this.value+'px';
+            document.getElementById('toastContainer').style.fontSize=this.value+'px';
+          ">
+        <span id="toastSizeVal" style="min-width:35px;font-weight:bold;color:#00b8d9">14px</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button onclick="saveAppearance()" style="background:#2bb673;color:#fff;padding:7px 16px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:bold">💾 حفظ</button>
+        <button onclick="resetAppearance()" style="background:#e65050;color:#fff;padding:7px 16px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:bold">↺ إعادة تعيين</button>
+        <button onclick="document.getElementById('settingsPanel').style.display='none'" style="background:#888;color:#fff;padding:7px 16px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:bold">✖ إغلاق</button>
+      </div>
     </div>
   </div>
+
+  <!-- تبويب صلاحيات المستخدمين -->
+  <div id="tab-permissions" class="tab-pane">
+    <div style="background:#f8ffff;border:3px solid #00b8d9;border-radius:8px;padding:15px;margin-top:15px;">
+      <h3 style="margin:0 0 15px 0;color:#00b8d9">🔐 إدارة صلاحيات المستخدمين</h3>
+      
+      <!-- اختيار المستخدم -->
+      <div style="margin-bottom:15px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <label style="font-weight:bold;">👤 اختر المستخدم:</label>
+        <select id="permUserSelect" onchange="permLoadUserPermissions()" style="padding:6px 10px;border:2px solid #00b8d9;border-radius:4px;font-size:13px;min-width:200px;">
+          <option value="">-- اختر مستخدم --</option>
+        </select>
+        <button onclick="permRefreshUsers()" style="background:#00b8d9;color:#fff;padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-family:inherit;">🔄 تحديث القائمة</button>
+      </div>
+
+      <!-- حالة التحميل -->
+      <div id="permLoading" style="display:none;text-align:center;padding:20px;">
+        <div style="width:40px;height:40px;border:4px solid #e0e0e0;border-top:4px solid #00b8d9;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 10px;"></div>
+        <div style="color:#00b8d9;font-weight:bold;">جاري التحميل...</div>
+      </div>
+
+      <!-- قائمة الصفحات -->
+      <div id="permPagesContainer" style="display:none;">
+        <div style="background:#eef7ff;border:1px dashed #00b8d9;border-radius:6px;padding:12px;margin-bottom:15px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <label style="font-weight:bold;color:#004e66;">
+              <input type="checkbox" id="permSelectAll" onchange="permToggleAll(this.checked)" style="width:18px;height:18px;vertical-align:middle;margin-left:6px;">
+              تحديد / إلغاء تحديد الكل
+            </label>
+            <span id="permSelectedCount" style="background:#00b8d9;color:#fff;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:bold;">0 صفحة</span>
+          </div>
+          
+          <div id="permPagesGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;">
+            <!-- يتم ملؤها ديناميكياً -->
+          </div>
+        </div>
+
+        <!-- أزرار التحكم -->
+        <div style="display:flex;gap:8px;justify-content:center;">
+          <button onclick="permSavePermissions()" style="background:#2bb673;color:#fff;padding:8px 24px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:bold;font-size:14px;">💾 حفظ الصلاحيات</button>
+          <button onclick="permClearPermissions()" style="background:#e65050;color:#fff;padding:8px 24px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:bold;font-size:14px;">🗑️ مسح الصلاحيات</button>
+        </div>
+      </div>
+
+      <!-- رسالة عند عدم اختيار مستخدم -->
+      <div id="permNoUser" style="text-align:center;padding:30px;color:#888;">
+        <div style="font-size:48px;margin-bottom:10px;">🔐</div>
+        <div style="font-size:16px;font-weight:bold;">اختر مستخدماً لعرض وتحرير صلاحياته</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // ===== دوال تبديل التبويبات =====
+  function homeShowTab(tabName) {
+    document.querySelectorAll('#home .tab-btn').forEach(function(btn) {
+      btn.classList.remove('active');
+    });
+    document.querySelectorAll('#home .tab-pane').forEach(function(pane) {
+      pane.classList.remove('active');
+    });
+    
+    event.target.classList.add('active');
+    document.getElementById('tab-' + tabName).classList.add('active');
+  }
+
+  // ===== إعدادات المظهر =====
+  function saveAppearance() {
+    var settings = {
+      bgColor: document.getElementById('bgColor').value,
+      cardColor: document.getElementById('cardColor').value,
+      txtColor: document.getElementById('txtColor').value,
+      fontSize: document.getElementById('fontSize').value,
+      navColor: document.getElementById('navColor').value,
+      toastSize: document.getElementById('toastSize').value
+    };
+    localStorage.setItem('appearanceSettings', JSON.stringify(settings));
+    showToast('✅ تم حفظ إعدادات المظهر', 'success');
+  }
+
+  function resetAppearance() {
+    document.getElementById('bgColor').value = '#d9d9d9';
+    document.getElementById('cardColor').value = '#f8ffff';
+    document.getElementById('txtColor').value = '#000000';
+    document.getElementById('fontSize').value = '13';
+    document.getElementById('navColor').value = '#333333';
+    document.getElementById('toastSize').value = '14';
+    
+    document.body.style.background = '#d9d9d9';
+    document.body.style.color = '#000000';
+    document.body.style.fontSize = '13px';
+    document.querySelector('nav').style.background = '#333333';
+    document.getElementById('toastContainer').style.fontSize = '14px';
+    document.querySelectorAll('.card').forEach(function(c) {
+      c.style.background = '#f8ffff';
+    });
+    
+    localStorage.removeItem('appearanceSettings');
+    showToast('↺ تم إعادة تعيين المظهر', 'info');
+  }
+
+  // ===== دوال صلاحيات المستخدمين =====
+  var PERM_PAGES = [
+    { id: 'breeder', name: 'سجل المربي', icon: '👤' },
+    { id: 'treatment', name: 'سجل العلاج', icon: '💉' },
+    { id: 'vaccination', name: 'سجل التحصين', icon: '💊' },
+    { id: 'vaccinationRequests', name: 'طلبات التحصين', icon: '📋' },
+    { id: 'samples', name: 'نموذج العينات', icon: '🧪' },
+    { id: 'dashboard', name: 'طباعة نماذج العينات', icon: '🖨️' },
+    { id: 'settings', name: 'طباعة شهادة التحصين', icon: '📜' },
+    { id: 'reports', name: 'الأدوية المصروفة', icon: '💊' },
+    { id: 'financialInventory', name: 'الجرد المالي', icon: '💰' },
+    { id: 'diseaseTracking', name: 'تتبع المرض', icon: '📊' },
+    { id: 'animalDistribution', name: 'توزيع الحيوانات', icon: '🐄' },
+    { id: 'comprehensiveReport', name: 'التقرير الشامل', icon: '📈' },
+    { id: 'home', name: 'الإعدادات', icon: '⚙️' }
+  ];
+
+  // تحميل قائمة المستخدمين من نفس جدول تسجيل الدخول
+  async function permRefreshUsers() {
+    var select = document.getElementById('permUserSelect');
+    var loading = document.getElementById('permLoading');
+    var container = document.getElementById('permPagesContainer');
+    var noUser = document.getElementById('permNoUser');
+    
+    loading.style.display = 'block';
+    container.style.display = 'none';
+    noUser.style.display = 'none';
+    
+    try {
+      var SHEET_ID = '1TzE44MOz8OqPdR-FzZLn5fhq9NDwhGN_X20xsusv1qE';
+      var CSV_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/export?format=csv&gid=0';
+      
+      var r = await fetch(CSV_URL);
+      if (!r.ok) throw new Error('فشل جلب البيانات');
+      
+      var text = await r.text();
+      var lines = text.trim().split('\n');
+      var headers = lines[0].split(',').map(function(h) { return h.trim().replace(/^"|"$/g, '').toLowerCase(); });
+      
+      var userIdx = -1;
+      headers.forEach(function(h, i) {
+        if (h.indexOf('user') !== -1 || h.indexOf('اسم') !== -1 || h.indexOf('username') !== -1) {
+          userIdx = i;
+        }
+      });
+      
+      if (userIdx === -1) {
+        showToast('⚠️ لم يتم العثور على عمود اسم المستخدم', 'warning');
+        return;
+      }
+      
+      select.innerHTML = '<option value="">-- اختر مستخدم --</option>';
+      
+      for (var i = 1; i < lines.length; i++) {
+        var cols = lines[i].split(',').map(function(c) { return c.trim().replace(/^"|"$/g, ''); });
+        var username = cols[userIdx];
+        if (username) {
+          var opt = document.createElement('option');
+          opt.value = username;
+          opt.textContent = username;
+          select.appendChild(opt);
+        }
+      }
+      
+      showToast('✅ تم تحديث القائمة (' + (lines.length - 1) + ' مستخدم)', 'success');
+      
+    } catch(err) {
+      showToast('❌ خطأ: ' + err.message, 'error');
+    } finally {
+      loading.style.display = 'none';
+      noUser.style.display = 'block';
+    }
+  }
+
+  // عند اختيار مستخدم - تحميل صلاحياته
+  async function permLoadUserPermissions() {
+    var select = document.getElementById('permUserSelect');
+    var username = select.value;
+    var container = document.getElementById('permPagesContainer');
+    var noUser = document.getElementById('permNoUser');
+    var loading = document.getElementById('permLoading');
+    
+    if (!username) {
+      container.style.display = 'none';
+      noUser.style.display = 'block';
+      return;
+    }
+    
+    loading.style.display = 'block';
+    noUser.style.display = 'none';
+    container.style.display = 'none';
+    
+    try {
+      var grid = document.getElementById('permPagesGrid');
+      grid.innerHTML = '';
+      
+      PERM_PAGES.forEach(function(page) {
+        var div = document.createElement('div');
+        div.style.cssText = 'display:flex;align-items:center;gap:8px;background:#fff;padding:8px 12px;border-radius:4px;border:1px solid #ddd;cursor:pointer;transition:all 0.2s;';
+        div.onmouseenter = function() { this.style.borderColor = '#00b8d9'; this.style.background = '#f0fbff'; };
+        div.onmouseleave = function() { this.style.borderColor = '#ddd'; this.style.background = '#fff'; };
+        
+        div.innerHTML = 
+          '<input type="checkbox" id="perm_' + page.id + '" value="' + page.id + '" style="width:18px;height:18px;cursor:pointer;">' +
+          '<label for="perm_' + page.id + '" style="cursor:pointer;flex:1;font-weight:bold;color:#333;">' +
+          '<span style="font-size:18px;margin-left:4px;">' + page.icon + '</span>' + page.name +
+          '</label>';
+        
+        grid.appendChild(div);
+      });
+      
+      var saved = localStorage.getItem('perm_' + username);
+      var allowedPages = [];
+      
+      if (saved) {
+        try {
+          allowedPages = JSON.parse(saved);
+        } catch(e) {}
+      } else {
+        allowedPages = PERM_PAGES.map(function(p) { return p.id; });
+      }
+      
+      var checkedCount = 0;
+      PERM_PAGES.forEach(function(page) {
+        var cb = document.getElementById('perm_' + page.id);
+        if (cb) {
+          cb.checked = allowedPages.indexOf(page.id) !== -1;
+          if (cb.checked) checkedCount++;
+        }
+      });
+      
+      document.getElementById('permSelectedCount').textContent = checkedCount + ' صفحة';
+      
+      container.style.display = 'block';
+      
+    } catch(err) {
+      showToast('❌ خطأ: ' + err.message, 'error');
+    } finally {
+      loading.style.display = 'none';
+    }
+  }
+
+  // تحديد/إلغاء تحديد الكل
+  function permToggleAll(checked) {
+    PERM_PAGES.forEach(function(page) {
+      var cb = document.getElementById('perm_' + page.id);
+      if (cb) cb.checked = checked;
+    });
+    permUpdateCount();
+  }
+
+  // تحديث العداد
+  function permUpdateCount() {
+    var count = 0;
+    PERM_PAGES.forEach(function(page) {
+      var cb = document.getElementById('perm_' + page.id);
+      if (cb && cb.checked) count++;
+    });
+    document.getElementById('permSelectedCount').textContent = count + ' صفحة';
+  }
+
+  // حفظ الصلاحيات
+  function permSavePermissions() {
+    var select = document.getElementById('permUserSelect');
+    var username = select.value;
+    
+    if (!username) {
+      showToast('❌ الرجاء اختيار مستخدم أولاً', 'error');
+      return;
+    }
+    
+    var allowedPages = [];
+    PERM_PAGES.forEach(function(page) {
+      var cb = document.getElementById('perm_' + page.id);
+      if (cb && cb.checked) {
+        allowedPages.push(page.id);
+      }
+    });
+    
+    localStorage.setItem('perm_' + username, JSON.stringify(allowedPages));
+    
+    var allPerms = {};
+    for (var i = 0; i < localStorage.length; i++) {
+      var key = localStorage.key(i);
+      if (key && key.indexOf('perm_') === 0) {
+        var user = key.replace('perm_', '');
+        try {
+          allPerms[user] = JSON.parse(localStorage.getItem(key));
+        } catch(e) {}
+      }
+    }
+    localStorage.setItem('allPermissions', JSON.stringify(allPerms));
+    
+    showToast('✅ تم حفظ صلاحيات ' + username + ' (' + allowedPages.length + ' صفحة)', 'success');
+  }
+
+  // مسح صلاحيات المستخدم المحدد
+  function permClearPermissions() {
+    var select = document.getElementById('permUserSelect');
+    var username = select.value;
+    
+    if (!username) return;
+    
+    if (!confirm('هل أنت متأكد من مسح صلاحيات المستخدم ' + username + '؟')) return;
+    
+    localStorage.removeItem('perm_' + username);
+    permLoadUserPermissions();
+    showToast('🗑️ تم مسح صلاحيات ' + username, 'warning');
+  }
+
+  // مستمع لتغيير أي checkbox
+  document.addEventListener('change', function(e) {
+    if (e.target && e.target.id && e.target.id.indexOf('perm_') === 0) {
+      permUpdateCount();
+    }
+  });
+
+  // تحميل إعدادات المظهر المحفوظة
+  (function loadAppearance() {
+    var saved = localStorage.getItem('appearanceSettings');
+    if (saved) {
+      try {
+        var s = JSON.parse(saved);
+        if (s.bgColor) { document.body.style.background = s.bgColor; document.getElementById('bgColor').value = s.bgColor; }
+        if (s.cardColor) document.querySelectorAll('.card').forEach(function(c) { c.style.background = s.cardColor; });
+        if (s.cardColor) document.getElementById('cardColor').value = s.cardColor;
+        if (s.txtColor) { document.body.style.color = s.txtColor; document.getElementById('txtColor').value = s.txtColor; }
+        if (s.fontSize) { document.body.style.fontSize = s.fontSize + 'px'; document.getElementById('fontSize').value = s.fontSize; document.getElementById('fontSizeVal').textContent = s.fontSize + 'px'; }
+        if (s.navColor) { document.querySelector('nav').style.background = s.navColor; document.getElementById('navColor').value = s.navColor; }
+        if (s.toastSize) { document.getElementById('toastContainer').style.fontSize = s.toastSize + 'px'; document.getElementById('toastSize').value = s.toastSize; document.getElementById('toastSizeVal').textContent = s.toastSize + 'px'; }
+      } catch(e) {}
+    }
+  })();
+  </script>
 </div>
 
 <div id="login" class="page active">
@@ -1395,12 +1808,13 @@ if (!u || !p) {
         lAlert('l_loginErr','l_loginErrIco','l_loginErrTx','error','تعذّر العثور على أعمدة البيانات.');
       } else {
         const m=users.find(u2=>(u2[lUK]||'').toLowerCase()===u.toLowerCase()&&(u2[lPK]||'')===p);
-        if(m){
-          lCU={...m, _u:u};
-          document.getElementById('l_welcomeName').textContent=`مرحباً، ${lNK?(m[lNK]||u):u}!`;
-          lShow(lViews.welcome);
-          unlockNav();
-        } else {
+  if(m){
+  lCU={...m, _u:u};
+  window._currentUser = u;  // ← رقم 3: حفظ اسم المستخدم الحالي
+  document.getElementById('l_welcomeName').textContent=`مرحباً، ${lNK?(m[lNK]||u):u}!`;
+  lShow(lViews.welcome);
+  unlockNav();
+} else {
           // تحديد سبب الخطأ
           const userExists=users.find(u2=>(u2[lUK]||'').toLowerCase()===u.toLowerCase());
           let errMsg = '';
@@ -1449,13 +1863,15 @@ if (!u || !p) {
   document.getElementById('l_password').addEventListener('keydown', e=>{ if(e.key==='Enter') lDoLogin(); });
 
 document.getElementById('l_logoutBtn').addEventListener('click', ()=>{
+  window._currentUser = null;      // ← رقم 4: مسح المستخدم الحالي
+  window._userAllowedPages = null; // ← رقم 4: مسح الصلاحيات
   lCU=null;
   document.getElementById('l_username').value='';
   document.getElementById('l_password').value='';
   document.getElementById('l_loginErr').style.display='none';
   lShow(lViews.login);
-  lockNav();           // ← إعادة تأمين التنقل
-  showPage('login');   // ← العودة لصفحة الدخول
+  lockNav();
+  showPage('login');
 });
   document.getElementById('l_goCP').addEventListener('click', ()=>{
     ['l_oldPass','l_newPass','l_confPass'].forEach(id=>document.getElementById(id).value='');
