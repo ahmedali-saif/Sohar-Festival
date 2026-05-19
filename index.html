@@ -5229,7 +5229,7 @@ async function vr_saveToBreeder(r) {
         region:       r.area         || '',
         possession:   r.possession   ? ("'" + r.possession) : '',
         civil:        r.civil        || '',
-        notes:        r.notes        || '',
+        notes: (r.notes ? r.notes + ' | ' : '') + 'تم الإضافة من طلبات التحصين',
         animals: {
           goat:    r.goat    || '',
           sheep:   r.sheep   || '',
