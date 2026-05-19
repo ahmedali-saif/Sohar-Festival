@@ -7780,24 +7780,30 @@ function permParseList(raw) {
 async function permApplyForUser(username) {
   var userData = await permFetchUserData(username);
 
-  /* إذا لم يُعثر على بيانات → منح صلاحيات كاملة (للحساب الإداري القديم) */
+  /* ── أولاً: قراءة localStorage دائماً ── */
+  var lsPages   = null;
+  var lsActions = null;
+  try {
+    var rawP = localStorage.getItem("perm_" + username);
+    var rawA = localStorage.getItem("permActions_" + username);
+    if (rawP) lsPages   = JSON.parse(rawP);
+    if (rawA) lsActions = JSON.parse(rawA);
+  } catch(e) {}
+
+  /* ── ثانياً: دمج المصادر (Sheets يتغلب على localStorage) ── */
   if (!userData) {
-    console.warn("[PERM] لا توجد بيانات لـ", username, "→ صلاحيات كاملة");
-    userData = {
-      username: username,
-      name:     username,
-      role:     "admin",
-      pages:    PERM_PAGES_DEF.map(function(p) { return p.id; }),
-      actions:  Object.keys(PERM_ACTION_LABELS)
-    };
+    /* لا يوجد في Sheets → اصنع كائناً فارغاً */
+    userData = { username: username, name: username, role: "tech", pages: [], actions: [] };
   }
 
-  /* إذا لم تكن هناك قائمة صفحات في قاعدة البيانات → الكل مسموح */
+  /* إذا Sheets لم يُعطِ صفحات → خذ من localStorage */
   if (!userData.pages || userData.pages.length === 0) {
-    userData.pages = PERM_PAGES_DEF.map(function(p) { return p.id; });
+    userData.pages = lsPages || PERM_PAGES_DEF.map(function(p) { return p.id; });
   }
+
+  /* إذا Sheets لم يُعطِ إجراءات → خذ من localStorage */
   if (!userData.actions || userData.actions.length === 0) {
-    userData.actions = Object.keys(PERM_ACTION_LABELS);
+    userData.actions = lsActions || Object.keys(PERM_ACTION_LABELS);
   }
 
   /* حفظ الحالة */
