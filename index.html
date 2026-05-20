@@ -3954,14 +3954,31 @@ async function bd_saveData() {
   if(!bd_validateSave()) return;
   var data={phone:bd_getValue("bd_caseNumber"),name:bd_getValue("bd_nameInput"),possession:"'"+bd_getValue("bd_possessionInput"),
     region:bd_getValue("bd_regionInput"),civil:bd_getValue("bd_civilInput"),notes:bd_getValue("bd_notes"),
-    animals:{camel:bd_getValue("bd_animal_camel"),goat:bd_getValue("bd_animal_goat"),sheep:bd_getValue("bd_animal_sheep"),cow:bd_getValue("bd_animal_cow"),poultry:bd_getValue("bd_animal_poultry")},
+    animals:{
+  camel:   bd_getValue("bd_animal_camel"),
+  goat:    bd_getValue("bd_animal_goat"),
+  sheep:   bd_getValue("bd_animal_sheep"),
+  cow:     bd_getValue("bd_animal_cow"),
+  horse:   bd_getValue("bd_animal_horse"),
+  cat:     bd_getValue("bd_animal_cat"),
+  dog:     bd_getValue("bd_animal_dog"),
+  poultry: bd_getValue("bd_animal_poultry")
+},
     financialDate:bd_getValue("bd_financialDate"),dataEntry:bd_getValue("bd_dataEntryInput")};
   var btn=document.getElementById("bd_saveBtn");
   btn.disabled=true;
   bd_showMessage("جاري الحفظ...", false, "info");
   try{
     var res=await bd_callApi("bd_saveData",{data:data});
-if(res.success){bd_showMessage("تم الحفظ بنجاح",false);bd_clearForm();sf_updateCache('save', data);}
+if(res.success){
+  bd_showMessage("تم الحفظ بنجاح",false);
+  try {
+    sf_updateCache('save', data);
+  } catch(e) {
+    console.warn('فشل تحديث الكاش:', e);
+  }
+  bd_clearForm();
+}
 else bd_showMessage(res.message,true);
   }catch(err){bd_showMessage("خطأ: "+err.message,true);}
   finally{btn.disabled=false;}
@@ -4164,7 +4181,7 @@ function bd_bindEvents() {
 document.getElementById("bd_phoneInput").addEventListener("change", async function(){
   if (bd_isClearing) return;
   var phone = this.value.trim(); if (!phone) return;
-  document.getElementById("bd_private").value = phone;
+  // ← لا تعيّن bd_private هنا! دعه يُعيّن فقط عند نجاح جلب البيانات
   try { await bd_loadCaseData(phone); } catch(e) { console.error(e); }
 });
 }
@@ -8896,15 +8913,28 @@ function sf_updateCache(action, data) {
   var newPhone = data.newPhone || oldPhone;
 
   switch(action) {
-    case 'save':
-      if (window._breedersCache.phones.indexOf(newPhone) === -1) {
-        window._breedersCache.phones.push(newPhone);
-      }
-      window._breedersCache.map[newPhone] = {
-        name: data.name, region: data.region, possession: data.possession,
-        civil: data.civil, financialDate: data.financialDate, notes: data.notes
-      };
-      break;
+case 'save':
+  if (window._breedersCache.phones.indexOf(newPhone) === -1) {
+    window._breedersCache.phones.push(newPhone);
+  }
+  var animals = data.animals || {};
+  window._breedersCache.map[newPhone] = {
+    name:       data.name       || '',
+    region:     data.region     || '',
+    possession: data.possession || '',
+    civil:      data.civil      || '',
+    animals: {
+      camel:   animals.camel   || '',
+      goat:    animals.goat    || '',
+      sheep:   animals.sheep   || '',
+      cow:     animals.cow     || '',
+      horse:   animals.horse   || '',
+      cat:     animals.cat     || '',
+      dog:     animals.dog     || '',
+      poultry: animals.poultry || ''
+    }
+  };
+  break;
 
     case 'update':
       // إذا تغيّر الرقم نفسه
