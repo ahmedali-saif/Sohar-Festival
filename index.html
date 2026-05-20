@@ -8207,6 +8207,953 @@ function tryWrap() {
   if (++_wrapAttempts < 3) setTimeout(tryWrap, 3000);
 }
 setTimeout(tryWrap, 1000);
+
+
+(function (global) {
+  "use strict";
+
+  /* ─────────────────────────────────────────────────────────────────
+     ١. الثوابت والإعدادات
+     ───────────────────────────────────────────────────────────────── */
+  var CACHE_KEY        = "breeder_cache_v2";
+  var CACHE_META_KEY   = "breeder_cache_meta_v2";
+  var CACHE_ENABLED_KEY = "breeder_cache_enabled";
+  var CACHE_VERSION    = "2.0";
+
+  /* ─────────────────────────────────────────────────────────────────
+     ٢. حالة النظام
+     ───────────────────────────────────────────────────────────────── */
+  var state = {
+    enabled:    false,
+    loaded:     false,
+    loading:    false,
+    totalRows:  0,
+    lastUpdate: null,
+    // الكاش: Map من رقم الهاتف → كائن بيانات المربي
+    phoneMap:   {},
+    // قائمة الهواتف المُرتبة
+    phoneList:  [],
+    // قائمة المناطق الفريدة
+    regionList: [],
+    // قائمة مدخلي البيانات
+    dataEntryList: [],
+  };
+
+  /* ─────────────────────────────────────────────────────────────────
+     ٣. localStorage helpers
+     ───────────────────────────────────────────────────────────────── */
+  function saveToStorage(data) {
+    try {
+      // تقسيم البيانات إلى chunks إذا كانت كبيرة
+      var json = JSON.stringify(data);
+      var chunkSize = 500 * 1024; // 500KB per chunk
+      var chunks = Math.ceil(json.length / chunkSize);
+      localStorage.setItem(CACHE_KEY + "_chunks", chunks);
+      for (var i = 0; i < chunks; i++) {
+        localStorage.setItem(
+          CACHE_KEY + "_" + i,
+          json.slice(i * chunkSize, (i + 1) * chunkSize)
+        );
+      }
+      return true;
+    } catch (e) {
+      console.warn("[Cache] فشل الحفظ في localStorage:", e.message);
+      return false;
+    }
+  }
+
+  function loadFromStorage() {
+    try {
+      var chunks = parseInt(localStorage.getItem(CACHE_KEY + "_chunks") || "0");
+      if (!chunks) return null;
+      var json = "";
+      for (var i = 0; i < chunks; i++) {
+        var part = localStorage.getItem(CACHE_KEY + "_" + i);
+        if (!part) return null;
+        json += part;
+      }
+      return JSON.parse(json);
+    } catch (e) {
+      console.warn("[Cache] فشل القراءة من localStorage:", e.message);
+      return null;
+    }
+  }
+
+  function clearStorage() {
+    try {
+      var chunks = parseInt(localStorage.getItem(CACHE_KEY + "_chunks") || "0");
+      for (var i = 0; i < chunks; i++) {
+        localStorage.removeItem(CACHE_KEY + "_" + i);
+      }
+      localStorage.removeItem(CACHE_KEY + "_chunks");
+      localStorage.removeItem(CACHE_META_KEY);
+    } catch (e) {}
+  }
+
+  function saveMeta(meta) {
+    try { localStorage.setItem(CACHE_META_KEY, JSON.stringify(meta)); } catch (e) {}
+  }
+
+  function loadMeta() {
+    try {
+      var v = localStorage.getItem(CACHE_META_KEY);
+      return v ? JSON.parse(v) : null;
+    } catch (e) { return null; }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     ٤. بناء فهرس الكاش من البيانات الخام
+     ───────────────────────────────────────────────────────────────── */
+  function buildIndex(rows) {
+    state.phoneMap     = {};
+    state.phoneList    = [];
+    state.regionList   = [];
+    state.dataEntryList = [];
+    var regionSet    = {};
+    var dataEntrySet = {};
+
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var phone = (r.phone || "").toString().trim();
+      if (!phone) continue;
+
+      state.phoneMap[phone] = r;
+      state.phoneList.push(phone);
+
+      if (r.region && r.region.trim()) {
+        var reg = r.region.trim();
+        if (!regionSet[reg]) { regionSet[reg] = true; state.regionList.push(reg); }
+      }
+      if (r.dataEntry && r.dataEntry.trim()) {
+        var de = r.dataEntry.trim();
+        if (!dataEntrySet[de]) { dataEntrySet[de] = true; state.dataEntryList.push(de); }
+      }
+    }
+
+    state.totalRows  = state.phoneList.length;
+    state.loaded     = true;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     ٥. جلب البيانات من API وبناء الكاش
+     ───────────────────────────────────────────────────────────────── */
+  function fetchAndBuildCache(onProgress, onDone, onError) {
+    if (state.loading) return;
+    state.loading = true;
+    updateUI("loading");
+
+    if (onProgress) onProgress(0, "جاري الاتصال بالخادم...");
+
+    // استخدام الدالة الموجودة في التطبيق
+    var callFn = global.bd_callApi || global.trcallApi || global.vaccCallApi;
+    if (!callFn) {
+      state.loading = false;
+      if (onError) onError("لم يتم العثور على دالة API");
+      return;
+    }
+
+    // جلب كل بيانات المربين
+    bd_callApi("bd_getAllBreeders")
+      .then(function (res) {
+        if (!res || !res.success || !res.data) {
+          throw new Error(res ? (res.message || "فشل جلب البيانات") : "لا استجابة من الخادم");
+        }
+
+        if (onProgress) onProgress(50, "جاري بناء الفهرس (" + res.data.length + " مربي)...");
+
+        var rows = res.data;
+        buildIndex(rows);
+
+        // حفظ في localStorage
+        var saved = saveToStorage(rows);
+        var now   = new Date().toISOString();
+        var meta  = { lastUpdate: now, totalRows: state.totalRows, version: CACHE_VERSION };
+        saveMeta(meta);
+        state.lastUpdate = now;
+
+        if (onProgress) onProgress(100, "اكتمل الكاش ✓");
+        state.loading = false;
+
+        updateUI("ready");
+        if (onDone) onDone(state.totalRows);
+
+        // تطبيق الكاش على دوال التطبيق
+        patchAppFunctions();
+      })
+      .catch(function (err) {
+        state.loading = false;
+        updateUI(state.loaded ? "ready" : "idle");
+        if (onError) onError(err.message || err.toString());
+      });
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     ٦. تحميل الكاش من localStorage عند بدء التشغيل
+     ───────────────────────────────────────────────────────────────── */
+  function loadCacheFromStorage() {
+    var rows = loadFromStorage();
+    if (!rows || !rows.length) return false;
+    buildIndex(rows);
+    var meta = loadMeta();
+    if (meta) state.lastUpdate = meta.lastUpdate;
+    return true;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     ٧. دوال البحث في الكاش (تُستخدم بدلاً من API)
+     ───────────────────────────────────────────────────────────────── */
+
+  /** البحث عن مربي برقم الهاتف */
+  function cacheGetBreederByPhone(phone) {
+    var p = (phone || "").toString().trim();
+    return state.phoneMap[p] || null;
+  }
+
+  /** جلب قائمة الهواتف */
+  function cacheGetPhoneNumbers() {
+    return { success: true, data: state.phoneList.slice() };
+  }
+
+  /** جلب بيانات المربي (لسجل العلاج والتحصين والعينات) */
+  function cacheGetBreederData(phone) {
+    var b = cacheGetBreederByPhone(phone);
+    if (!b) return { success: false, message: "لم يتم العثور على المربي (كاش)" };
+    return {
+      success:    true,
+      name:       b.name       || "",
+      possession: b.possession || "",
+      region:     b.region     || "",
+      civil:      b.civil      || "",
+      data: [
+        b.name       || "",
+        b.possession || "",
+        b.region     || "",
+        b.civil      || "",
+        b.financialDate || "",
+      ],
+    };
+  }
+
+  /** جلب بيانات المربي (لنموذج العينات — يعيد مصفوفة بطريقة مختلفة) */
+  function cacheGetBreederDataArray(phone) {
+    var b = cacheGetBreederByPhone(phone);
+    if (!b) return { success: false, data: [] };
+    return {
+      success: true,
+      data: [
+        b.name       || "",
+        b.possession || "",
+        b.region     || "",
+        b.civil      || "",
+      ],
+    };
+  }
+
+  /** البحث في بيانات المربين (للبطاقة العامة) */
+  function cacheSearchBreeders(searchText) {
+    var q = (searchText || "").toLowerCase().trim();
+    if (!q) return { success: true, data: [] };
+
+    var headers = [
+      "رقم الهاتف", "الاسم", "رقم الحيازة", "المنطقة",
+      "الرقم المدني", "الملاحظات", "الإبل", "ماعز", "أغنام",
+      "أبقار", "دجاج", "تاريخ الحيازة", "معدل البيانات", "مدخل البيانات",
+    ];
+
+    var results = [headers];
+    for (var phone in state.phoneMap) {
+      var b = state.phoneMap[phone];
+      var rowText = [
+        b.phone, b.name, b.possession, b.region, b.civil, b.notes,
+        b.animals ? b.animals.camel : "",
+        b.animals ? b.animals.goat : "",
+        b.animals ? b.animals.sheep : "",
+        b.animals ? b.animals.cow : "",
+        b.animals ? b.animals.poultry : "",
+        b.financialDate, b.dataUpdater, b.dataEntry,
+      ].join(" ").toLowerCase();
+      if (rowText.indexOf(q) !== -1) {
+        results.push([
+          b.phone, b.name, b.possession, b.region, b.civil, b.notes,
+          b.animals ? b.animals.camel : "",
+          b.animals ? b.animals.goat : "",
+          b.animals ? b.animals.sheep : "",
+          b.animals ? b.animals.cow : "",
+          b.animals ? b.animals.poultry : "",
+          b.financialDate, b.dataUpdater, b.dataEntry,
+        ]);
+      }
+    }
+    return { success: true, data: results };
+  }
+
+  /** البحث عن مربي برقم الهاتف (بطاقة المربي) */
+  function cacheSearchCaseData(phone) {
+    var b = cacheGetBreederByPhone(phone);
+    if (!b) return { success: false, message: "لم يتم العثور على بيانات لهذا الرقم (كاش)" };
+    return {
+      success:      true,
+      phone:        b.phone        || "",
+      name:         b.name         || "",
+      possession:   b.possession   || "",
+      region:       b.region       || "",
+      civil:        b.civil        || "",
+      notes:        b.notes        || "",
+      financialDate: b.financialDate || "",
+      dataEntry:    b.dataEntry    || "",
+      animals: b.animals || { camel: "", goat: "", sheep: "", cow: "", poultry: "" },
+    };
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     ٨. اعتراض دوال التطبيق وتحويلها إلى الكاش
+     ───────────────────────────────────────────────────────────────── */
+  var _originalBdCallApi = null;
+  var _originalTrGetBreeder = null;
+  var _patched = false;
+
+  function patchAppFunctions() {
+    if (!state.enabled || !state.loaded) return;
+    if (_patched) return;
+    _patched = true;
+
+    /* ── اعتراض bd_callApi ── */
+    if (global.bd_callApi && !global.bd_callApi._cachePatch) {
+      _originalBdCallApi = global.bd_callApi;
+
+      global.bd_callApi = async function (action, payload) {
+        // قراءة فقط → من الكاش
+        if (action === "bd_getPhoneNumbers") {
+          return cacheGetPhoneNumbers();
+        }
+        if (action === "bd_searchBreeders") {
+          return cacheSearchBreeders((payload || {}).searchText || "");
+        }
+        if (action === "bd_searchCaseData") {
+          var result = cacheSearchCaseData((payload || {}).phone || "");
+          // إذا لم يجد في الكاش، يرجع للـ API
+          if (!result.success) return _originalBdCallApi(action, payload);
+          return result;
+        }
+        // العمليات الكتابية (حفظ / تحديث / حذف) → API مباشرة + تحديث الكاش
+        var writeOps = [
+          "bd_saveData", "bd_updateData", "bd_deleteData",
+          "bd_saveVaccinationData", "bd_updateVaccinationData", "bd_deleteVaccinationData",
+          "bd_updatePossessionInTreatment",
+        ];
+        if (writeOps.indexOf(action) !== -1) {
+          var res = await _originalBdCallApi(action, payload);
+          // إذا نجحت العملية الكتابية، حدّث الكاش في الخلفية
+          if (res && res.success) {
+            setTimeout(function () {
+              refreshCacheInBackground();
+            }, 1500);
+          }
+          return res;
+        }
+        // باقي الطلبات → API مباشرة
+        return _originalBdCallApi(action, payload);
+      };
+      global.bd_callApi._cachePatch = true;
+    }
+
+    /* ── اعتراض trfetchBreederData (سجل العلاج) ── */
+    if (global.trfetchBreederData && !global.trfetchBreederData._cachePatch) {
+      var _orig_tr = global.trfetchBreederData;
+      global.trfetchBreederData = async function (phone) {
+        var res = cacheGetBreederData(phone);
+        if (res.success) {
+          // تطبيق البيانات مباشرة بدون API
+          var safeSetFn = global.trsafeSet || function (id, v) {
+            var el = document.getElementById(id);
+            if (el) el.value = v != null ? v : "";
+          };
+          var ids = [
+            "tr_nameInput", "tr_possessionInput", "tr_regionInput",
+            "tr_civilInput", "tr_quickNotesInput",
+          ];
+          ids.forEach(function (id, i) {
+            safeSetFn(id, res.data[i] || "");
+          });
+          if (typeof global.trcheckQuickNotesDate === "function") {
+            global.trcheckQuickNotesDate(res.data[4]);
+          }
+          // التحقق من الحالات غير المدفوعة
+          trcallApi("trgetUnpaidCasesCount", { phone: phone })
+            .then(function (ucRes) {
+              if (ucRes.success && ucRes.count > 0) {
+                if (typeof global.trsetSpecialNote === "function") {
+                  global.trsetSpecialNote("⛔ تم علاج " + ucRes.count + " حالات لهذا المربي دون وجود حيازة حيوانية.");
+                }
+              } else {
+                if (typeof global.trsetSpecialNote === "function") global.trsetSpecialNote("");
+              }
+            })
+            .catch(function () {});
+          if (typeof global.trcheckPhoneInRecords === "function") {
+            global.trcheckPhoneInRecords(phone);
+          }
+          if (typeof global.trunblockButtons === "function") global.trunblockButtons();
+          if (typeof global.trshowMessage === "function") {
+            global.trshowMessage("✅ تم جلب بيانات المربي (كاش)", false);
+          }
+          cacheShowBadge();
+          return;
+        }
+        // fallback للـ API
+        return _orig_tr.apply(this, arguments);
+      };
+      global.trfetchBreederData._cachePatch = true;
+    }
+
+    /* ── اعتراض vaccFetchBreederData (سجل التحصين) ── */
+    if (global.vaccFetchBreederData && !global.vaccFetchBreederData._cachePatch) {
+      var _orig_vacc = global.vaccFetchBreederData;
+      global.vaccFetchBreederData = async function (phone) {
+        var res = cacheGetBreederData(phone);
+        if (res.success) {
+          var safeSetFn = global.vaccSafeSet || function (id, v) {
+            var el = document.getElementById(id);
+            if (el) el.value = v != null ? v : "";
+          };
+          safeSetFn("vacc_nameInput",      res.name);
+          safeSetFn("vacc_possessionInput", res.possession);
+          safeSetFn("vacc_regionInput",    res.region);
+          safeSetFn("vacc_civilInput",     res.civil);
+          cacheShowBadge();
+          return;
+        }
+        return _orig_vacc.apply(this, arguments);
+      };
+      global.vaccFetchBreederData._cachePatch = true;
+    }
+
+    /* ── اعتراض fofetchBreederData (نموذج العينات) ── */
+    if (global.fofetchBreederData && !global.fofetchBreederData._cachePatch) {
+      var _orig_fo = global.fofetchBreederData;
+      global.fofetchBreederData = async function (phone) {
+        var res = cacheGetBreederDataArray(phone);
+        if (res.success) {
+          var ids = ["nameInput", "possessionInput", "regionInput", "civilInput"];
+          res.data.forEach(function (v, i) {
+            var el = document.getElementById(ids[i]);
+            if (el) el.value = v;
+          });
+          cacheShowBadge();
+          return;
+        }
+        return _orig_fo.apply(this, arguments);
+      };
+      global.fofetchBreederData._cachePatch = true;
+    }
+
+    console.log("[Cache] ✅ تم تطبيق الكاش على " + state.totalRows + " مربي");
+  }
+
+  /** إزالة الاعتراض وإعادة API مباشر */
+  function unpatchAppFunctions() {
+    if (!_patched) return;
+    _patched = false;
+
+    if (_originalBdCallApi && global.bd_callApi && global.bd_callApi._cachePatch) {
+      global.bd_callApi = _originalBdCallApi;
+      delete global.bd_callApi._cachePatch;
+    }
+    ["trfetchBreederData", "vaccFetchBreederData", "fofetchBreederData"].forEach(function (fn) {
+      if (global[fn] && global[fn]._cachePatch) {
+        delete global[fn]._cachePatch;
+      }
+    });
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     ٩. تحديث الكاش في الخلفية (بعد العمليات الكتابية)
+     ───────────────────────────────────────────────────────────────── */
+  function refreshCacheInBackground() {
+    if (!state.enabled) return;
+    fetchAndBuildCache(
+      null,
+      function (total) { console.log("[Cache] تم تحديث الكاش تلقائياً (" + total + " مربي)"); },
+      function (err) { console.warn("[Cache] فشل التحديث التلقائي:", err); }
+    );
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     ١٠. شارة صغيرة تظهر عند استخدام الكاش
+     ───────────────────────────────────────────────────────────────── */
+  var _badgeTimer = null;
+  function cacheShowBadge() {
+    var badge = document.getElementById("cache-hit-badge");
+    if (!badge) return;
+    badge.style.opacity = "1";
+    badge.style.transform = "translateY(0)";
+    if (_badgeTimer) clearTimeout(_badgeTimer);
+    _badgeTimer = setTimeout(function () {
+      badge.style.opacity = "0";
+      badge.style.transform = "translateY(-6px)";
+    }, 2000);
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     ١١. واجهة المستخدم — لوحة التحكم
+     ───────────────────────────────────────────────────────────────── */
+
+  var _panelOpen = false;
+
+  function createUI() {
+    // أنماط CSS
+    var style = document.createElement("style");
+    style.textContent = [
+      /* ── الزر العائم ── */
+      "#cache-fab{",
+        "position:fixed;bottom:55px;left:12px;",
+        "width:52px;height:52px;border-radius:50%;",
+        "background:linear-gradient(135deg,#00b8d9,#0077a8);",
+        "color:#fff;border:none;cursor:pointer;",
+        "font-size:20px;display:flex;align-items:center;justify-content:center;",
+        "box-shadow:0 4px 16px rgba(0,184,217,.45);",
+        "z-index:9998;transition:transform .2s,box-shadow .2s;",
+        "font-family:Tahoma,Arial,sans-serif;",
+      "}",
+      "#cache-fab:hover{transform:scale(1.12);box-shadow:0 6px 20px rgba(0,184,217,.6);}",
+      "#cache-fab .cache-fab-dot{",
+        "position:absolute;top:4px;right:4px;",
+        "width:10px;height:10px;border-radius:50%;",
+        "background:#2bb673;border:2px solid #fff;",
+        "display:none;",
+      "}",
+      "#cache-fab.active .cache-fab-dot{display:block;}",
+      /* ── لوحة التحكم ── */
+      "#cache-panel{",
+        "position:fixed;bottom:115px;left:12px;",
+        "width:310px;background:#fff;",
+        "border-radius:14px;border:3px solid #00b8d9;",
+        "box-shadow:0 12px 40px rgba(0,0,0,.22);",
+        "z-index:9997;font-family:Tahoma,Arial,sans-serif;",
+        "direction:rtl;transform-origin:bottom left;",
+        "transform:scale(0);opacity:0;",
+        "transition:transform .25s cubic-bezier(.34,1.56,.64,1),opacity .2s ease;",
+        "overflow:hidden;",
+      "}",
+      "#cache-panel.open{transform:scale(1);opacity:1;}",
+      "#cache-panel-header{",
+        "background:linear-gradient(135deg,#00b8d9,#006480);",
+        "color:#fff;padding:12px 14px;",
+        "display:flex;align-items:center;justify-content:space-between;",
+      "}",
+      "#cache-panel-header h4{margin:0;font-size:13px;letter-spacing:.3px;}",
+      "#cache-panel-body{padding:14px;}",
+      /* ── Toggle Switch ── */
+      ".cache-toggle-row{",
+        "display:flex;align-items:center;justify-content:space-between;",
+        "background:#f0fafe;border:1px solid #b3e5fc;",
+        "border-radius:8px;padding:10px 12px;margin-bottom:12px;",
+      "}",
+      ".cache-toggle-label{font-size:13px;font-weight:bold;color:#004e66;}",
+      ".cache-switch{position:relative;width:44px;height:24px;flex-shrink:0;}",
+      ".cache-switch input{opacity:0;width:0;height:0;}",
+      ".cache-slider{",
+        "position:absolute;cursor:pointer;inset:0;",
+        "background:#ccc;border-radius:24px;transition:.3s;",
+      "}",
+      ".cache-slider::before{",
+        "content:'';position:absolute;",
+        "height:18px;width:18px;left:3px;bottom:3px;",
+        "background:#fff;border-radius:50%;transition:.3s;",
+      "}",
+      "input:checked + .cache-slider{background:#00b8d9;}",
+      "input:checked + .cache-slider::before{transform:translateX(20px);}",
+      /* ── إحصاءات ── */
+      "#cache-stats{",
+        "background:#f8f8f8;border-radius:8px;",
+        "padding:10px 12px;margin-bottom:12px;",
+        "font-size:12px;color:#444;line-height:1.9;",
+      "}",
+      "#cache-stats .cs-row{display:flex;justify-content:space-between;}",
+      "#cache-stats .cs-val{font-weight:bold;color:#006480;}",
+      /* ── شريط التقدم ── */
+      "#cache-progress-wrap{display:none;margin-bottom:10px;}",
+      "#cache-progress-bar-bg{",
+        "background:#e0e0e0;border-radius:20px;height:8px;overflow:hidden;margin-bottom:5px;",
+      "}",
+      "#cache-progress-bar{",
+        "height:100%;background:linear-gradient(90deg,#00b8d9,#2bb673);",
+        "border-radius:20px;width:0%;transition:width .4s ease;",
+      "}",
+      "#cache-progress-text{font-size:11px;color:#555;text-align:center;}",
+      /* ── أزرار ── */
+      ".cache-btn-row{display:flex;gap:8px;margin-top:4px;}",
+      ".cache-btn{",
+        "flex:1;padding:8px 0;border:none;border-radius:7px;",
+        "font-size:12px;font-weight:bold;cursor:pointer;",
+        "font-family:Tahoma,Arial,sans-serif;transition:all .2s;",
+      "}",
+      ".cache-btn:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.15);}",
+      ".cache-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}",
+      ".cache-btn-load{background:#00b8d9;color:#fff;}",
+      ".cache-btn-refresh{background:#2bb673;color:#fff;}",
+      ".cache-btn-clear{background:#e65050;color:#fff;}",
+      /* ── شارة الكاش ── */
+      "#cache-hit-badge{",
+        "position:fixed;top:14px;right:50%;transform:translateX(50%) translateY(-6px);",
+        "background:#00b8d9;color:#fff;",
+        "padding:4px 14px;border-radius:20px;",
+        "font-size:11px;font-weight:bold;",
+        "font-family:Tahoma,Arial,sans-serif;",
+        "z-index:99999;opacity:0;",
+        "transition:opacity .3s,transform .3s;",
+        "pointer-events:none;",
+      "}",
+      /* ── حالة النظام ── */
+      "#cache-status-pill{",
+        "display:inline-flex;align-items:center;gap:5px;",
+        "padding:3px 10px;border-radius:20px;font-size:11px;font-weight:bold;",
+        "margin-bottom:10px;",
+      "}",
+      "#cache-status-pill.idle{background:#f0f0f0;color:#888;}",
+      "#cache-status-pill.loading{background:#fff3cd;color:#856404;}",
+      "#cache-status-pill.ready{background:#d4edda;color:#155724;}",
+      "#cache-status-pill.off{background:#f8d7da;color:#721c24;}",
+      ".cache-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}",
+      ".idle .cache-dot{background:#aaa;}",
+      ".loading .cache-dot{background:#ffc107;animation:cachePulse .7s infinite;}",
+      ".ready .cache-dot{background:#28a745;}",
+      ".off .cache-dot{background:#dc3545;}",
+      "@keyframes cachePulse{0%,100%{opacity:1;}50%{opacity:.3;}}",
+    ].join("");
+    document.head.appendChild(style);
+
+    // الزر العائم
+    var fab = document.createElement("button");
+    fab.id = "cache-fab";
+    fab.title = "نظام كاش المربين";
+    fab.innerHTML = '💾<span class="cache-fab-dot"></span>';
+    fab.onclick = togglePanel;
+    document.body.appendChild(fab);
+
+    // شارة إصابة الكاش
+    var badge = document.createElement("div");
+    badge.id = "cache-hit-badge";
+    badge.textContent = "⚡ من الكاش";
+    document.body.appendChild(badge);
+
+    // لوحة التحكم
+    var panel = document.createElement("div");
+    panel.id = "cache-panel";
+    panel.innerHTML = [
+      '<div id="cache-panel-header">',
+        '<h4>💾 نظام كاش بيانات المربين</h4>',
+        '<button onclick="window.BreederCache.closePanel()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:13px;">✕</button>',
+      '</div>',
+      '<div id="cache-panel-body">',
+        '<div id="cache-status-pill" class="idle"><span class="cache-dot"></span><span id="cache-status-text">غير مُفعّل</span></div>',
+        '<div class="cache-toggle-row">',
+          '<span class="cache-toggle-label">تفعيل نظام الكاش</span>',
+          '<label class="cache-switch">',
+            '<input type="checkbox" id="cache-toggle-input" onchange="window.BreederCache.onToggle(this.checked)">',
+            '<span class="cache-slider"></span>',
+          '</label>',
+        '</div>',
+        '<div id="cache-stats">',
+          '<div class="cs-row"><span>حالة الكاش:</span><span class="cs-val" id="cs-state">—</span></div>',
+          '<div class="cs-row"><span>عدد المربين:</span><span class="cs-val" id="cs-count">—</span></div>',
+          '<div class="cs-row"><span>آخر تحديث:</span><span class="cs-val" id="cs-update">—</span></div>',
+          '<div class="cs-row"><span>وضع الجلب:</span><span class="cs-val" id="cs-mode">API مباشر</span></div>',
+        '</div>',
+        '<div id="cache-progress-wrap">',
+          '<div id="cache-progress-bar-bg"><div id="cache-progress-bar"></div></div>',
+          '<div id="cache-progress-text">جاري التحميل...</div>',
+        '</div>',
+        '<div class="cache-btn-row">',
+          '<button class="cache-btn cache-btn-load" id="cache-btn-load" onclick="window.BreederCache.loadCache()">⬇️ تحميل</button>',
+          '<button class="cache-btn cache-btn-refresh" id="cache-btn-refresh" onclick="window.BreederCache.refreshCache()">🔄 تحديث</button>',
+          '<button class="cache-btn cache-btn-clear" id="cache-btn-clear" onclick="window.BreederCache.clearCache()">🗑️ مسح</button>',
+        '</div>',
+        '<div style="margin-top:10px;font-size:10px;color:#888;text-align:center;line-height:1.6;">',
+          'الكاش يُسرّع جلب بيانات المربين فورياً<br>',
+          'العمليات الكتابية تُرسل دائماً للخادم مباشرة',
+        '</div>',
+      '</div>',
+    ].join("");
+    document.body.appendChild(panel);
+
+    // تحميل حالة الكاش السابقة
+    var savedEnabled = localStorage.getItem(CACHE_ENABLED_KEY) === "true";
+    if (savedEnabled) {
+      document.getElementById("cache-toggle-input").checked = true;
+      enableCache(false); // تفعيل بدون جلب جديد (يقرأ من localStorage)
+    }
+
+    updateUI(state.loaded ? "ready" : "idle");
+  }
+
+  function togglePanel() {
+    _panelOpen = !_panelOpen;
+    var panel = document.getElementById("cache-panel");
+    if (panel) {
+      if (_panelOpen) panel.classList.add("open");
+      else panel.classList.remove("open");
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     ١٢. تحديث حالة الواجهة
+     ───────────────────────────────────────────────────────────────── */
+  function updateUI(status) {
+    var pill    = document.getElementById("cache-status-pill");
+    var text    = document.getElementById("cache-status-text");
+    var fab     = document.getElementById("cache-fab");
+    var csState = document.getElementById("cs-state");
+    var csCount = document.getElementById("cs-count");
+    var csUpdate = document.getElementById("cs-update");
+    var csMode  = document.getElementById("cs-mode");
+    var btnLoad = document.getElementById("cache-btn-load");
+    var btnRefresh = document.getElementById("cache-btn-refresh");
+    var btnClear = document.getElementById("cache-btn-clear");
+    var progWrap = document.getElementById("cache-progress-wrap");
+
+    if (!pill) return;
+
+    // أزل كل الكلاسات القديمة
+    pill.className = "cache-status-pill " + status;
+
+    switch (status) {
+      case "idle":
+        text.textContent = "غير محمّل";
+        if (csState) csState.textContent = "فارغ";
+        if (fab) fab.classList.remove("active");
+        if (csMode) csMode.textContent = "API مباشر";
+        if (btnLoad) { btnLoad.disabled = false; btnLoad.textContent = "⬇️ تحميل"; }
+        if (btnRefresh) btnRefresh.disabled = true;
+        if (progWrap) progWrap.style.display = "none";
+        break;
+      case "loading":
+        text.textContent = "جاري التحميل...";
+        if (csState) csState.textContent = "يتحمل...";
+        if (btnLoad) { btnLoad.disabled = true; btnLoad.textContent = "⏳ ..."; }
+        if (btnRefresh) btnRefresh.disabled = true;
+        if (btnClear) btnClear.disabled = true;
+        if (progWrap) progWrap.style.display = "block";
+        break;
+      case "ready":
+        text.textContent = "جاهز ✓";
+        if (csState) csState.textContent = state.enabled ? "نشط ✅" : "محمّل (غير مفعّل)";
+        if (csCount) csCount.textContent = state.totalRows.toLocaleString("ar-SA") + " مربي";
+        if (csUpdate && state.lastUpdate) {
+          var d = new Date(state.lastUpdate);
+          csUpdate.textContent = d.toLocaleDateString("ar-SA") + " " + d.toLocaleTimeString("ar-SA");
+        }
+        if (csMode) csMode.textContent = state.enabled ? "⚡ كاش محلي" : "API مباشر";
+        if (fab && state.enabled) fab.classList.add("active");
+        if (fab && !state.enabled) fab.classList.remove("active");
+        if (btnLoad) { btnLoad.disabled = false; btnLoad.textContent = "⬇️ تحميل"; }
+        if (btnRefresh) btnRefresh.disabled = false;
+        if (btnClear) btnClear.disabled = false;
+        if (progWrap) progWrap.style.display = "none";
+        break;
+      case "off":
+        text.textContent = "غير مفعّل";
+        if (csState) csState.textContent = "مُعطّل";
+        if (csMode) csMode.textContent = "API مباشر";
+        if (fab) fab.classList.remove("active");
+        break;
+    }
+  }
+
+  function setProgress(pct, msg) {
+    var bar  = document.getElementById("cache-progress-bar");
+    var txt  = document.getElementById("cache-progress-text");
+    if (bar) bar.style.width = pct + "%";
+    if (txt) txt.textContent = msg || "";
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     ١٣. إجراءات التفعيل والتعطيل
+     ───────────────────────────────────────────────────────────────── */
+  function enableCache(fetchIfEmpty) {
+    state.enabled = true;
+    localStorage.setItem(CACHE_ENABLED_KEY, "true");
+
+    // حاول قراءة الكاش من الذاكرة
+    if (!state.loaded) {
+      var ok = loadCacheFromStorage();
+      if (!ok && fetchIfEmpty !== false) {
+        // لا يوجد كاش محلي → جلب من API
+        fetchAndBuildCache(
+          function (pct, msg) { setProgress(pct, msg); updateUI("loading"); },
+          function (total) {
+            patchAppFunctions();
+            updateUI("ready");
+            if (global.showToast) global.showToast("✅ تم تحميل كاش " + total + " مربي", "success");
+          },
+          function (err) {
+            state.enabled = false;
+            localStorage.setItem(CACHE_ENABLED_KEY, "false");
+            var inp = document.getElementById("cache-toggle-input");
+            if (inp) inp.checked = false;
+            updateUI("off");
+            if (global.showToast) global.showToast("❌ فشل تحميل الكاش: " + err, "error");
+          }
+        );
+        return;
+      }
+    }
+
+    patchAppFunctions();
+    updateUI("ready");
+  }
+
+  function disableCache() {
+    state.enabled = false;
+    localStorage.setItem(CACHE_ENABLED_KEY, "false");
+    unpatchAppFunctions();
+    updateUI(state.loaded ? "ready" : "idle");
+    if (global.showToast) global.showToast("⚠️ تم تعطيل الكاش — العودة لـ API مباشر", "warning");
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     ١٤. الواجهة العامة (Public API)
+     ───────────────────────────────────────────────────────────────── */
+  global.BreederCache = {
+    /** تبديل حالة الكاش عبر Toggle */
+    onToggle: function (checked) {
+      if (checked) enableCache(true);
+      else disableCache();
+    },
+
+    /** تحميل الكاش (أول مرة أو بعد مسح) */
+    loadCache: function () {
+      if (state.loading) return;
+      var inp = document.getElementById("cache-toggle-input");
+      if (inp && !inp.checked) {
+        if (global.showToast) global.showToast("⚠️ فعّل الكاش أولاً ثم اضغط تحميل", "warning");
+        return;
+      }
+      fetchAndBuildCache(
+        function (pct, msg) { setProgress(pct, msg); updateUI("loading"); },
+        function (total) {
+          if (state.enabled) patchAppFunctions();
+          updateUI("ready");
+          if (global.showToast) global.showToast("✅ تم تحميل " + total + " مربي في الكاش", "success");
+        },
+        function (err) {
+          updateUI(state.loaded ? "ready" : "idle");
+          if (global.showToast) global.showToast("❌ " + err, "error");
+        }
+      );
+    },
+
+    /** تحديث الكاش يدوياً */
+    refreshCache: function () {
+      if (state.loading) return;
+      if (global.showToast) global.showToast("⏳ جاري تحديث الكاش...", "info");
+      fetchAndBuildCache(
+        function (pct, msg) { setProgress(pct, msg); updateUI("loading"); },
+        function (total) {
+          if (state.enabled) patchAppFunctions();
+          updateUI("ready");
+          if (global.showToast) global.showToast("✅ تم تحديث الكاش — " + total + " مربي", "success");
+        },
+        function (err) {
+          updateUI(state.loaded ? "ready" : "idle");
+          if (global.showToast) global.showToast("❌ فشل التحديث: " + err, "error");
+        }
+      );
+    },
+
+    /** مسح الكاش المحلي */
+    clearCache: function () {
+      var modal = document.createElement("div");
+      modal.className = "custom-modal";
+      modal.innerHTML = [
+        '<div class="modal-box">',
+          '<h3>⚠️ مسح الكاش</h3>',
+          '<p>سيتم حذف بيانات المربين المحفوظة محلياً.<br>هل أنت متأكد؟</p>',
+          '<div class="modal-buttons">',
+            '<button class="confirm-btn" onclick="window.BreederCache._confirmClear();this.closest(\'.custom-modal\').remove()">نعم، امسح</button>',
+            '<button class="cancel-btn" onclick="this.closest(\'.custom-modal\').remove()">إلغاء</button>',
+          '</div>',
+        '</div>',
+      ].join("");
+      document.body.appendChild(modal);
+    },
+
+    _confirmClear: function () {
+      clearStorage();
+      state.loaded    = false;
+      state.phoneMap  = {};
+      state.phoneList = [];
+      state.totalRows = 0;
+      state.lastUpdate = null;
+      unpatchAppFunctions();
+      _patched = false;
+      if (state.enabled) {
+        state.enabled = false;
+        localStorage.setItem(CACHE_ENABLED_KEY, "false");
+        var inp = document.getElementById("cache-toggle-input");
+        if (inp) inp.checked = false;
+      }
+      updateUI("idle");
+      if (global.showToast) global.showToast("🗑️ تم مسح الكاش بنجاح", "success");
+    },
+
+    closePanel: function () {
+      _panelOpen = false;
+      var panel = document.getElementById("cache-panel");
+      if (panel) panel.classList.remove("open");
+    },
+
+    /** للاستخدام المبرمج من خارج */
+    getState: function () { return { enabled: state.enabled, loaded: state.loaded, totalRows: state.totalRows }; },
+    searchByPhone: cacheGetBreederByPhone,
+  };
+
+  /* ─────────────────────────────────────────────────────────────────
+     ١٥. التهيئة عند تحميل الصفحة
+     ───────────────────────────────────────────────────────────────── */
+  function init() {
+    createUI();
+
+    // تحقق إذا كان الكاش مُفعّلاً مسبقاً
+    var savedEnabled = localStorage.getItem(CACHE_ENABLED_KEY) === "true";
+    if (savedEnabled) {
+      var ok = loadCacheFromStorage();
+      if (ok) {
+        state.enabled = true;
+        patchAppFunctions();
+        updateUI("ready");
+        console.log("[Cache] ✅ تم استعادة الكاش من الذاكرة المحلية (" + state.totalRows + " مربي)");
+      } else {
+        // الكاش مُفعّل لكن البيانات فُقدت → جلب جديد
+        enableCache(true);
+      }
+    }
+
+    // مزامنة مع BroadcastChannel (التحديث من تبويب آخر)
+    try {
+      if (global._localSyncChannel) {
+        var _origMsg = global._localSyncChannel.onmessage;
+        global._localSyncChannel.onmessage = function (e) {
+          if (_origMsg) _origMsg.call(this, e);
+          var msg = e.data;
+          if (msg && msg.topic === "breeder" && state.enabled) {
+            setTimeout(refreshCacheInBackground, 2000);
+          }
+        };
+      }
+    } catch (e) {}
+  }
+
+  // تشغيل بعد تحميل DOM
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    // إذا كان DOM جاهزاً، انتظر ثانية حتى تُعرَّف دوال التطبيق
+    setTimeout(init, 800);
+  }
+
+})(window);
+
   
 </script>
 
