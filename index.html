@@ -8644,8 +8644,6 @@ var BREEDER_CACHE = (function() {
       };
       window.bd_updateData._cachePatch = true;
     }
-
-    // حذف من الكاش عند حذف مربي
 // حذف من الكاش عند حذف مربي
     if (window.bd_deleteData && !window.bd_deleteData._cachePatch) {
       var _orig_delete = window.bd_deleteData;
@@ -8701,58 +8699,6 @@ var BREEDER_CACHE = (function() {
       }
     };
 
-    BREEDER_CACHE.update(breederData).then(function() {
-      showToast("⚡ تم تحديث الكاش فوراً", "success");
-      console.log("[CACHE] تم تحديث الكاش مباشرة:", finalPhone);
-    }).catch(function(err) {
-      console.warn("[CACHE] فشل تحديث الكاش:", err);
-    });
-  }
-
-  // مزامنة كاملة فورية بعد أي عملية
-// تحديث الكاش مباشرة من بيانات النموذج (بدون طلب API)
-  function syncBreederToCache(operation) {
-
-    if (operation === "delete") return; // الحذف يُعالج منفصلاً
-
-    // جمع البيانات من النموذج مباشرة
-    var phone = (document.getElementById("bd_phoneInput") || {}).value || "";
-    var newPhone = (document.getElementById("bd_newPhoneInput") || {}).value || "";
-    phone = phone.toString().trim();
-    newPhone = newPhone.toString().trim();
-
-    if (!phone) return;
-
-    // إذا تغير الرقم، احذف القديم
-    if (newPhone && newPhone !== phone) {
-      BREEDER_CACHE.remove(phone);
-    }
-
-    var finalPhone = (newPhone && newPhone !== phone) ? newPhone : phone;
-
-    // بناء كائن المربي من النموذج
-    var breederData = {
-      phone:         finalPhone,
-      name:          (document.getElementById("bd_nameInput") || {}).value || "",
-      possession:    (document.getElementById("bd_possessionInput") || {}).value || "",
-      region:        (document.getElementById("bd_regionInput") || {}).value || "",
-      civil:         (document.getElementById("bd_civilInput") || {}).value || "",
-      notes:         (document.getElementById("bd_notes") || {}).value || "",
-      financialDate: (document.getElementById("bd_financialDate") || {}).value || "",
-      dataEntry:     (document.getElementById("bd_dataEntryInput") || {}).value || "",
-      animals: {
-        goat:    (document.getElementById("bd_animal_goat") || {}).value || "",
-        sheep:   (document.getElementById("bd_animal_sheep") || {}).value || "",
-        cow:     (document.getElementById("bd_animal_cow") || {}).value || "",
-        camel:   (document.getElementById("bd_animal_camel") || {}).value || "",
-        horse:   (document.getElementById("bd_animal_horse") || {}).value || "",
-        cat:     (document.getElementById("bd_animal_cat") || {}).value || "",
-        dog:     (document.getElementById("bd_animal_dog") || {}).value || "",
-        poultry: (document.getElementById("bd_animal_poultry") || {}).value || ""
-      }
-    };
-
-    // حفظ مباشر في IndexedDB
     BREEDER_CACHE.update(breederData).then(function() {
       showToast("⚡ تم تحديث الكاش فوراً", "success");
       console.log("[CACHE] تم تحديث الكاش مباشرة:", finalPhone);
