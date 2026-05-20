@@ -1531,12 +1531,16 @@ if (!u || !p) {
         lAlert('l_loginErr','l_loginErrIco','l_loginErrTx','error','تعذّر العثور على أعمدة البيانات.');
       } else {
         const m=users.find(u2=>(u2[lUK]||'').toLowerCase()===u.toLowerCase()&&(u2[lPK]||'')===p);
-  if(m){
+if(m){
   lCU={...m, _u:u};
-  window._currentUser = u;  // ← رقم 3: حفظ اسم المستخدم الحالي
+  window._currentUser = u;
+
+  PERM.init(u, m);  // ← هذا السطر فقط
+
   document.getElementById('l_welcomeName').textContent=`مرحباً، ${lNK?(m[lNK]||u):u}!`;
   lShow(lViews.welcome);
   unlockNav();
+}
 } else {
           // تحديد سبب الخطأ
           const userExists=users.find(u2=>(u2[lUK]||'').toLowerCase()===u.toLowerCase());
@@ -1586,8 +1590,10 @@ if (!u || !p) {
   document.getElementById('l_password').addEventListener('keydown', e=>{ if(e.key==='Enter') lDoLogin(); });
 
 document.getElementById('l_logoutBtn').addEventListener('click', ()=>{
-  window._currentUser = null;      // ← رقم 4: مسح المستخدم الحالي
-  window._userAllowedPages = null; // ← رقم 4: مسح الصلاحيات
+  PERM.revoke();  // ← هذا السطر فقط
+
+  window._currentUser = null;
+  window._userAllowedPages = null;
   lCU=null;
   document.getElementById('l_username').value='';
   document.getElementById('l_password').value='';
@@ -7273,632 +7279,627 @@ function foDismissOverdueAlert() {
   foCloseOverdueAlert();
 }
 
- "use strict";
+/**
+ * =====================================================
+ * نظام الصلاحيات v6.0 — نظيف ومعاد البناء
+ * يقرأ الصلاحيات مباشرة من Google Sheets أثناء تسجيل الدخول
+ * =====================================================
+ *
+ * هيكل ورقة "user" في الشيت:
+ * username | password | permissions | role | pages | actions
+ *
+ * - pages:   قائمة بأسماء الصفحات مفصولة بفاصلة  مثال: breeder,treatment,vaccination
+ * - actions: قائمة بالإجراءات المسموحة مفصولة بفاصلة  مثال: save,update,delete
+ * - إذا كانت pages فارغة → كل الصفحات مسموحة
+ * - إذا كانت actions فارغة → كل الإجراءات مسموحة
+ *
+ * طريقة الاستخدام:
+ * 1. ادمج هذا الملف في HTML قبل إغلاق </body>
+ * 2. استدعِ PERM.init(username, csvRow) فور نجاح تسجيل الدخول
+ * 3. استدعِ PERM.revoke() عند تسجيل الخروج
+ * =====================================================
+ */
 
-// ═══════════════════════════════════════════════════════════════
-// نظام الصلاحيات v5.0 — يقرأ من Google Sheets مباشرة
-// ═══════════════════════════════════════════════════════════════
+(function (global) {
+  "use strict";
 
-var PERM = {
-  SHEET_ID:    "1TzE44MOz8OqPdR-FzZLn5fhq9NDwhGN_X20xsusv1qE",
-  SCRIPT_URL:  "https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec",
-  state: {
-    currentUser:    null,
-    allowedPages:   [],
-    allowedActions: [],
-    autoFillTimer:  null
-  }
-};
+  /* ─────────────────────────────────────────────────────
+     ١. قائمة الصفحات والإجراءات المتاحة في النظام
+     ───────────────────────────────────────────────────── */
+  var ALL_PAGES = [
+    { id: "breeder",            label: "سجل المربي",               icon: "👤" },
+    { id: "treatment",          label: "سجل العلاج",               icon: "💊" },
+    { id: "vaccination",        label: "سجل التحصين",              icon: "💉" },
+    { id: "vaccinationRequests",label: "طلبات التحصين",            icon: "📋" },
+    { id: "samples",            label: "نموذج العينات",            icon: "🧪" },
+    { id: "dashboard",          label: "طباعة نماذج العينات",      icon: "🖨️" },
+    { id: "settings",           label: "شهادة التحصين",            icon: "📜" },
+    { id: "reports",            label: "الأدوية المصروفة",         icon: "📊" },
+    { id: "financialInventory", label: "الجرد المالي",             icon: "💰" },
+    { id: "diseaseTracking",    label: "تتبع المرض",               icon: "🦠" },
+    { id: "animalDistribution", label: "توزيع الحيوانات",          icon: "🐄" },
+    { id: "comprehensiveReport",label: "التقرير الشامل",           icon: "📈" },
+    { id: "home",               label: "الإعدادات",                icon: "⚙️" },
+  ];
 
-var PERM_ALL_PAGES   = ['breeder','treatment','vaccination','vaccinationRequests',
-                        'samples','dashboard','settings','reports','financialInventory',
-                        'diseaseTracking','animalDistribution','comprehensiveReport','home'];
-var PERM_ALL_ACTIONS = ['save','update','delete','print','search','tempsave','tempupdate'];
+  var ALL_ACTIONS = {
+    save:       "حفظ / إضافة",
+    update:     "تعديل / تحديث",
+    delete:     "حذف",
+    print:      "طباعة",
+    search:     "بحث / عرض",
+    tempsave:   "حفظ مؤقت",
+    tempupdate: "تحديث مؤقت",
+  };
 
-var PERM_ACTION_LABELS = {
-  save:       'حفظ / إضافة',   update:     'تعديل / تحديث',
-  delete:     'حذف',           print:      'طباعة',
-  search:     'بحث / عرض',     tempsave:   'حفظ مؤقت',
-  tempupdate: 'تحديث مؤقت'
-};
+  /* ─────────────────────────────────────────────────────
+     ٢. ربط الأزرار بالإجراءات (pageId → [{btnId, action}])
+     ───────────────────────────────────────────────────── */
+  var BUTTON_MAP = {
+    treatment: [
+      { id: "tr_saveBtn",       action: "save"       },
+      { id: "tr_updateBtn",     action: "update"     },
+      { id: "tr_deleteBtn",     action: "delete"     },
+      { id: "tr_searchBtn",     action: "search"     },
+      { id: "tr_tempSaveBtn",   action: "tempsave"   },
+      { id: "tr_tempUpdateBtn", action: "tempupdate" },
+    ],
+    breeder: [
+      { id: "bd_saveBtn",              action: "save"   },
+      { id: "bd_updateBtn",            action: "update" },
+      { id: "bd_deleteBtn",            action: "delete" },
+      { id: "bd_saveVaccinationBtn",   action: "save"   },
+      { id: "bd_updateVaccinationBtn", action: "update" },
+      { id: "bd_deleteVaccinationBtn", action: "delete" },
+      { id: "bd_updatePossessionBtn",  action: "update" },
+    ],
+    vaccination: [
+      { id: "vacc_saveBtn",   action: "save"   },
+      { id: "vacc_updateBtn", action: "update" },
+      { id: "vacc_deleteBtn", action: "delete" },
+      { id: "vacc_searchBtn", action: "search" },
+    ],
+    samples: [
+      { id: "saveBtn",   action: "save"   },
+      { id: "updateBtn", action: "update" },
+      { id: "deleteBtn", action: "delete" },
+      { id: "searchBtn", action: "search" },
+    ],
+    dashboard: [
+      { id: "db_printBtn", action: "print" },
+    ],
+    settings: [
+      { selector: "#settings .print-btn", action: "print" },
+    ],
+    reports: [
+      { selector: "#reports .print-btn", action: "print" },
+    ],
+    financialInventory: [
+      { selector: "#financialInventory .print-btn", action: "print" },
+    ],
+  };
 
-// ─── تعريف الأزرار لكل صفحة ───────────────────────────────────
-var PERM_BUTTONS = {
-  treatment: [
-    { id: "tr_saveBtn",         action: "save"       },
-    { id: "tr_updateBtn",       action: "update"     },
-    { id: "tr_deleteBtn",       action: "delete"     },
-    { id: "tr_searchBtn",       action: "search"     },
-    { id: "tr_tempSaveBtn",     action: "tempsave"   },
-    { id: "tr_tempUpdateBtn",   action: "tempupdate" }
-  ],
-  breeder: [
-    { id: "bd_saveBtn",              action: "save"   },
-    { id: "bd_updateBtn",            action: "update" },
-    { id: "bd_deleteBtn",            action: "delete" },
-    { id: "bd_saveVaccinationBtn",   action: "save"   },
-    { id: "bd_updateVaccinationBtn", action: "update" },
-    { id: "bd_deleteVaccinationBtn", action: "delete" },
-    { id: "bd_updatePossessionBtn",  action: "update" }
-  ],
-  vaccination: [
-    { id: "vacc_saveBtn",   action: "save"   },
-    { id: "vacc_updateBtn", action: "update" },
-    { id: "vacc_deleteBtn", action: "delete" },
-    { id: "vacc_searchBtn", action: "search" }
-  ],
-  samples: [
-    { id: "saveBtn",   action: "save"   },
-    { id: "updateBtn", action: "update" },
-    { id: "deleteBtn", action: "delete" },
-    { id: "searchBtn", action: "search" }
-  ],
-  dashboard: [{ id: "db_printBtn", action: "print" }],
-  settings:  [{ selector: "#settings .print-btn",          action: "print" }],
-  reports:   [{ selector: "#reports .print-btn",           action: "print" }],
-  financialInventory: [{ selector: "#financialInventory .print-btn", action: "print" }]
-};
+  /* ─────────────────────────────────────────────────────
+     ٣. الحالة الداخلية
+     ───────────────────────────────────────────────────── */
+  var state = {
+    username:      null,
+    displayName:   null,
+    role:          null,
+    allowedPages:  [],   // [] = كل الصفحات
+    allowedActions: [],  // [] = كل الإجراءات
+    autoFillTimer: null,
+  };
 
-// ═══════════════════════════════════════════════════════════════
-// 1. قراءة صلاحيات المستخدم من Google Sheets عبر Apps Script
-//    هذه هي الدالة المركزية — تُستدعى عند كل تسجيل دخول
-// ═══════════════════════════════════════════════════════════════
-async function permFetchFromSheet(username) {
-  try {
-    var body = JSON.stringify({
-      action:   'getUserPermissions',
-      username: username
-    });
-    var r = await fetch(PERM.SCRIPT_URL, {
-      method:  'POST', mode: 'cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: body, redirect: 'follow'
-    });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    var res = await r.json();
+  /* ─────────────────────────────────────────────────────
+     ٤. دوال تحليل البيانات
+     ───────────────────────────────────────────────────── */
 
-    if (!res.success) {
-      console.warn('[PERM] getPermissions فشل:', res.message);
-      return null;
-    }
+  /**
+   * تحليل نص CSV إلى مصفوفة من الكائنات
+   * يدعم الفواصل والاقتباسات
+   */
+  function parseCSV(text) {
+    var lines = text.replace(/\r/g, "").trim().split("\n");
+    if (lines.length < 2) return [];
 
-    // تحليل الصفحات والإجراءات
-    var pages   = permParseList(res.pages);
-    var actions = permParseList(res.actions);
-
-    // إذا لم تُحدَّد صفاحات → الكل مسموح
-    if (!pages.length)   pages   = PERM_ALL_PAGES.slice();
-    if (!actions.length) actions = PERM_ALL_ACTIONS.slice();
-
-    return { pages: pages, actions: actions };
-  } catch(e) {
-    console.warn('[PERM] خطأ قراءة الشيت:', e.message);
-    return null;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 2. قراءة بيانات المستخدم الأساسية من CSV (لاسم المستخدم والدور)
-// ═══════════════════════════════════════════════════════════════
-async function permFetchUserMeta(username) {
-  try {
-    var CSV_URL = 'https://docs.google.com/spreadsheets/d/' + PERM.SHEET_ID +
-                  '/export?format=csv&gid=0&t=' + Date.now();
-    var r = await fetch(CSV_URL);
-    if (!r.ok) return { name: username, role: 'tech' };
-    var text  = (await r.text()).replace(/^\uFEFF/, '').replace(/\r/g, '');
-    var lines = text.trim().split('\n');
-    if (lines.length < 2) return { name: username, role: 'tech' };
-
-    var headers = permSplitCSV(lines[0]).map(function(h) {
+    var headers = splitCSVLine(lines[0]).map(function (h) {
       return h.toLowerCase().trim();
     });
 
-    function findIdx(terms) {
-      return headers.findIndex(function(h) {
-        return terms.some(function(t) { return h === t || h.indexOf(t) !== -1; });
+    return lines.slice(1).map(function (line) {
+      var values = splitCSVLine(line);
+      var obj = {};
+      headers.forEach(function (h, i) {
+        obj[h] = (values[i] || "").trim();
       });
-    }
-    var uIdx = findIdx(['username','user','اسم المستخدم']);
-    var nIdx = findIdx(['name','الاسم','fullname']);
-    var rIdx = findIdx(['role','الدور','وظيفة']);
-
-    for (var i = 1; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
-      var cols = permSplitCSV(lines[i]);
-      if ((cols[uIdx] || '').trim().toLowerCase() !== username.toLowerCase()) continue;
-      return {
-        name: nIdx >= 0 ? (cols[nIdx] || username) : username,
-        role: rIdx >= 0 ? (cols[rIdx] || 'tech')   : 'tech'
-      };
-    }
-  } catch(e) {}
-  return { name: username, role: 'tech' };
-}
-
-// ─── أدوات مساعدة ─────────────────────────────────────────────
-function permSplitCSV(line) {
-  var result = [], cur = '', inQ = false;
-  for (var i = 0; i < line.length; i++) {
-    var ch = line[i];
-    if (ch === '"') {
-      if (inQ && line[i+1] === '"') { cur += '"'; i++; }
-      else inQ = !inQ;
-    } else if (ch === ',' && !inQ) {
-      result.push(cur.trim().replace(/^"|"$/g, ''));
-      cur = '';
-    } else { cur += ch; }
-  }
-  result.push(cur.trim().replace(/^"|"$/g, ''));
-  return result;
-}
-
-function permParseList(raw) {
-  if (!raw || !raw.toString().trim()) return [];
-  return raw.toString().split(/[,،\n\r]+/)
-    .map(function(s) { return s.trim(); })
-    .filter(Boolean);
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 3. النقطة المركزية — تُستدعى بعد نجاح تسجيل الدخول
-// ═══════════════════════════════════════════════════════════════
-async function permApplyForUser(username) {
-  // أ) قراءة صلاحيات الشيت (المصدر الأول والأهم)
-  var sheetPerms = await permFetchFromSheet(username);
-
-  // ب) قراءة بيانات المستخدم الأساسية (الاسم والدور)
-  var meta = await permFetchUserMeta(username);
-
-  // ج) fallback: localStorage إذا فشل الشيت
-  var pages, actions;
-  if (sheetPerms) {
-    pages   = sheetPerms.pages;
-    actions = sheetPerms.actions;
-    // مزامنة localStorage مع الشيت
-    try {
-      localStorage.setItem('perm_'        + username, JSON.stringify(pages));
-      localStorage.setItem('permActions_' + username, JSON.stringify(actions));
-    } catch(e) {}
-  } else {
-    console.warn('[PERM] فشل قراءة الشيت، جاري استخدام localStorage');
-    try {
-      var lsP = localStorage.getItem('perm_' + username);
-      var lsA = localStorage.getItem('permActions_' + username);
-      pages   = lsP ? JSON.parse(lsP) : PERM_ALL_PAGES.slice();
-      actions = lsA ? JSON.parse(lsA) : PERM_ALL_ACTIONS.slice();
-    } catch(e) {
-      pages   = PERM_ALL_PAGES.slice();
-      actions = PERM_ALL_ACTIONS.slice();
-    }
+      return obj;
+    });
   }
 
-  // د) حفظ الحالة
-  PERM.state.currentUser  = { username: username, name: meta.name, role: meta.role };
-  PERM.state.allowedPages   = pages;
-  PERM.state.allowedActions = actions;
-  window._userAllowedPages  = pages;
-
-  // هـ) تطبيق على الواجهة
-  permApplyNav(pages);
-  permApplyButtons(actions);
-  permAutoFill(meta.name || username);
-  permShowBadge(meta.name, meta.role);
-
-  console.log('[PERM] ✅ صلاحيات ' + username + ':', pages.length + ' صفحة،', actions.length + ' إجراء');
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 4. تطبيق على الـ Nav
-// ═══════════════════════════════════════════════════════════════
-function permApplyNav(allowedPages) {
-  document.querySelectorAll('nav button').forEach(function(btn) {
-    var m = (btn.getAttribute('onclick') || '').match(/showPage\(['"](\w+)['"]\)/);
-    if (!m) return;
-    var pid = m[1];
-    if (pid === 'login' || pid === 'home') {
-      btn.style.display = '';
-      btn.disabled = false;
-      return;
+  function splitCSVLine(line) {
+    var result = [], cur = "", inQ = false;
+    for (var i = 0; i < line.length; i++) {
+      var ch = line[i];
+      if (ch === '"') {
+        if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = !inQ;
+      } else if (ch === "," && !inQ) {
+        result.push(cur);
+        cur = "";
+      } else {
+        cur += ch;
+      }
     }
-    var allowed = allowedPages.indexOf(pid) !== -1;
-    btn.style.display = allowed ? '' : 'none';
-    btn.disabled      = !allowed;
+    result.push(cur);
+    return result;
+  }
 
-    var origText = btn.getAttribute('data-original-text');
-    if (origText) { btn.textContent = origText; btn.removeAttribute('data-original-text'); }
-  });
-}
+  /**
+   * تحليل قائمة مفصولة بفاصلة أو فاصلة عربية
+   */
+  function parseList(raw) {
+    if (!raw || !raw.toString().trim()) return [];
+    return raw
+      .toString()
+      .split(/[,،\s]+/)
+      .map(function (s) { return s.trim().toLowerCase(); })
+      .filter(Boolean);
+  }
 
-// ═══════════════════════════════════════════════════════════════
-// 5. تطبيق على الأزرار
-// ═══════════════════════════════════════════════════════════════
-function _permBlockClick(e) {
-  e.preventDefault();
-  e.stopImmediatePropagation();
-  showToast('⛔ ليس لديك صلاحية لتنفيذ هذا الإجراء', 'warning');
-}
+  /**
+   * إيجاد عمود بالاسم مع دعم أسماء متعددة
+   */
+  function findKey(obj, candidates) {
+    var keys = Object.keys(obj).map(function (k) { return k.toLowerCase(); });
+    for (var i = 0; i < candidates.length; i++) {
+      var c = candidates[i].toLowerCase();
+      if (keys.indexOf(c) !== -1) return c;
+    }
+    return null;
+  }
 
-function permApplyButtons(allowedActions) {
-  Object.keys(PERM_BUTTONS).forEach(function(page) {
-    PERM_BUTTONS[page].forEach(function(def) {
-      var els = def.id
-        ? (document.getElementById(def.id) ? [document.getElementById(def.id)] : [])
-        : Array.from(document.querySelectorAll(def.selector || ''));
+  /* ─────────────────────────────────────────────────────
+     ٥. منطق الصلاحيات الأساسي
+     ───────────────────────────────────────────────────── */
 
-      els.forEach(function(el) {
-        el.removeEventListener('click', _permBlockClick, true);
-        if (allowedActions.indexOf(def.action) === -1) {
-          el.style.opacity = '0.35';
-          el.style.cursor  = 'not-allowed';
-          el.setAttribute('title', '⛔ غير مصرح: ' + (PERM_ACTION_LABELS[def.action] || def.action));
-          el.dataset.permLock = '1';
-          el.addEventListener('click', _permBlockClick, true);
-        } else {
-          el.style.opacity = '';
-          el.style.cursor  = '';
-          el.removeAttribute('title');
-          delete el.dataset.permLock;
+  /**
+   * هل الصفحة مسموحة للمستخدم الحالي؟
+   */
+  function isPageAllowed(pageId) {
+    if (pageId === "login" || pageId === "home") return true;
+    if (!state.allowedPages || state.allowedPages.length === 0) return true;
+    return state.allowedPages.indexOf(pageId.toLowerCase()) !== -1;
+  }
+
+  /**
+   * هل الإجراء مسموح للمستخدم الحالي؟
+   */
+  function isActionAllowed(action) {
+    if (!state.allowedActions || state.allowedActions.length === 0) return true;
+    return state.allowedActions.indexOf(action.toLowerCase()) !== -1;
+  }
+
+  /* ─────────────────────────────────────────────────────
+     ٦. تطبيق الصلاحيات على الواجهة
+     ───────────────────────────────────────────────────── */
+
+  /**
+   * تطبيق صلاحيات الصفحات على شريط التنقل
+   */
+  function applyNavPermissions() {
+    document.querySelectorAll("nav button").forEach(function (btn) {
+      var onclick = btn.getAttribute("onclick") || "";
+      var match = onclick.match(/showPage\(['"](\w+)['"]\)/);
+      if (!match) return;
+
+      var pageId = match[1];
+      if (pageId === "login") return; // زر تسجيل الدخول دائماً مرئي
+
+      var allowed = isPageAllowed(pageId);
+      btn.style.display = allowed ? "" : "none";
+      btn.disabled = !allowed;
+    });
+  }
+
+  /**
+   * منع النقر على زر غير مصرح
+   */
+  function blockClickHandler(e) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    showPermissionToast("⛔ ليس لديك صلاحية لتنفيذ هذا الإجراء");
+  }
+
+  /**
+   * تطبيق صلاحيات الإجراءات على الأزرار
+   */
+  function applyButtonPermissions() {
+    Object.keys(BUTTON_MAP).forEach(function (page) {
+      BUTTON_MAP[page].forEach(function (def) {
+        var elements = [];
+
+        if (def.id) {
+          var el = document.getElementById(def.id);
+          if (el) elements.push(el);
+        } else if (def.selector) {
+          elements = Array.from(document.querySelectorAll(def.selector));
         }
+
+        elements.forEach(function (el) {
+          // إزالة أي قيد سابق
+          el.removeEventListener("click", blockClickHandler, true);
+          el.style.opacity = "";
+          el.style.cursor = "";
+          el.removeAttribute("title");
+          delete el.dataset.permLocked;
+
+          if (!isActionAllowed(def.action)) {
+            el.style.opacity = "0.35";
+            el.style.cursor = "not-allowed";
+            el.setAttribute(
+              "title",
+              "⛔ غير مصرح: " + (ALL_ACTIONS[def.action] || def.action)
+            );
+            el.dataset.permLocked = "1";
+            el.addEventListener("click", blockClickHandler, true);
+          }
+        });
       });
     });
-  });
-}
+  }
 
-// ═══════════════════════════════════════════════════════════════
-// 6. تعبئة مدخل البيانات تلقائياً
-// ═══════════════════════════════════════════════════════════════
-function permAutoFill(name) {
-  if (!name) return;
-  var IDS = [
-    'tr_dataEntryInput','tr_dataUpdaterInput',
-    'bd_dataEntryInput','bd_dataUpdaterInput',
-    'vacc_dataEntryInput','vacc_dataUpdaterInput',
-    'dataEntryInput','dataUpdaterInput'
+  /**
+   * إزالة جميع قيود الأزرار
+   */
+  function removeButtonPermissions() {
+    document.querySelectorAll("[data-perm-locked]").forEach(function (el) {
+      el.removeEventListener("click", blockClickHandler, true);
+      el.style.opacity = "";
+      el.style.cursor = "";
+      el.removeAttribute("title");
+      delete el.dataset.permLocked;
+    });
+  }
+
+  /* ─────────────────────────────────────────────────────
+     ٧. التعبئة التلقائية لحقل "مدخل البيانات"
+     ───────────────────────────────────────────────────── */
+  var DATA_ENTRY_FIELD_IDS = [
+    "tr_dataEntryInput",   "tr_dataUpdaterInput",
+    "bd_dataEntryInput",   "bd_dataUpdaterInput",
+    "vacc_dataEntryInput", "vacc_dataUpdaterInput",
+    "dataEntryInput",      "dataUpdaterInput",
   ];
-  function fill() {
-    IDS.forEach(function(id) {
+
+  function autoFillDataEntry(name) {
+    if (!name) return;
+    DATA_ENTRY_FIELD_IDS.forEach(function (id) {
       var el = document.getElementById(id);
-      if (el && !el.dataset.userModified) el.value = name;
+      if (el && !el.dataset.userModified) {
+        el.value = name;
+      }
     });
   }
-  fill();
-  IDS.forEach(function(id) {
-    var el = document.getElementById(id);
-    if (!el || el.dataset.permListening) return;
-    el.dataset.permListening = '1';
-    el.addEventListener('change', function() { this.dataset.userModified = '1'; });
-  });
-  if (PERM.state.autoFillTimer) clearInterval(PERM.state.autoFillTimer);
-  PERM.state.autoFillTimer = setInterval(fill, 500);
-}
 
-// ═══════════════════════════════════════════════════════════════
-// 7. شارة المستخدم
-// ═══════════════════════════════════════════════════════════════
-function permShowBadge(name, role) {
-  var old = document.getElementById('permBadge');
-  if (old) old.remove();
-  var colors = { admin:'#00b8d9', مدير:'#00b8d9', vet:'#2bb673', طبيب:'#2bb673', tech:'#f39c12', فني:'#f39c12' };
-  var bg = colors[(role||'').toLowerCase()] || colors[role] || '#888';
-  var b  = document.createElement('div');
-  b.id = 'permBadge';
-  Object.assign(b.style, {
-    position:'fixed', bottom:'12px', right:'12px',
-    background:bg, color:'#fff', padding:'5px 14px',
-    borderRadius:'20px', fontSize:'12px', fontWeight:'bold',
-    fontFamily:'Tahoma,Arial,sans-serif', zIndex:'9999',
-    boxShadow:'0 2px 8px rgba(0,0,0,.25)',
-    cursor:'pointer', direction:'rtl'
-  });
-  b.textContent = '👤 ' + name + '  |  ' + role;
-  b.title = 'انقر لعرض صلاحياتك';
-  b.onclick = permShowDetails;
-  document.body.appendChild(b);
-}
+  function startAutoFill(name) {
+    if (!name) return;
 
-function permShowDetails() {
-  var old = document.getElementById('permModal');
-  if (old) { old.remove(); return; }
-  var cu = PERM.state.currentUser;
-  var ap = PERM.state.allowedPages;
-  var aa = PERM.state.allowedActions;
-  if (!cu) return;
+    // تعبئة فورية
+    autoFillDataEntry(name);
 
-  var PERM_PAGES_DEF = [
-    {id:'breeder',name:'سجل المربي',icon:'👤'},{id:'treatment',name:'سجل العلاج',icon:'💉'},
-    {id:'vaccination',name:'سجل التحصين',icon:'💊'},{id:'vaccinationRequests',name:'طلبات التحصين',icon:'📋'},
-    {id:'samples',name:'نموذج العينات',icon:'🧪'},{id:'dashboard',name:'طباعة نماذج العينات',icon:'🖨️'},
-    {id:'settings',name:'طباعة شهادة التحصين',icon:'📜'},{id:'reports',name:'الأدوية المصروفة',icon:'💊'},
-    {id:'financialInventory',name:'الجرد المالي',icon:'💰'},{id:'diseaseTracking',name:'تتبع المرض',icon:'📊'},
-    {id:'animalDistribution',name:'توزيع الحيوانات',icon:'🐄'},{id:'comprehensiveReport',name:'التقرير الشامل',icon:'📈'},
-    {id:'home',name:'الإعدادات',icon:'⚙️'}
-  ];
+    // تسجيل التعديل اليدوي
+    DATA_ENTRY_FIELD_IDS.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el || el.dataset.permListening) return;
+      el.dataset.permListening = "1";
+      el.addEventListener("input", function () {
+        this.dataset.userModified = "1";
+      });
+    });
 
-  var pHtml = PERM_PAGES_DEF.map(function(p) {
-    var ok = ap.indexOf(p.id) !== -1;
-    return '<span style="display:inline-flex;align-items:center;gap:4px;background:' +
-      (ok?'#e0f7fa':'#ffeaea') + ';color:' + (ok?'#006064':'#c62828') +
-      ';border-radius:10px;padding:3px 10px;margin:2px;font-size:11px;">' +
-      (ok?'✅':'❌') + ' ' + p.icon + ' ' + p.name + '</span>';
-  }).join('');
+    // تكرار دوري لحالات تحميل الصفحات الجديدة
+    if (state.autoFillTimer) clearInterval(state.autoFillTimer);
+    state.autoFillTimer = setInterval(function () {
+      autoFillDataEntry(name);
+    }, 800);
+  }
 
-  var aHtml = Object.keys(PERM_ACTION_LABELS).map(function(a) {
-    var ok = aa.indexOf(a) !== -1;
-    return '<span style="display:inline-flex;align-items:center;gap:4px;background:' +
-      (ok?'#e8f5e9':'#ffeaea') + ';color:' + (ok?'#1b5e20':'#c62828') +
-      ';border-radius:10px;padding:3px 10px;margin:2px;font-size:11px;">' +
-      (ok?'✅':'❌') + ' ' + PERM_ACTION_LABELS[a] + '</span>';
-  }).join('');
-
-  var ov = document.createElement('div');
-  ov.id = 'permModal';
-  Object.assign(ov.style, {
-    position:'fixed', inset:'0', background:'rgba(0,0,0,.55)',
-    display:'flex', alignItems:'center', justifyContent:'center',
-    zIndex:'99999', direction:'rtl'
-  });
-  ov.innerHTML =
-    '<div style="background:#fff;border-radius:12px;padding:24px 26px;width:90%;max-width:520px;' +
-    'font-family:Tahoma,Arial;box-shadow:0 8px 30px rgba(0,0,0,.3);max-height:85vh;overflow-y:auto;">' +
-    '<div style="background:#00b8d9;color:#fff;margin:-24px -26px 16px;padding:13px 18px;' +
-    'border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">' +
-    '<span style="font-weight:bold;font-size:14px;">🔐 صلاحياتي</span>' +
-    '<button onclick="document.getElementById(\'permModal\').remove()" ' +
-    'style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;' +
-    'width:26px;height:26px;cursor:pointer;font-size:15px;">✕</button></div>' +
-    '<div style="background:#f5f5f5;border-radius:8px;padding:10px 13px;margin-bottom:13px;">' +
-    '<div style="font-size:12px;color:#777;">المستخدم</div>' +
-    '<div style="font-size:15px;font-weight:bold;color:#004e66;">' + cu.name + '</div>' +
-    '<span style="font-size:11px;background:#00b8d9;color:#fff;border-radius:10px;' +
-    'padding:2px 10px;display:inline-block;margin-top:4px;">' + cu.role + '</span></div>' +
-    '<div style="margin-bottom:12px;"><div style="font-weight:bold;font-size:12px;color:#333;margin-bottom:5px;">' +
-    '📋 الصفحات (' + ap.length + '/' + PERM_PAGES_DEF.length + ')</div><div>' + pHtml + '</div></div>' +
-    '<div><div style="font-weight:bold;font-size:12px;color:#333;margin-bottom:5px;">' +
-    '⚡ الإجراءات (' + aa.length + '/' + Object.keys(PERM_ACTION_LABELS).length + ')</div><div>' + aHtml + '</div></div>' +
-    '<div style="text-align:center;margin-top:16px;"><button onclick="document.getElementById(\'permModal\').remove()" ' +
-    'style="background:#00b8d9;color:#fff;border:none;border-radius:8px;padding:8px 24px;' +
-    'font-family:Tahoma;font-weight:bold;cursor:pointer;">إغلاق</button></div></div>';
-  ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
-  document.body.appendChild(ov);
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 8. إلغاء الصلاحيات عند تسجيل الخروج
-// ═══════════════════════════════════════════════════════════════
-function permRevoke() {
-  if (PERM.state.autoFillTimer) { clearInterval(PERM.state.autoFillTimer); PERM.state.autoFillTimer = null; }
-  document.querySelectorAll('[data-perm-lock]').forEach(function(el) {
-    el.style.opacity = ''; el.style.cursor = ''; el.removeAttribute('title');
-    delete el.dataset.permLock;
-    el.removeEventListener('click', _permBlockClick, true);
-  });
-  ['permBadge','permModal'].forEach(function(id) {
-    var el = document.getElementById(id); if (el) el.remove();
-  });
-  PERM.state.currentUser = null;
-  PERM.state.allowedPages = [];
-  PERM.state.allowedActions = [];
-  window._userAllowedPages = null;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 9. دوال صفحة الإعدادات (home) — حفظ ينكتب في الشيت مباشرة
-// ═══════════════════════════════════════════════════════════════
-var PERM_PAGES = [
-  {id:'breeder',name:'سجل المربي',icon:'👤'},{id:'treatment',name:'سجل العلاج',icon:'💉'},
-  {id:'vaccination',name:'سجل التحصين',icon:'💊'},{id:'vaccinationRequests',name:'طلبات التحصين',icon:'📋'},
-  {id:'samples',name:'نموذج العينات',icon:'🧪'},{id:'dashboard',name:'طباعة نماذج العينات',icon:'🖨️'},
-  {id:'settings',name:'طباعة شهادة التحصين',icon:'📜'},{id:'reports',name:'الأدوية المصروفة',icon:'💊'},
-  {id:'financialInventory',name:'الجرد المالي',icon:'💰'},{id:'diseaseTracking',name:'تتبع المرض',icon:'📊'},
-  {id:'animalDistribution',name:'توزيع الحيوانات',icon:'🐄'},{id:'comprehensiveReport',name:'التقرير الشامل',icon:'📈'},
-  {id:'home',name:'الإعدادات',icon:'⚙️'}
-];
-
-// تحديث قائمة المستخدمين
-window.permRefreshUsers = async function() {
-  var select   = document.getElementById('permUserSelect');
-  var loading  = document.getElementById('permLoading');
-  var noUser   = document.getElementById('permNoUser');
-  var container = document.getElementById('permPagesContainer');
-  if (!select) return;
-  loading.style.display = 'block'; container.style.display = 'none'; noUser.style.display = 'none';
-  try {
-    var r = await fetch('https://docs.google.com/spreadsheets/d/' + PERM.SHEET_ID +
-                        '/export?format=csv&gid=0&t=' + Date.now());
-    if (!r.ok) throw new Error('فشل جلب البيانات');
-    var text  = (await r.text()).replace(/^\uFEFF/,'').replace(/\r/g,'');
-    var lines = text.trim().split('\n');
-    var headers = permSplitCSV(lines[0]).map(function(h){ return h.toLowerCase().trim(); });
-    var uIdx = headers.findIndex(function(h){ return h.indexOf('user') !== -1 || h.indexOf('اسم') !== -1; });
-    if (uIdx === -1) throw new Error('عمود username غير موجود');
-    select.innerHTML = '<option value="">-- اختر مستخدم --</option>';
-    for (var i = 1; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
-      var cols = permSplitCSV(lines[i]);
-      var uname = (cols[uIdx] || '').trim();
-      if (!uname) continue;
-      var opt = document.createElement('option');
-      opt.value = uname; opt.textContent = uname;
-      select.appendChild(opt);
+  function stopAutoFill() {
+    if (state.autoFillTimer) {
+      clearInterval(state.autoFillTimer);
+      state.autoFillTimer = null;
     }
-    showToast('✅ تم تحديث القائمة (' + (lines.length-1) + ' مستخدم)', 'success');
-  } catch(err) { showToast('❌ ' + err.message, 'error'); }
-  finally { loading.style.display = 'none'; noUser.style.display = 'block'; }
-};
-
-// تحميل صلاحيات مستخدم — يقرأ من الشيت أولاً
-window.permLoadUserPermissions = async function() {
-  var select    = document.getElementById('permUserSelect');
-  var container = document.getElementById('permPagesContainer');
-  var noUser    = document.getElementById('permNoUser');
-  var loading   = document.getElementById('permLoading');
-  var username  = select ? select.value : '';
-  if (!username) { if (container) container.style.display = 'none'; if (noUser) noUser.style.display = 'block'; return; }
-  if (loading)  loading.style.display = 'block';
-  if (noUser)   noUser.style.display  = 'none';
-  if (container) container.style.display = 'none';
-  try {
-    var grid = document.getElementById('permPagesGrid');
-    if (!grid) return;
-    grid.innerHTML = '';
-    PERM_PAGES.forEach(function(page) {
-      var div = document.createElement('div');
-      div.style.cssText = 'display:flex;align-items:center;gap:8px;background:#fff;padding:8px 12px;border-radius:4px;border:1px solid #ddd;cursor:pointer;';
-      div.onmouseenter = function(){ this.style.borderColor='#00b8d9'; this.style.background='#f0fbff'; };
-      div.onmouseleave = function(){ this.style.borderColor='#ddd';    this.style.background='#fff'; };
-      div.innerHTML =
-        '<input type="checkbox" id="perm_' + page.id + '" value="' + page.id +
-        '" style="width:18px;height:18px;cursor:pointer;" onchange="permUpdateCount()">' +
-        '<label for="perm_' + page.id + '" style="cursor:pointer;flex:1;font-weight:bold;color:#333;">' +
-        page.icon + ' ' + page.name + '</label>';
-      grid.appendChild(div);
+    // مسح علامات التعديل اليدوي
+    DATA_ENTRY_FIELD_IDS.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) {
+        delete el.dataset.userModified;
+        delete el.dataset.permListening;
+      }
     });
-
-    // قراءة الصلاحيات المحفوظة — الشيت أولاً
-    var sheetPerms = await permFetchFromSheet(username);
-    var savedPages;
-    if (sheetPerms && sheetPerms.pages.length) {
-      savedPages = sheetPerms.pages;
-    } else {
-      // fallback: localStorage
-      try {
-        var ls = localStorage.getItem('perm_' + username);
-        savedPages = ls ? JSON.parse(ls) : PERM_ALL_PAGES.slice();
-      } catch(e) { savedPages = PERM_ALL_PAGES.slice(); }
-    }
-
-    var checkedCount = 0;
-    PERM_PAGES.forEach(function(page) {
-      var cb = document.getElementById('perm_' + page.id);
-      if (cb) { cb.checked = savedPages.indexOf(page.id) !== -1; if (cb.checked) checkedCount++; }
-    });
-    document.getElementById('permSelectedCount').textContent = checkedCount + ' صفحة';
-    if (container) container.style.display = 'block';
-  } catch(err) { showToast('❌ ' + err.message, 'error'); }
-  finally { if (loading) loading.style.display = 'none'; }
-};
-
-window.permToggleAll = function(checked) {
-  PERM_PAGES.forEach(function(p) { var cb = document.getElementById('perm_'+p.id); if (cb) cb.checked = checked; });
-  permUpdateCount();
-};
-
-window.permUpdateCount = function() {
-  var count = PERM_PAGES.filter(function(p){ var cb = document.getElementById('perm_'+p.id); return cb && cb.checked; }).length;
-  var el = document.getElementById('permSelectedCount'); if (el) el.textContent = count + ' صفحة';
-};
-
-// حفظ الصلاحيات — يكتب في الشيت مباشرة
-window.permSavePermissions = async function() {
-  var select   = document.getElementById('permUserSelect');
-  var username = select ? select.value : '';
-  if (!username) { showToast('اختر مستخدماً أولاً', 'error'); return; }
-
-  var pages = PERM_PAGES.filter(function(p) {
-    var cb = document.getElementById('perm_' + p.id);
-    return cb && cb.checked;
-  }).map(function(p){ return p.id; });
-
-  showToast('⏳ جاري الحفظ في الشيت...', 'info');
-
-  var savedToSheet = false;
-  try {
-    var r = await fetch(PERM.SCRIPT_URL, {
-      method: 'POST', mode: 'cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        action:   'saveUserPermissions',
-        username: username,
-        pages:    pages.join(','),
-        actions:  ''          // الإجراءات تُحدَّد تلقائياً (الكل مسموح)
-      }),
-      redirect: 'follow'
-    });
-    if (r.ok) {
-      var data = await r.json();
-      savedToSheet = data.success;
-      if (!data.success) throw new Error(data.message || 'فشل الحفظ في الشيت');
-    }
-  } catch(err) {
-    console.warn('[PERM] Apps Script:', err.message);
   }
 
-  // دائماً: نسخة احتياطية في localStorage
-  try { localStorage.setItem('perm_' + username, JSON.stringify(pages)); } catch(e) {}
+  /* ─────────────────────────────────────────────────────
+     ٨. شارة المستخدم
+     ───────────────────────────────────────────────────── */
+  function showUserBadge(name, role) {
+    removeUserBadge();
 
-  if (savedToSheet) {
-    showToast('✅ تم حفظ صلاحيات ' + username + ' في الشيت (' + pages.length + ' صفحة)', 'success');
-  } else {
-    showToast('⚠️ تم الحفظ محلياً فقط (تحقق من Apps Script)', 'warning');
-  }
-
-  // تحديث فوري للمستخدم المسجَّل حالياً
-  if (window._currentUser === username) {
-    PERM.state.allowedPages = pages;
-    window._userAllowedPages = pages;
-    permApplyNav(pages);
-  }
-};
-
-window.permClearPermissions = function() {
-  var select   = document.getElementById('permUserSelect');
-  var username = select ? select.value : '';
-  if (!username) return;
-  if (!confirm('هل أنت متأكد من مسح صلاحيات المستخدم ' + username + '؟')) return;
-  localStorage.removeItem('perm_' + username);
-  localStorage.removeItem('permActions_' + username);
-  window.permLoadUserPermissions();
-  showToast('🗑️ تم مسح صلاحيات ' + username + ' محلياً', 'warning');
-};
-
-// ═══════════════════════════════════════════════════════════════
-// 10. ربط مع unlockNav / lockNav
-// ═══════════════════════════════════════════════════════════════
-(function patchNav() {
-  function tryPatch() {
-    if (typeof window.unlockNav !== 'function') return setTimeout(tryPatch, 100);
-    if (window.unlockNav._permV5) return;
-
-    var _origUnlock = window.unlockNav;
-    window.unlockNav = function() {
-      _origUnlock.apply(this, arguments);
-      var username = window._currentUser || '';
-      if (!username) return;
-      setTimeout(function() { permApplyForUser(username); }, 400);
+    var roleColors = {
+      admin: "#00b8d9",
+      مدير:  "#00b8d9",
+      vet:   "#2bb673",
+      طبيب:  "#2bb673",
+      tech:  "#f39c12",
+      فني:   "#f39c12",
     };
-    window.unlockNav._permV5 = true;
+    var bg = roleColors[role] || roleColors[(role || "").toLowerCase()] || "#888";
 
-    if (typeof window.lockNav === 'function' && !window.lockNav._permV5) {
-      var _origLock = window.lockNav;
-      window.lockNav = function() {
-        _origLock.apply(this, arguments);
-        permRevoke();
-      };
-      window.lockNav._permV5 = true;
-    }
-
-    // حماية showPage
-    if (typeof window.showPage === 'function' && !window.showPage._permV5) {
-      var _origShow = window.showPage;
-      window.showPage = function(pageId) {
-        if (!window._isLoggedIn || pageId === 'login' || pageId === 'home') {
-          return _origShow.apply(this, arguments);
-        }
-        var ap = PERM.state.allowedPages;
-        if (ap.length > 0 && ap.indexOf(pageId) === -1) {
-          showToast('⛔ ليس لديك صلاحية للوصول إلى هذه الصفحة', 'warning');
-          return;
-        }
-        return _origShow.apply(this, arguments);
-      };
-      window.showPage._permV5 = true;
-    }
-    console.log('[PERM v5] ✅ جاهز — الصلاحيات تُقرأ من Google Sheets');
+    var badge = document.createElement("div");
+    badge.id = "perm-user-badge";
+    Object.assign(badge.style, {
+      position:    "fixed",
+      bottom:      "12px",
+      right:       "12px",
+      background:  bg,
+      color:       "#fff",
+      padding:     "6px 16px",
+      borderRadius: "20px",
+      fontSize:    "12px",
+      fontWeight:  "bold",
+      fontFamily:  "Tahoma, Arial, sans-serif",
+      zIndex:      "9999",
+      boxShadow:   "0 2px 8px rgba(0,0,0,0.25)",
+      cursor:      "pointer",
+      direction:   "rtl",
+      userSelect:  "none",
+    });
+    badge.textContent = "👤 " + name + "  |  " + role;
+    badge.title = "انقر لعرض صلاحياتك";
+    badge.onclick = showPermissionsModal;
+    document.body.appendChild(badge);
   }
-  tryPatch();
-})(); 
-  
+
+  function removeUserBadge() {
+    var old = document.getElementById("perm-user-badge");
+    if (old) old.remove();
+    var modal = document.getElementById("perm-modal");
+    if (modal) modal.remove();
+  }
+
+  /* ─────────────────────────────────────────────────────
+     ٩. نافذة تفاصيل الصلاحيات
+     ───────────────────────────────────────────────────── */
+  function showPermissionsModal() {
+    var old = document.getElementById("perm-modal");
+    if (old) { old.remove(); return; }
+
+    var pagesHtml = ALL_PAGES.map(function (p) {
+      var allowed = isPageAllowed(p.id);
+      return (
+        '<span style="display:inline-flex;align-items:center;gap:4px;' +
+        "background:" + (allowed ? "#e0f7fa" : "#ffeaea") + ";" +
+        "color:" + (allowed ? "#006064" : "#c62828") + ";" +
+        'border-radius:10px;padding:3px 10px;margin:2px;font-size:11px;">' +
+        (allowed ? "✅" : "❌") + " " + p.icon + " " + p.label +
+        "</span>"
+      );
+    }).join("");
+
+    var actionsHtml = Object.keys(ALL_ACTIONS).map(function (a) {
+      var allowed = isActionAllowed(a);
+      return (
+        '<span style="display:inline-flex;align-items:center;gap:4px;' +
+        "background:" + (allowed ? "#e8f5e9" : "#ffeaea") + ";" +
+        "color:" + (allowed ? "#1b5e20" : "#c62828") + ";" +
+        'border-radius:10px;padding:3px 10px;margin:2px;font-size:11px;">' +
+        (allowed ? "✅" : "❌") + " " + ALL_ACTIONS[a] +
+        "</span>"
+      );
+    }).join("");
+
+    var modal = document.createElement("div");
+    modal.id = "perm-modal";
+    Object.assign(modal.style, {
+      position:       "fixed",
+      inset:          "0",
+      background:     "rgba(0,0,0,0.55)",
+      display:        "flex",
+      alignItems:     "center",
+      justifyContent: "center",
+      zIndex:         "99999",
+      direction:      "rtl",
+    });
+
+    modal.innerHTML =
+      '<div style="background:#fff;border-radius:12px;padding:24px 26px;' +
+      'width:90%;max-width:520px;font-family:Tahoma,Arial;' +
+      'box-shadow:0 8px 30px rgba(0,0,0,.3);max-height:85vh;overflow-y:auto;">' +
+      // رأس النافذة
+      '<div style="background:#00b8d9;color:#fff;margin:-24px -26px 16px;' +
+      'padding:13px 18px;border-radius:12px 12px 0 0;' +
+      'display:flex;justify-content:space-between;align-items:center;">' +
+      '<span style="font-weight:bold;font-size:14px;">🔐 صلاحياتي</span>' +
+      '<button onclick="document.getElementById(\'perm-modal\').remove()" ' +
+      'style="background:rgba(255,255,255,.2);border:none;color:#fff;' +
+      'border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:15px;">✕</button>' +
+      '</div>' +
+      // بيانات المستخدم
+      '<div style="background:#f5f5f5;border-radius:8px;padding:10px 13px;margin-bottom:13px;">' +
+      '<div style="font-size:12px;color:#777;">المستخدم</div>' +
+      '<div style="font-size:15px;font-weight:bold;color:#004e66;">' + (state.displayName || state.username) + '</div>' +
+      '<span style="font-size:11px;background:#00b8d9;color:#fff;border-radius:10px;' +
+      'padding:2px 10px;display:inline-block;margin-top:4px;">' + (state.role || "—") + '</span>' +
+      '</div>' +
+      // الصفحات
+      '<div style="margin-bottom:12px;">' +
+      '<div style="font-weight:bold;font-size:12px;color:#333;margin-bottom:5px;">' +
+      '📋 الصفحات المسموحة</div>' +
+      '<div>' + pagesHtml + '</div></div>' +
+      // الإجراءات
+      '<div>' +
+      '<div style="font-weight:bold;font-size:12px;color:#333;margin-bottom:5px;">' +
+      '⚡ الإجراءات المسموحة</div>' +
+      '<div>' + actionsHtml + '</div></div>' +
+      // زر الإغلاق
+      '<div style="text-align:center;margin-top:16px;">' +
+      '<button onclick="document.getElementById(\'perm-modal\').remove()" ' +
+      'style="background:#00b8d9;color:#fff;border:none;border-radius:8px;' +
+      'padding:8px 24px;font-family:Tahoma;font-weight:bold;cursor:pointer;">إغلاق</button>' +
+      '</div></div>';
+
+    modal.onclick = function (e) { if (e.target === modal) modal.remove(); };
+    document.body.appendChild(modal);
+  }
+
+  /* ─────────────────────────────────────────────────────
+     ١٠. Toast إشعار الصلاحيات
+     ───────────────────────────────────────────────────── */
+  function showPermissionToast(msg) {
+    if (typeof global.showToast === "function") {
+      global.showToast(msg, "warning");
+    } else {
+      console.warn("[PERM]", msg);
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────
+     ١١. حماية دالة showPage
+     ───────────────────────────────────────────────────── */
+  function patchShowPage() {
+    if (!global.showPage || global.showPage._permPatched) return;
+
+    var original = global.showPage;
+    global.showPage = function (pageId) {
+      // صفحات عامة لا تحتاج صلاحية
+      if (pageId === "login") return original.apply(this, arguments);
+
+      // غير مسجل دخول
+      if (!global._isLoggedIn) {
+        showPermissionToast("يرجى تسجيل الدخول أولاً");
+        return;
+      }
+
+      // التحقق من الصلاحية
+      if (!isPageAllowed(pageId)) {
+        showPermissionToast("⛔ ليس لديك صلاحية الوصول إلى هذه الصفحة");
+        return;
+      }
+
+      return original.apply(this, arguments);
+    };
+
+    global.showPage._permPatched = true;
+  }
+
+  /* ─────────────────────────────────────────────────────
+     ١٢. الواجهة العامة (Public API)
+     ───────────────────────────────────────────────────── */
+
+  /**
+   * تهيئة الصلاحيات من صف CSV للمستخدم
+   * يُستدعى فور نجاح تسجيل الدخول
+   *
+   * @param {string} username - اسم المستخدم
+   * @param {object} csvRow   - صف بيانات المستخدم من ورقة "user"
+   *                            { username, password, role, pages, actions, ... }
+   */
+  function init(username, csvRow) {
+    csvRow = csvRow || {};
+
+    // استخراج الصلاحيات من الصف
+    var pagesRaw   = csvRow["pages"]   || csvRow["الصفحات"]   || "";
+    var actionsRaw = csvRow["actions"] || csvRow["الاجراءات"] || csvRow["الإجراءات"] || "";
+    var role       = csvRow["role"]    || csvRow["الدور"]      || "user";
+    var nameKey    = findKey(csvRow, ["name", "الاسم", "fullname", "displayname"]);
+    var displayName = (nameKey && csvRow[nameKey]) ? csvRow[nameKey] : username;
+
+    // تحليل القوائم
+    var pages   = parseList(pagesRaw);
+    var actions = parseList(actionsRaw);
+
+    // حفظ الحالة
+    state.username      = username;
+    state.displayName   = displayName;
+    state.role          = role;
+    state.allowedPages  = pages;   // فارغة = كل الصفحات مسموحة
+    state.allowedActions = actions; // فارغة = كل الإجراءات مسموحة
+
+    // تحديث المتغيرات العامة (للتوافق مع الكود القديم)
+    global._isLoggedIn       = true;
+    global._currentUser      = username;
+    global._userAllowedPages = pages.length > 0 ? pages : null;
+
+    // تطبيق الصلاحيات على الواجهة
+    patchShowPage();
+    applyNavPermissions();
+
+    // تأخير بسيط لضمان اكتمال تحميل DOM قبل تطبيق صلاحيات الأزرار
+    setTimeout(applyButtonPermissions, 300);
+
+    // تعبئة مدخل البيانات
+    startAutoFill(displayName);
+
+    // عرض شارة المستخدم
+    showUserBadge(displayName, role);
+
+    console.log(
+      "[PERM v6] ✅ " + username +
+      " | الصفحات: " + (pages.length > 0 ? pages.join(", ") : "الكل") +
+      " | الإجراءات: " + (actions.length > 0 ? actions.join(", ") : "الكل")
+    );
+  }
+
+  /**
+   * إلغاء جميع الصلاحيات (عند تسجيل الخروج)
+   */
+  function revoke() {
+    state.username       = null;
+    state.displayName    = null;
+    state.role           = null;
+    state.allowedPages   = [];
+    state.allowedActions = [];
+
+    global._isLoggedIn       = false;
+    global._currentUser      = null;
+    global._userAllowedPages = null;
+
+    stopAutoFill();
+    removeButtonPermissions();
+    removeUserBadge();
+
+    console.log("[PERM v6] تم إلغاء الصلاحيات");
+  }
+
+  /**
+   * الحصول على الحالة الحالية (للتصحيح)
+   */
+  function getState() {
+    return {
+      username:       state.username,
+      displayName:    state.displayName,
+      role:           state.role,
+      allowedPages:   state.allowedPages,
+      allowedActions: state.allowedActions,
+    };
+  }
+
+  /* ─────────────────────────────────────────────────────
+     ١٣. تصدير الكائن العام
+     ───────────────────────────────────────────────────── */
+  global.PERM = {
+    init:           init,
+    revoke:         revoke,
+    isPageAllowed:  isPageAllowed,
+    isActionAllowed: isActionAllowed,
+    getState:       getState,
+    showModal:      showPermissionsModal,
+    applyButtons:   applyButtonPermissions,
+  };
+
+})(window);
+
 "use strict";
 
 // ─────────────────────────────────────────────────────
