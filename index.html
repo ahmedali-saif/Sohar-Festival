@@ -3311,6 +3311,14 @@ async function trloadData() {
 
 /** تحميل القوائم المنسدلة (هواتف، أمراض، أدوية، مدخلو البيانات) */
 async function trloadDropdowns() {
+    // ← إضافة: استخدام الكاش المركزي للهواتف
+  if (window._breedersCache && window._breedersCache.ready) {
+    var dl = document.getElementById('tr_phoneList');
+    if (dl) {
+      dl.innerHTML = '';
+      window._breedersCache.phones.forEach(function(p){ var o=document.createElement('option'); o.value=p; dl.appendChild(o); });
+    }
+  }
   trblockButtons();
   try {
     const [phonesRes, diseasesRes, drugsRes, dataEntryRes] = await Promise.all([
@@ -3947,7 +3955,7 @@ async function bd_saveData() {
   bd_showMessage("جاري الحفظ...", false, "info");
   try{
     var res=await bd_callApi("bd_saveData",{data:data});
-if(res.success){bd_showMessage("تم الحفظ بنجاح",false);bd_clearForm();bd_refreshDropdowns();if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists();}
+if(res.success){bd_showMessage("تم الحفظ بنجاح",false);bd_clearForm();sf_updateCache('save', data);}
 else bd_showMessage(res.message,true);
   }catch(err){bd_showMessage("خطأ: "+err.message,true);}
   finally{btn.disabled=false;}
@@ -3969,7 +3977,7 @@ async function bd_updateData() {
     bd_showMessage("جاري التحديث...", false, "info");
     try{
  var res=await bd_callApi("bd_updateData",{data:data});
-if(res.success){bd_showMessage("تم التحديث بنجاح",false);bd_clearForm();bd_refreshDropdowns();setTimeout(function(){ if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists(); }, 800);}
+if(res.success){bd_showMessage("تم التحديث بنجاح",false);bd_clearForm();sf_updateCache('update', data);}
 else bd_showMessage(res.message,true);
     }catch(err){bd_showMessage("خطأ: "+err.message,true);}
     finally{btn.disabled=false;}
@@ -3985,7 +3993,7 @@ async function bd_deleteData() {
     bd_showMessage("جاري الحذف...", false, "info");
     try{
       var res=await bd_callApi("bd_deleteData",{phone:phone});
-if(res.success){bd_showMessage("تم الحذف بنجاح",false);bd_clearForm();bd_refreshDropdowns();if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists();}
+if(res.success){bd_showMessage("تم الحذف بنجاح",false);bd_clearForm();sf_updateCache('delete', {phone: phone});}
 else bd_showMessage(res.message,true);
     }catch(err){bd_showMessage("خطأ: "+err.message,true);}
     finally{btn.disabled=false;}
@@ -4163,7 +4171,7 @@ function bd_hideLoading() {
 
 function bd_init(){
   bd_bindEvents();
-  bd_refreshDropdowns().then(function(){ bd_hideLoading(); }).catch(function(){ bd_hideLoading(); });
+  sf_initCache().then(function(){ bd_hideLoading(); }).catch(function(){ bd_hideLoading(); });
 }
 
 bd_init();
@@ -4375,6 +4383,14 @@ function vaccClearTopBarMessage() {
 
 async function vaccLoadDropdowns() {
   try {
+     // ← إضافة: استخدام الكاش المركزي للهواتف
+  if (window._breedersCache && window._breedersCache.ready) {
+    var dl = document.getElementById('vacc_phoneList');
+    if (dl) {
+      dl.innerHTML = '';
+      window._breedersCache.phones.forEach(function(p){ var o=document.createElement('option'); o.value=p; dl.appendChild(o); });
+    }
+  }
     var results = await Promise.all([vaccCallApi("getPhoneNumbers"), vaccCallApi("getDataEntryOptions")]);
     if (results[0].success) {
       var dl = document.getElementById('vacc_phoneList'); dl.innerHTML = '';
@@ -5500,6 +5516,14 @@ data.possession = "'" + fogetValue('possessionInput');
 // ===== Dropdowns =====
 async function foloadDropdowns() {
   try {
+    // ← إضافة: استخدام الكاش المركزي للهواتف
+  if (window._breedersCache && window._breedersCache.ready) {
+    var dl = document.getElementById('phoneList');
+    if (dl) {
+      dl.innerHTML = '';
+      window._breedersCache.phones.forEach(function(p){ var o=document.createElement('option'); o.value=p; dl.appendChild(o); });
+    }
+  }
     var results = await Promise.all([focallApi("fogetPhoneNumbers"),focallApi("fogetDataEntryOptions"),focallApi("fogetTestOptions"),focallApi("fogetSampleTypeOptions")]);
     function fill(id,arr){var dl=document.getElementById(id);dl.innerHTML='';(arr||[]).sort().forEach(function(v){var o=document.createElement('option');o.value=v;dl.appendChild(o);});}
     if(results[0].success)fill("phoneList",results[0].data);
@@ -8826,6 +8850,104 @@ var BREEDER_CACHE = (function() {
     setInterval(updateStatus, 30000);
   });
 })();
+
+/* ============================================================
+   الكاش المركزي لبيانات المربي — يُحدَّث فوراً بدون جلب من الشيت
+   ============================================================ */
+window._breedersCache = {
+  phones: [],      // مصفوفة أرقام هواتف مرتبة
+  map: {},         // خريطة: phone => {name, region, possession, civil, ...}
+  ready: false
+};
+
+/** تحديث الكاش فوراً بعد أي عملية CRUD */
+function sf_updateCache(action, data) {
+  var oldPhone = data.phone || '';
+  var newPhone = data.newPhone || oldPhone;
+
+  switch(action) {
+    case 'save':
+      if (window._breedersCache.phones.indexOf(newPhone) === -1) {
+        window._breedersCache.phones.push(newPhone);
+      }
+      window._breedersCache.map[newPhone] = {
+        name: data.name, region: data.region, possession: data.possession,
+        civil: data.civil, financialDate: data.financialDate, notes: data.notes
+      };
+      break;
+
+    case 'update':
+      // إذا تغيّر الرقم نفسه
+      if (newPhone !== oldPhone && oldPhone) {
+        delete window._breedersCache.map[oldPhone];
+        var idx = window._breedersCache.phones.indexOf(oldPhone);
+        if (idx > -1) window._breedersCache.phones[idx] = newPhone;
+      }
+      window._breedersCache.map[newPhone] = {
+        name: data.name, region: data.region, possession: data.possession,
+        civil: data.civil, financialDate: data.financialDate, notes: data.notes
+      };
+      break;
+
+    case 'delete':
+      if (oldPhone) {
+        delete window._breedersCache.map[oldPhone];
+        var idx2 = window._breedersCache.phones.indexOf(oldPhone);
+        if (idx2 > -1) window._breedersCache.phones.splice(idx2, 1);
+      }
+      break;
+  }
+
+  window._breedersCache.phones.sort();
+  window._breedersCache.ready = true;
+
+  // تحديث كل القوائم المنسدلة في كل الصفحات فوراً
+  sf_refreshAllLists();
+}
+
+/** تحديث كل الـ datalists + vr_registeredPhones من الكاش المحلي */
+function sf_refreshAllLists() {
+  var phones = window._breedersCache.phones;
+
+  // 1. صفحة breeder
+  var bd_dl = document.getElementById('bd_phoneList');
+  if (bd_dl) { bd_dl.innerHTML = ''; phones.forEach(function(p){ var o=document.createElement('option'); o.value=p; bd_dl.appendChild(o); }); }
+
+  // 2. صفحة treatment
+  var tr_dl = document.getElementById('tr_phoneList');
+  if (tr_dl) { tr_dl.innerHTML = ''; phones.forEach(function(p){ var o=document.createElement('option'); o.value=p; tr_dl.appendChild(o); }); }
+
+  // 3. صفحة vaccination
+  var vacc_dl = document.getElementById('vacc_phoneList');
+  if (vacc_dl) { vacc_dl.innerHTML = ''; phones.forEach(function(p){ var o=document.createElement('option'); o.value=p; vacc_dl.appendChild(o); }); }
+
+  // 4. صفحة samples
+  var fo_dl = document.getElementById('phoneList');
+  if (fo_dl) { fo_dl.innerHTML = ''; phones.forEach(function(p){ var o=document.createElement('option'); o.value=p; fo_dl.appendChild(o); }); }
+
+  // 5. صفحة vaccinationRequests — تحديث Set المسجلين وإعادة رسم الجدول
+  if (typeof vr_registeredPhones !== 'undefined') {
+    vr_registeredPhones = new Set(phones.map(function(p){ return p.toString().trim(); }));
+    if (typeof vr_render === 'function' && document.getElementById('vaccinationRequests').classList.contains('active')) {
+      vr_render();
+    }
+  }
+}
+
+/** تهيئة الكاش من الشيت (مرة واحدة فقط عند بداية الجلسة) */
+async function sf_initCache() {
+  if (window._breedersCache.ready) return;
+  try {
+    var res = await bd_callApi("bd_getPhoneNumbers");
+    if (res.success) {
+      window._breedersCache.phones = res.data || [];
+      window._breedersCache.phones.sort();
+      window._breedersCache.ready = true;
+      sf_refreshAllLists();
+    }
+  } catch(e) { console.warn('فشل تهيئة كاش المربين:', e); }
+}
+  
 </script>
 </script>
 
