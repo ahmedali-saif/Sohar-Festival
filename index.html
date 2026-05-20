@@ -1041,12 +1041,6 @@ lockNav();
 <!-- الصفحات -->
 <div id="home" class="page">
   <h1>⚙️ الإعدادات</h1>
-  
-  <!-- تبويبات الإعدادات -->
-  <div class="tabs" style="margin-top:15px;">
-    <button class="tab-btn active" onclick="homeShowTab('appearance')">🎨 المظهر</button>
-  </div>
-
   <!-- تبويب المظهر -->
   <div id="tab-appearance" class="tab-pane active">
     <button onclick="document.getElementById('settingsPanel').style.display='block'" style="margin-top:15px;background:#00b8d9;color:#fff;padding:8px 20px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:bold">⚙️ ضبط المظهر</button>
@@ -1092,18 +1086,6 @@ lockNav();
   </div>
 
   <script>
-  // ===== دوال تبديل التبويبات =====
-  function homeShowTab(tabName) {
-    document.querySelectorAll('#home .tab-btn').forEach(function(btn) {
-      btn.classList.remove('active');
-    });
-    document.querySelectorAll('#home .tab-pane').forEach(function(pane) {
-      pane.classList.remove('active');
-    });
-    
-    event.target.classList.add('active');
-    document.getElementById('tab-' + tabName).classList.add('active');
-  }
 
   // ===== إعدادات المظهر =====
   function saveAppearance() {
