@@ -4181,7 +4181,6 @@ function bd_bindEvents() {
 document.getElementById("bd_phoneInput").addEventListener("change", async function(){
   if (bd_isClearing) return;
   var phone = this.value.trim(); if (!phone) return;
-  // ← لا تعيّن bd_private هنا! دعه يُعيّن فقط عند نجاح جلب البيانات
   try { await bd_loadCaseData(phone); } catch(e) { console.error(e); }
 });
 }
