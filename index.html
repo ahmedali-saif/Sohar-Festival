@@ -991,17 +991,11 @@ if (pageId === 'vaccination' && !window._vaccinationInitialized) {
     if (typeof vaccInit === 'function') vaccInit();
   }
 
-  if (pageId === 'vaccinationRequests') {
-    if (!window._vrInitialized) {
-      window._vrInitialized = true;
-    }
-    if (typeof vr_loadData === 'function') {
-      vr_loadData();
-    } else {
-      vr_hideLoadingOverlay();
-    }
+  if (pageId === 'vaccinationRequests' && !window._vrInitialized) {
+    window._vrInitialized = true;
+    if (typeof vr_loadData === 'function') vr_loadData();
   }
-  }
+}
 function lockNav() {
   window._isLoggedIn = false;
   document.querySelectorAll("nav button").forEach(function(btn) {
@@ -5202,7 +5196,7 @@ async function vaccInit() {
 #vaccinationRequests .toolbar { position:sticky; top:0; z-index:10; background:#eef9fb; }
 #vaccinationRequests .stats   { position:sticky; top:56px; z-index:9; background:#fff; padding:4px 0; }
 </style>
-<div id="vr_loadingOverlay" class="loading-overlay" style="
+<div id="vr_loadingOverlay" style="
   position: absolute;
   inset: 0;
   background: rgba(255,255,255,0.97);
@@ -5293,12 +5287,11 @@ var vr_registeredPhones = new Set();
 function vr_hideLoadingOverlay() {
   var overlay = document.getElementById('vr_loadingOverlay');
   if (!overlay) return;
-  overlay.classList.add('hide');
-  setTimeout(function() { 
-    overlay.style.display = 'none'; 
-    overlay.classList.remove('hide');
-  }, 500);
+  overlay.style.opacity = '0';
+  overlay.style.pointerEvents = 'none';
+  setTimeout(function() { overlay.style.display = 'none'; }, 500);
 }
+
 async function vr_callApi(action, payload) {
   var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
   var r = await fetch(VR_API_URL, {
@@ -5472,88 +5465,31 @@ vr_bindOnce();
 })();
 
 async function vr_saveToBreeder(r) {
-  var modal = document.createElement("div");
-  modal.className = "custom-modal";
-  modal.innerHTML = `
-    <div class="modal-box" style="max-width:480px;">
-      <h3 style="color:#00b8d9;font-size:1.1rem;margin-bottom:8px;">
-        ➕ إضافة مربي جديد
-      </h3>
-      <p style="font-size:13px;color:#555;margin-bottom:10px;line-height:1.7;">
-        سيتم حفظ البيانات التالية المأخوذة من ورقة <strong>متابعة التحصين</strong>:
-      </p>
-      <div style="background:#f0f9ff;border:1px solid #b3e5fc;border-radius:8px;
-                  padding:10px 14px;margin-bottom:18px;font-size:13px;
-                  text-align:right;direction:rtl;line-height:2.2;">
-        <div>👤 <strong>الاسم:</strong> ${r.name || '—'}</div>
-        <div>📞 <strong>الهاتف:</strong> ${r.phone || '—'}</div>
-        <div>📍 <strong>المنطقة:</strong> ${r.area || '—'}</div>
-        <div>🪪 <strong>رقم الحيازة:</strong> ${r.possession || '—'}</div>
-        <div>🪪 <strong>الرقم المدني:</strong> ${r.civil || '—'}</div>
-        <div>📅 <strong>تاريخ انتهاء الحيازة:</strong> ${r.financialDate || '—'}</div>
-        <div>🐐 <strong>ماعز:</strong> ${r.goat || '—'} &nbsp;|&nbsp;
-             🐑 <strong>أغنام:</strong> ${r.sheep || '—'} &nbsp;|&nbsp;
-             🐄 <strong>أبقار:</strong> ${r.cow || '—'} &nbsp;|&nbsp;
-             🐪 <strong>جمال:</strong> ${r.camel || '—'}</div>
-        ${r.notes ? `<div>📝 <strong>ملاحظات:</strong> ${r.notes}</div>` : ''}
-      </div>
-      <div class="modal-buttons" style="gap:12px;">
-        <button class="confirm-btn" id="vr_confirmSave"
-                style="background:#2bb673;padding:9px 28px;border-radius:6px;">
-          ✅ نعم، حفظ
-        </button>
-        <button class="cancel-btn" id="vr_cancelSave"
-                style="background:#95a5a6;padding:9px 28px;border-radius:6px;">
-          إلغاء
-        </button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-
-  await new Promise(function(resolve) {
-    modal.querySelector("#vr_confirmSave").onclick = function() {
-      modal.remove(); resolve(true);
-    };
-    modal.querySelector("#vr_cancelSave").onclick = function() {
-      modal.remove(); resolve(false);
-    };
-    modal.onclick = function(e) {
-      if (e.target === modal) { modal.remove(); resolve(false); }
-    };
-  }).then(async function(confirmed) {
-    if (!confirmed) return;
-    try {
-      var res = await vr_callApi("bd_saveData", { data: {
-        phone:        r.phone        || '',
-        name:         r.name         || '',
-        region:       r.area         || '',
-        possession:   r.possession   ? ("'" + r.possession) : '',
-        civil:        r.civil        || '',
-        notes: (r.notes ? r.notes + ' | ' : '') + 'تم الإضافة من طلبات التحصين',
-        animals: {
-          goat:    r.goat    || '',
-          sheep:   r.sheep   || '',
-          cow:     r.cow     || '',
-          camel:   r.camel   || '',
-          poultry: ''
-        },
-        financialDate: r.financialDate || '',
-        dataEntry:     r.dataEntry    || 'نظام التحصين'
-      }});
-
-      if (res.success) {
-        showToast('✅ تم حفظ ' + r.name + ' في سجل المربي', 'success');
-        vr_registeredPhones.add(r.phone.toString().trim());
-        vr_render();
-      } else {
-        showToast('❌ ' + (res.message || 'فشل الحفظ'), 'error');
-      }
-    } catch(err) {
-      showToast('❌ خطأ: ' + err.message, 'error');
+  if (!confirm('هل تريد حفظ بيانات "' + r.name + '" في سجل المربي؟')) return;
+  try {
+    var res = await vr_callApi("bd_saveData", { data: {
+      phone: r.phone, name: r.name,
+      region: r.area || '', possession: '', civil: '',
+      notes: 'تم الإضافة من طلبات التحصين',
+      animals: { goat: '', sheep: '', cow: '', camel: '', poultry: '' },
+      financialDate: '', dataEntry: 'نظام التحصين'
+    }});
+    if (res.success) {
+      showToast('✅ تم حفظ ' + r.name + ' في سجل المربي', 'success');
+      vr_registeredPhones.add(r.phone.toString().trim());
+      vr_render();
+    } else {
+      showToast('❌ ' + (res.message || 'فشل الحفظ'), 'error');
     }
-  });
+  } catch(err) {
+    showToast('❌ خطأ: ' + err.message, 'error');
   }
-setTimeout(vr_hideLoadingOverlay, 8000);
+}
+
+// =====================================================
+// التحميل عند فتح الصفحة للمرة الأولى فقط
+// يُستدعى من showPage المركزية
+// =====================================================
 </script>
 
 </div>
@@ -7592,8 +7528,6 @@ function foDismissOverdueAlert() {
     search:     "بحث / عرض",
     tempsave:   "حفظ مؤقت",
     tempupdate: "تحديث مؤقت",
-    bdsave: "حفظ طلبات التحصين",
-    dbupdate: "تحديث طلبات التحصين",
   };
 
   /* ─────────────────────────────────────────────────────
@@ -7609,11 +7543,11 @@ function foDismissOverdueAlert() {
       { id: "tr_tempUpdateBtn", action: "tempupdate" },
     ],
     breeder: [
-      { id: "bd_saveBtn",              action: "bdsave"   },
-      { id: "bd_updateBtn",            action: "dbupdate" },
+      { id: "bd_saveBtn",              action: "save"   },
+      { id: "bd_updateBtn",            action: "update" },
       { id: "bd_deleteBtn",            action: "delete" },
-      { id: "bd_saveVaccinationBtn",   action: "bdsave"   },
-      { id: "bd_updateVaccinationBtn", action: "dbupdate" },
+      { id: "bd_saveVaccinationBtn",   action: "save"   },
+      { id: "bd_updateVaccinationBtn", action: "update" },
       { id: "bd_deleteVaccinationBtn", action: "delete" },
       { id: "bd_updatePossessionBtn",  action: "update" },
     ],
