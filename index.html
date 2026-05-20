@@ -1008,72 +1008,28 @@ function lockNav() {
 
 function unlockNav() {
   window._isLoggedIn = true;
-  
-  // تطبيق الصلاحيات إذا وجدت
-  var currentUser = window._currentUser;
-  if (currentUser) {
-    var saved = localStorage.getItem('perm_' + currentUser);
-    var allowedPages = [];
-    
-    if (saved) {
-      try {
-        allowedPages = JSON.parse(saved);
-      } catch(e) {}
+
+  // فتح كل الأزرار مؤقتاً
+  document.querySelectorAll("nav button").forEach(function(btn) {
+    btn.disabled = false;
+    btn.style.opacity = '';
+    btn.style.cursor = '';
+    var originalText = btn.getAttribute('data-original-text');
+    if (originalText) {
+      btn.textContent = originalText;
+      btn.removeAttribute('data-original-text');
     }
-    
-    // إذا لم تكن هناك صلاحيات محفوظة، اسمح بالكل
-    if (allowedPages.length === 0) {
-      allowedPages = ['breeder','treatment','vaccination','vaccinationRequests','samples','dashboard','settings','reports','financialInventory','diseaseTracking','animalDistribution','comprehensiveReport','home'];
-    }
-    
-    // تطبيق على الأزرار
-    document.querySelectorAll("nav button").forEach(function(btn) {
-      var onclick = btn.getAttribute('onclick') || '';
-      var match = onclick.match(/showPage\('([^']+)'\)/);
-      
-      if (match) {
-        var pageId = match[1];
-        // login مسموح دائماً
-        if (pageId === 'login') {
-          btn.disabled = false;
-          btn.style.opacity = '';
-          btn.style.cursor = '';
-        } else {
-          var hasAccess = allowedPages.indexOf(pageId) !== -1;
-          btn.disabled = !hasAccess;
-          btn.style.opacity = hasAccess ? '' : '0.3';
-          btn.style.cursor = hasAccess ? '' : 'not-allowed';
-          
-          // إضافة/إزالة علامة القفل
-          var originalText = btn.getAttribute('data-original-text');
-          if (!hasAccess) {
-            if (!originalText) {
-              btn.setAttribute('data-original-text', btn.textContent);
-              btn.textContent = '🔒 ' + btn.textContent;
-            }
-          } else {
-            if (originalText) {
-              btn.textContent = originalText;
-              btn.removeAttribute('data-original-text');
-            }
-          }
-        }
-      }
-    });
-    
-    // حفظ الصلاحيات في الذاكرة للاستخدام السريع
-    window._userAllowedPages = allowedPages;
-  } else {
-    // لا يوجد مستخدم محدد - اسمح بالكل
-    document.querySelectorAll("nav button").forEach(function(btn) {
-      btn.disabled = false;
-      btn.style.opacity = '';
-      btn.style.cursor = '';
-      var originalText = btn.getAttribute('data-original-text');
-      if (originalText) {
-        btn.textContent = originalText;
-        btn.removeAttribute('data-original-text');
-      }
+  });
+
+  // السماح بالكل مؤقتاً حتى يصل رد الشيت
+  window._userAllowedPages = null;
+
+  // قراءة الصلاحيات من الشيت مباشرة
+  var username = window._currentUser || '';
+  if (username && typeof permApplyForUser === 'function') {
+    permApplyForUser(username);
+  }
+}
     });
   }
 }
@@ -1236,27 +1192,6 @@ lockNav();
     localStorage.removeItem('appearanceSettings');
     showToast('↺ تم إعادة تعيين المظهر', 'info');
   }
-
- 
-  // تحديد/إلغاء تحديد الكل
-  function permToggleAll(checked) {
-    PERM_PAGES.forEach(function(page) {
-      var cb = document.getElementById('perm_' + page.id);
-      if (cb) cb.checked = checked;
-    });
-    permUpdateCount();
-  }
-
-  // تحديث العداد
-  function permUpdateCount() {
-    var count = 0;
-    PERM_PAGES.forEach(function(page) {
-      var cb = document.getElementById('perm_' + page.id);
-      if (cb && cb.checked) count++;
-    });
-    document.getElementById('permSelectedCount').textContent = count + ' صفحة';
-  }
-
   })();
   </script>
 </div>
