@@ -8626,26 +8626,30 @@ setTimeout(tryWrap, 1000);
   function refreshAndRepatch() {
     if (!state.enabled) return;
 
-    /* أوقف الاعتراض مؤقتاً لضمان استخدام الدالة الأصلية عند الجلب */
-    if (_origBdCallApi) global.bd_callApi = _origBdCallApi;
-    _patched = false;
+    /* نجلب البيانات مباشرة بالدالة الأصلية بدون إيقاف الاعتراض */
+    var apiFn = _origBdCallApi || global.bd_callApi;
+    if (typeof apiFn !== "function") return;
 
-    fetchAndBuildCache(
-      null,
-      function (n) {
-        console.log("[Cache] تحديث بعد كتابة ✓ " + n + " مربي");
-        if (state.enabled) {
-          patchAppFunctions();
-          refreshAllPhoneDataLists();
-        }
+    apiFn("bd_getAllBreeders")
+      .then(function (res) {
+        if (!res || !res.success || !res.data) return;
+        buildIndex(res.data);
+        storageSave(res.data);
+        var now = new Date().toISOString();
+        state.lastUpdate = now;
+        metaSave({ lastUpdate: now, totalRows: state.totalRows, version: CACHE_VERSION });
+        console.log("[Cache] تحديث بعد كتابة ✓ " + state.totalRows + " مربي");
         updateUI("ready");
-      },
-      function (e) {
+        /* تحديث جميع القوائم المنسدلة بما فيها bd_phoneList */
+        refreshAllPhoneDataLists();
+        /* استدعاء bd_refreshDropdowns مباشرة لتحديث واجهة سجل المربي */
+        if (typeof global.bd_refreshDropdowns === "function") {
+          setTimeout(global.bd_refreshDropdowns, 50);
+        }
+      })
+      .catch(function (e) {
         console.warn("[Cache] تحديث بعد كتابة فشل:", e);
-        /* أعد الاعتراض حتى لو فشل التحديث */
-        if (state.enabled) patchAppFunctions();
-      }
-    );
+      });
   }
 
   /* ── تحديث datalists الهاتف في جميع الصفحات ── */
@@ -9070,7 +9074,6 @@ setTimeout(tryWrap, 1000);
   }
 
 })(window);
-
   
 </script>
 
