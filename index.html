@@ -5552,7 +5552,7 @@ async function vr_saveToBreeder(r) {
       showToast('❌ خطأ: ' + err.message, 'error');
     }
   });
-
+setTimeout(vr_hideLoadingOverlay, 8000);
 </script>
 
 </div>
