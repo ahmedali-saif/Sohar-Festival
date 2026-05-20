@@ -995,12 +995,6 @@ if (pageId === 'vaccination' && !window._vaccinationInitialized) {
     window._vrInitialized = true;
     if (typeof vr_loadData === 'function') vr_loadData();
   }
-  if (pageId === 'breeder' && !window._breederInitialized) {
-    window._breederInitialized = true;
-    var bdOverlay = document.getElementById('bd_pageLoadingOverlay');
-    if (bdOverlay) bdOverlay.style.display = 'flex';
-    if (typeof bd_init === 'function') bd_init();
-  }
 }
 function lockNav() {
   window._isLoggedIn = false;
@@ -1047,6 +1041,13 @@ lockNav();
 <!-- الصفحات -->
 <div id="home" class="page">
   <h1>⚙️ الإعدادات</h1>
+  
+  <!-- تبويبات الإعدادات -->
+  <div class="tabs" style="margin-top:15px;">
+    <button class="tab-btn active" onclick="homeShowTab('appearance')">🎨 المظهر</button>
+    <button class="tab-btn" onclick="homeShowTab('permissions')">🔐 صلاحيات المستخدمين</button>
+  </div>
+
   <!-- تبويب المظهر -->
   <div id="tab-appearance" class="tab-pane active">
     <button onclick="document.getElementById('settingsPanel').style.display='block'" style="margin-top:15px;background:#00b8d9;color:#fff;padding:8px 20px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:bold">⚙️ ضبط المظهر</button>
@@ -1091,7 +1092,70 @@ lockNav();
     </div>
   </div>
 
+  <!-- تبويب صلاحيات المستخدمين -->
+  <div id="tab-permissions" class="tab-pane">
+    <div style="background:#f8ffff;border:3px solid #00b8d9;border-radius:8px;padding:15px;margin-top:15px;">
+      <h3 style="margin:0 0 15px 0;color:#00b8d9">🔐 إدارة صلاحيات المستخدمين</h3>
+      
+      <!-- اختيار المستخدم -->
+      <div style="margin-bottom:15px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <label style="font-weight:bold;">👤 اختر المستخدم:</label>
+        <select id="permUserSelect" onchange="permLoadUserPermissions()" style="padding:6px 10px;border:2px solid #00b8d9;border-radius:4px;font-size:13px;min-width:200px;">
+          <option value="">-- اختر مستخدم --</option>
+        </select>
+        <button onclick="permRefreshUsers()" style="background:#00b8d9;color:#fff;padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-family:inherit;">🔄 تحديث القائمة</button>
+      </div>
+
+      <!-- حالة التحميل -->
+      <div id="permLoading" style="display:none;text-align:center;padding:20px;">
+        <div style="width:40px;height:40px;border:4px solid #e0e0e0;border-top:4px solid #00b8d9;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 10px;"></div>
+        <div style="color:#00b8d9;font-weight:bold;">جاري التحميل...</div>
+      </div>
+
+      <!-- قائمة الصفحات -->
+      <div id="permPagesContainer" style="display:none;">
+        <div style="background:#eef7ff;border:1px dashed #00b8d9;border-radius:6px;padding:12px;margin-bottom:15px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <label style="font-weight:bold;color:#004e66;">
+              <input type="checkbox" id="permSelectAll" onchange="permToggleAll(this.checked)" style="width:18px;height:18px;vertical-align:middle;margin-left:6px;">
+              تحديد / إلغاء تحديد الكل
+            </label>
+            <span id="permSelectedCount" style="background:#00b8d9;color:#fff;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:bold;">0 صفحة</span>
+          </div>
+          
+          <div id="permPagesGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;">
+            <!-- يتم ملؤها ديناميكياً -->
+          </div>
+        </div>
+
+        <!-- أزرار التحكم -->
+        <div style="display:flex;gap:8px;justify-content:center;">
+          <button onclick="permSavePermissions()" style="background:#2bb673;color:#fff;padding:8px 24px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:bold;font-size:14px;">💾 حفظ الصلاحيات</button>
+          <button onclick="permClearPermissions()" style="background:#e65050;color:#fff;padding:8px 24px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:bold;font-size:14px;">🗑️ مسح الصلاحيات</button>
+        </div>
+      </div>
+
+      <!-- رسالة عند عدم اختيار مستخدم -->
+      <div id="permNoUser" style="text-align:center;padding:30px;color:#888;">
+        <div style="font-size:48px;margin-bottom:10px;">🔐</div>
+        <div style="font-size:16px;font-weight:bold;">اختر مستخدماً لعرض وتحرير صلاحياته</div>
+      </div>
+    </div>
+  </div>
+
   <script>
+  // ===== دوال تبديل التبويبات =====
+  function homeShowTab(tabName) {
+    document.querySelectorAll('#home .tab-btn').forEach(function(btn) {
+      btn.classList.remove('active');
+    });
+    document.querySelectorAll('#home .tab-pane').forEach(function(pane) {
+      pane.classList.remove('active');
+    });
+    
+    event.target.classList.add('active');
+    document.getElementById('tab-' + tabName).classList.add('active');
+  }
 
   // ===== إعدادات المظهر =====
   function saveAppearance() {
@@ -1127,6 +1191,189 @@ lockNav();
     localStorage.removeItem('appearanceSettings');
     showToast('↺ تم إعادة تعيين المظهر', 'info');
   }
+
+  // ===== دوال إدارة صلاحيات المستخدمين =====
+
+  // قائمة الصفحات المتاحة
+  var PERM_PAGES = [
+    { id: 'breeder', label: 'سجل المربي' },
+    { id: 'treatment', label: 'سجل العلاج' },
+    { id: 'vaccination', label: 'سجل التحصين' },
+    { id: 'vaccinationRequests', label: 'طلبات التحصين' },
+    { id: 'samples', label: 'نموذج العينات' },
+    { id: 'dashboard', label: 'طباعة نماذج العينات' },
+    { id: 'settings', label: 'طباعة شهادة التحصين' },
+    { id: 'reports', label: 'الأدوية المصروفة' },
+    { id: 'financialInventory', label: 'الجرد المالي' },
+    { id: 'diseaseTracking', label: 'تتبع المرض' },
+    { id: 'animalDistribution', label: 'توزيع الحيوانات' },
+    { id: 'comprehensiveReport', label: 'التقرير الشامل' },
+    { id: 'home', label: 'الإعدادات' }
+  ];
+
+  // تحديث قائمة المستخدمين
+  async function permRefreshUsers() {
+    var select = document.getElementById('permUserSelect');
+    var loading = document.getElementById('permLoading');
+    var container = document.getElementById('permPagesContainer');
+    var noUser = document.getElementById('permNoUser');
+
+    select.innerHTML = '<option value="">-- اختر مستخدم --</option>';
+    loading.style.display = 'block';
+    container.style.display = 'none';
+    noUser.style.display = 'none';
+
+    try {
+      var res = await trcallApi("trgetPhoneNumbers");
+      if (res.success && res.data) {
+        res.data.forEach(function(phone) {
+          var opt = document.createElement('option');
+          opt.value = phone;
+          opt.textContent = phone;
+          select.appendChild(opt);
+        });
+      }
+    } catch(err) {
+      showToast('خطأ في تحميل المستخدمين: ' + err.message, 'error');
+    } finally {
+      loading.style.display = 'none';
+      noUser.style.display = 'block';
+    }
+  }
+
+  // تحميل صلاحيات مستخدم محدد
+  async function permLoadUserPermissions() {
+    var username = document.getElementById('permUserSelect').value;
+    var container = document.getElementById('permPagesContainer');
+    var noUser = document.getElementById('permNoUser');
+    var grid = document.getElementById('permPagesGrid');
+
+    if (!username) {
+      container.style.display = 'none';
+      noUser.style.display = 'block';
+      return;
+    }
+
+    container.style.display = 'block';
+    noUser.style.display = 'none';
+
+    // بناء شبكة الصفحات
+    grid.innerHTML = '';
+    PERM_PAGES.forEach(function(page) {
+      var div = document.createElement('div');
+      div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:#f8f9fa;border-radius:4px;border:1px solid #dee2e6;';
+      div.innerHTML = 
+        '<input type="checkbox" id="perm_' + page.id + '" value="' + page.id + '" style="width:18px;height:18px;cursor:pointer;">' +
+        '<label for="perm_' + page.id + '" style="cursor:pointer;font-weight:500;">' + page.label + '</label>';
+      grid.appendChild(div);
+    });
+
+    // تحميل الصلاحيات الحالية
+    var currentAllowed = [];
+    if (window._userAllowedPages && window._userAllowedPages.length > 0) {
+      currentAllowed = window._userAllowedPages;
+    }
+
+    // تحديد الصفحات المسموحة
+    PERM_PAGES.forEach(function(page) {
+      var cb = document.getElementById('perm_' + page.id);
+      if (cb) cb.checked = currentAllowed.indexOf(page.id) !== -1;
+    });
+
+    permUpdateCount();
+  }
+
+  // تحديد/إلغاء تحديد الكل
+  function permToggleAll(checked) {
+    PERM_PAGES.forEach(function(page) {
+      var cb = document.getElementById('perm_' + page.id);
+      if (cb) cb.checked = checked;
+    });
+    permUpdateCount();
+  }
+
+  // تحديث عداد الصفحات المحددة
+  function permUpdateCount() {
+    var count = 0;
+    PERM_PAGES.forEach(function(page) {
+      var cb = document.getElementById('perm_' + page.id);
+      if (cb && cb.checked) count++;
+    });
+    document.getElementById('permSelectedCount').textContent = count + ' صفحة';
+  }
+
+  // حفظ الصلاحيات
+  async function permSavePermissions() {
+    var username = document.getElementById('permUserSelect').value;
+    if (!username) {
+      showToast('الرجاء اختيار مستخدم', 'error');
+      return;
+    }
+
+    var allowed = [];
+    PERM_PAGES.forEach(function(page) {
+      var cb = document.getElementById('perm_' + page.id);
+      if (cb && cb.checked) allowed.push(page.id);
+    });
+
+    try {
+      // حفظ في localStorage
+      var allPerms = JSON.parse(localStorage.getItem('userPermissions') || '{}');
+      allPerms[username] = allowed;
+      localStorage.setItem('userPermissions', JSON.stringify(allPerms));
+
+      // تحديث الصلاحيات الحالية إذا كان المستخدم هو المستخدم الحالي
+      if (window._currentUser === username) {
+        window._userAllowedPages = allowed;
+        PERM.init(username, { pages: allowed.join(',') });
+      }
+
+      showToast('✅ تم حفظ الصلاحيات بنجاح', 'success');
+    } catch(err) {
+      showToast('خطأ في حفظ الصلاحيات: ' + err.message, 'error');
+    }
+  }
+
+  // مسح الصلاحيات
+  async function permClearPermissions() {
+    var username = document.getElementById('permUserSelect').value;
+    if (!username) {
+      showToast('الرجاء اختيار مستخدم', 'error');
+      return;
+    }
+
+    if (!confirm('هل أنت متأكد من مسح صلاحيات المستخدم ' + username + '؟')) return;
+
+    try {
+      var allPerms = JSON.parse(localStorage.getItem('userPermissions') || '{}');
+      delete allPerms[username];
+      localStorage.setItem('userPermissions', JSON.stringify(allPerms));
+
+      if (window._currentUser === username) {
+        window._userAllowedPages = [];
+        PERM.revoke();
+      }
+
+      permToggleAll(false);
+      showToast('🗑️ تم مسح الصلاحيات', 'success');
+    } catch(err) {
+      showToast('خطأ: ' + err.message, 'error');
+    }
+  }
+
+  // تحديث العداد عند تغيير أي checkbox
+  document.addEventListener('change', function(e) {
+    if (e.target && e.target.id && e.target.id.startsWith('perm_')) {
+      permUpdateCount();
+    }
+  });
+
+  // تهيئة عند تحميل التبويب
+  var permTabBtn = document.querySelector('button[onclick="homeShowTab(\'permissions\')"]');
+  if (permTabBtn) {
+    permTabBtn.addEventListener('click', permRefreshUsers);
+  }
+
   })();
   </script>
 </div>
@@ -3317,14 +3564,6 @@ async function trloadData() {
 
 /** تحميل القوائم المنسدلة (هواتف، أمراض، أدوية، مدخلو البيانات) */
 async function trloadDropdowns() {
-    // ← إضافة: استخدام الكاش المركزي للهواتف
-  if (window._breedersCache && window._breedersCache.ready) {
-    var dl = document.getElementById('tr_phoneList');
-    if (dl) {
-      dl.innerHTML = '';
-      window._breedersCache.phones.forEach(function(p){ var o=document.createElement('option'); o.value=p; dl.appendChild(o); });
-    }
-  }
   trblockButtons();
   try {
     const [phonesRes, diseasesRes, drugsRes, dataEntryRes] = await Promise.all([
@@ -3954,31 +4193,14 @@ async function bd_saveData() {
   if(!bd_validateSave()) return;
   var data={phone:bd_getValue("bd_caseNumber"),name:bd_getValue("bd_nameInput"),possession:"'"+bd_getValue("bd_possessionInput"),
     region:bd_getValue("bd_regionInput"),civil:bd_getValue("bd_civilInput"),notes:bd_getValue("bd_notes"),
-    animals:{
-  camel:   bd_getValue("bd_animal_camel"),
-  goat:    bd_getValue("bd_animal_goat"),
-  sheep:   bd_getValue("bd_animal_sheep"),
-  cow:     bd_getValue("bd_animal_cow"),
-  horse:   bd_getValue("bd_animal_horse"),
-  cat:     bd_getValue("bd_animal_cat"),
-  dog:     bd_getValue("bd_animal_dog"),
-  poultry: bd_getValue("bd_animal_poultry")
-},
+    animals:{camel:bd_getValue("bd_animal_camel"),goat:bd_getValue("bd_animal_goat"),sheep:bd_getValue("bd_animal_sheep"),cow:bd_getValue("bd_animal_cow"),poultry:bd_getValue("bd_animal_poultry")},
     financialDate:bd_getValue("bd_financialDate"),dataEntry:bd_getValue("bd_dataEntryInput")};
   var btn=document.getElementById("bd_saveBtn");
   btn.disabled=true;
   bd_showMessage("جاري الحفظ...", false, "info");
   try{
     var res=await bd_callApi("bd_saveData",{data:data});
-if(res.success){
-  bd_showMessage("تم الحفظ بنجاح",false);
-  try {
-    sf_updateCache('save', data);
-  } catch(e) {
-    console.warn('فشل تحديث الكاش:', e);
-  }
-  bd_clearForm();
-}
+if(res.success){bd_showMessage("تم الحفظ بنجاح",false);bd_clearForm();bd_refreshDropdowns();if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists();}
 else bd_showMessage(res.message,true);
   }catch(err){bd_showMessage("خطأ: "+err.message,true);}
   finally{btn.disabled=false;}
@@ -4000,7 +4222,7 @@ async function bd_updateData() {
     bd_showMessage("جاري التحديث...", false, "info");
     try{
  var res=await bd_callApi("bd_updateData",{data:data});
-if(res.success){bd_showMessage("تم التحديث بنجاح",false);bd_clearForm();sf_updateCache('update', data);}
+if(res.success){bd_showMessage("تم التحديث بنجاح",false);bd_clearForm();bd_refreshDropdowns();setTimeout(function(){ if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists(); }, 800);}
 else bd_showMessage(res.message,true);
     }catch(err){bd_showMessage("خطأ: "+err.message,true);}
     finally{btn.disabled=false;}
@@ -4016,7 +4238,7 @@ async function bd_deleteData() {
     bd_showMessage("جاري الحذف...", false, "info");
     try{
       var res=await bd_callApi("bd_deleteData",{phone:phone});
-if(res.success){bd_showMessage("تم الحذف بنجاح",false);bd_clearForm();sf_updateCache('delete', {phone: phone});}
+if(res.success){bd_showMessage("تم الحذف بنجاح",false);bd_clearForm();bd_refreshDropdowns();if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists();}
 else bd_showMessage(res.message,true);
     }catch(err){bd_showMessage("خطأ: "+err.message,true);}
     finally{btn.disabled=false;}
@@ -4179,132 +4401,25 @@ function bd_bindEvents() {
   });
 
 document.getElementById("bd_phoneInput").addEventListener("change", async function(){
-  if (bd_isClearing) return;
+  if (bd_isClearing) return;  // ← أضف هذا السطر
   var phone = this.value.trim(); if (!phone) return;
-  try { await bd_loadCaseData(phone); } catch(e) { console.error(e); }
+  document.getElementById("bd_private").value = phone;
+  await bd_loadCaseData(phone);
 });
 }
 
 function bd_hideLoading() {
-  var overlay = document.getElementById('bd_pageLoadingOverlay');
-  if (!overlay) return;
-  overlay.classList.add('hide');  // ← استبدل hidden بـ hide
-  setTimeout(function(){ 
-    if (overlay) overlay.style.display = 'none'; 
-  }, 450);
-}
-  // ============================================================
-//  نظام الكاش المركزي للمربين (sf_ = shared/cache)
-// ============================================================
-
-window._breedersCache = window._breedersCache || { ready: false, phones: [], data: {} };
-
-/** تهيئة الكاش من السيرفر (تُستدعى مرة واحدة عند فتح الصفحة) */
-async function sf_initCache() {
-  if (window._breedersCache.ready) return;
-  try {
-    var body = JSON.stringify({ action: "bd_getPhoneNumbers" });
-    var r = await fetch(bd_API_URL, {
-      method: "POST", mode: "cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: body, redirect: "follow"
-    });
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    var res = await r.json();
-    if (res.success) {
-      window._breedersCache.phones = (res.data || [])
-        .map(function(p){ return p.toString().trim(); })
-        .filter(Boolean);
-      window._breedersCache.ready = true;
-      sf_refreshAllPhoneLists();
-    }
-  } catch(e) {
-    console.warn('⚠️ فشل تهيئة الكاش:', e);
-  }
+  var overlay = document.getElementById("bd_pageLoadingOverlay");
+  overlay.classList.add("hidden");
+  setTimeout(function(){ overlay.style.display = "none"; }, 450);
 }
 
-/** تحديث الكاش محلياً بعد أي عملية CRUD */
-function sf_updateCache(action, data) {
-  if (!window._breedersCache) return;
-  var phone = (data.phone || '').toString().trim();
-  if (!phone) return;
-
-  var phones = window._breedersCache.phones;
-  var idx    = phones.indexOf(phone);
-
-  if (action === 'save') {
-    if (idx === -1) {
-      phones.push(phone);
-      window._breedersCache.data[phone] = data;
-    }
-  }
-  else if (action === 'update') {
-    var newPhone = (data.newPhone || '').toString().trim();
-    if (newPhone && newPhone !== phone) {
-      if (idx !== -1) phones[idx] = newPhone;
-      else phones.push(newPhone);
-      delete window._breedersCache.data[phone];
-      window._breedersCache.data[newPhone] = data;
-    } else {
-      if (idx === -1) phones.push(phone);
-      window._breedersCache.data[phone] = data;
-    }
-  }
-  else if (action === 'delete') {
-    if (idx !== -1) phones.splice(idx, 1);
-    delete window._breedersCache.data[phone];
-  }
-
-  sf_refreshAllPhoneLists();
-}
-
-/** تحديث جميع قوائم الهواتف (datalist) في كل الصفحات */
-function sf_refreshAllPhoneLists() {
-  var cacheLists = [
-    { id: 'bd_phoneList',   page: 'breeder' },
-    { id: 'tr_phoneList',   page: 'treatment' },
-    { id: 'vacc_phoneList', page: 'vaccination' },
-    { id: 'phoneList',      page: 'samples' }
-  ];
-  cacheLists.forEach(function(cfg) {
-    var dl = document.getElementById(cfg.id);
-    if (!dl) return;
-    dl.innerHTML = '';
-    window._breedersCache.phones.forEach(function(p) {
-      var o = document.createElement('option');
-      o.value = p;
-      dl.appendChild(o);
-    });
-  });
-}
 function bd_init(){
   bd_bindEvents();
-  
-  // إخفاء شاشة التحميل تلقائياً بعد 6 ثوانٍ كحد أقصى
-  var forceHideTimer = setTimeout(function(){
-    bd_hideLoading();
-  }, 6000);
-  
-  try {
-    if (typeof sf_initCache === 'function') {
-      sf_initCache().then(function(){ 
-        clearTimeout(forceHideTimer);
-        bd_hideLoading(); 
-      }).catch(function(err){ 
-        clearTimeout(forceHideTimer);
-        console.warn('sf_initCache error:', err);
-        bd_hideLoading(); 
-      });
-    } else {
-      clearTimeout(forceHideTimer);
-      bd_hideLoading();
-    }
-  } catch(e) {
-    clearTimeout(forceHideTimer);
-    console.error('bd_init error:', e);
-    bd_hideLoading();
-  }
+  bd_refreshDropdowns().then(function(){ bd_hideLoading(); }).catch(function(){ bd_hideLoading(); });
 }
+
+bd_init();
 </script>
 
 </div>
@@ -4513,14 +4628,6 @@ function vaccClearTopBarMessage() {
 
 async function vaccLoadDropdowns() {
   try {
-     // ← إضافة: استخدام الكاش المركزي للهواتف
-  if (window._breedersCache && window._breedersCache.ready) {
-    var dl = document.getElementById('vacc_phoneList');
-    if (dl) {
-      dl.innerHTML = '';
-      window._breedersCache.phones.forEach(function(p){ var o=document.createElement('option'); o.value=p; dl.appendChild(o); });
-    }
-  }
     var results = await Promise.all([vaccCallApi("getPhoneNumbers"), vaccCallApi("getDataEntryOptions")]);
     if (results[0].success) {
       var dl = document.getElementById('vacc_phoneList'); dl.innerHTML = '';
@@ -5646,14 +5753,6 @@ data.possession = "'" + fogetValue('possessionInput');
 // ===== Dropdowns =====
 async function foloadDropdowns() {
   try {
-    // ← إضافة: استخدام الكاش المركزي للهواتف
-  if (window._breedersCache && window._breedersCache.ready) {
-    var dl = document.getElementById('phoneList');
-    if (dl) {
-      dl.innerHTML = '';
-      window._breedersCache.phones.forEach(function(p){ var o=document.createElement('option'); o.value=p; dl.appendChild(o); });
-    }
-  }
     var results = await Promise.all([focallApi("fogetPhoneNumbers"),focallApi("fogetDataEntryOptions"),focallApi("fogetTestOptions"),focallApi("fogetSampleTypeOptions")]);
     function fill(id,arr){var dl=document.getElementById(id);dl.innerHTML='';(arr||[]).sort().forEach(function(v){var o=document.createElement('option');o.value=v;dl.appendChild(o);});}
     if(results[0].success)fill("phoneList",results[0].data);
@@ -8363,735 +8462,7 @@ function tryWrap() {
   if (++_wrapAttempts < 3) setTimeout(tryWrap, 3000);
 }
 setTimeout(tryWrap, 1000);
-
-"use strict";
-// =====================================================
-// نظام الكاش المحلي لبيانات المربين v1.0
-// يستخدم IndexedDB للتخزين الدائم
-// =====================================================
-
-var BREEDER_CACHE = (function() {
-
-  var DB_NAME    = "vetclinic_cache";
-  var DB_VERSION = 1;
-  var STORE_NAME = "breeders";
-  var META_STORE = "meta";
-  var SYNC_INTERVAL_MS = 5 * 60 * 1000; // مزامنة كل 5 دقائق
-  var API_URL = "https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec";
-
-  var db = null;
-  var syncTimer = null;
-  var isSyncing = false;
-
-  // ─────────────────────────────────────────────────
-  // ١. فتح قاعدة البيانات
-  // ─────────────────────────────────────────────────
-  function openDB() {
-    return new Promise(function(resolve, reject) {
-      if (db) { resolve(db); return; }
-
-      var req = indexedDB.open(DB_NAME, DB_VERSION);
-
-      req.onupgradeneeded = function(e) {
-        var database = e.target.result;
-
-        // مخزن المربين — المفتاح هو رقم الهاتف
-        if (!database.objectStoreNames.contains(STORE_NAME)) {
-          database.createObjectStore(STORE_NAME, { keyPath: "phone" });
-        }
-
-        // مخزن الميتاداتا (آخر مزامنة، إلخ)
-        if (!database.objectStoreNames.contains(META_STORE)) {
-          database.createObjectStore(META_STORE, { keyPath: "key" });
-        }
-      };
-
-      req.onsuccess = function(e) {
-        db = e.target.result;
-        resolve(db);
-      };
-
-      req.onerror = function(e) {
-        console.error("[CACHE] فشل فتح IndexedDB:", e.target.error);
-        reject(e.target.error);
-      };
-    });
-  }
-
-  // ─────────────────────────────────────────────────
-  // ٢. حفظ / قراءة الميتاداتا
-  // ─────────────────────────────────────────────────
-  function setMeta(key, value) {
-    return openDB().then(function(database) {
-      return new Promise(function(resolve, reject) {
-        var tx = database.transaction(META_STORE, "readwrite");
-        var store = tx.objectStore(META_STORE);
-        store.put({ key: key, value: value });
-        tx.oncomplete = resolve;
-        tx.onerror = reject;
-      });
-    });
-  }
-
-  function getMeta(key) {
-    return openDB().then(function(database) {
-      return new Promise(function(resolve) {
-        var tx = database.transaction(META_STORE, "readonly");
-        var store = tx.objectStore(META_STORE);
-        var req = store.get(key);
-        req.onsuccess = function() {
-          resolve(req.result ? req.result.value : null);
-        };
-        req.onerror = function() { resolve(null); };
-      });
-    });
-  }
-
-  // ─────────────────────────────────────────────────
-  // ٣. جلب جميع المربين من API وحفظهم في IndexedDB
-  // ─────────────────────────────────────────────────
-  function syncFromAPI(showToastMsg) {
-    if (isSyncing) return Promise.resolve();
-    if (!window._isLoggedIn) return Promise.resolve();
-
-    isSyncing = true;
-
-    var loadingToast = null;
-    if (showToastMsg) {
-      loadingToast = showToast("⏳ جاري تحديث كاش بيانات المربين...", "info");
-    }
-
-    return callAPI("bd_getAllBreeders")
-      .then(function(res) {
-        if (!res.success || !res.data || !res.data.length) {
-          return;
-        }
-
-        return openDB().then(function(database) {
-          return new Promise(function(resolve, reject) {
-            var tx = database.transaction([STORE_NAME, META_STORE], "readwrite");
-            var store = tx.objectStore(STORE_NAME);
-            var metaStore = tx.objectStore(META_STORE);
-
-            // مسح البيانات القديمة
-            store.clear();
-
-            // حفظ البيانات الجديدة
-            var count = 0;
-            res.data.forEach(function(breeder) {
-              if (breeder.phone) {
-                store.put(breeder);
-                count++;
-              }
-            });
-
-            // تحديث وقت آخر مزامنة
-            metaStore.put({ key: "lastSync", value: Date.now() });
-            metaStore.put({ key: "count",    value: count });
-
-            tx.oncomplete = function() {
-              if (showToastMsg) {
-                if (loadingToast) window.hideToast(loadingToast);
-                showToast("✅ تم تحديث كاش المربين (" + count + " مربي)", "success");
-              }
-              console.log("[CACHE] ✅ تم تحديث الكاش:", count, "مربي");
-              resolve(count);
-            };
-
-            tx.onerror = function(e) {
-              console.error("[CACHE] خطأ في حفظ البيانات:", e.target.error);
-              reject(e.target.error);
-            };
-          });
-        });
-      })
-      .catch(function(err) {
-        console.warn("[CACHE] فشل المزامنة:", err);
-        if (showToastMsg && loadingToast) window.hideToast(loadingToast);
-      })
-      .finally(function() {
-        isSyncing = false;
-      });
-  }
-
-  // ─────────────────────────────────────────────────
-  // ٤. البحث عن مربي برقم الهاتف (من الكاش — فوري)
-  // ─────────────────────────────────────────────────
-  function lookupByPhone(phone) {
-    var clean = (phone || "").toString().trim();
-    if (!clean) return Promise.resolve(null);
-
-    return openDB().then(function(database) {
-      return new Promise(function(resolve) {
-        var tx = database.transaction(STORE_NAME, "readonly");
-        var store = tx.objectStore(STORE_NAME);
-        var req = store.get(clean);
-        req.onsuccess = function() {
-          resolve(req.result || null);
-        };
-        req.onerror = function() { resolve(null); };
-      });
-    });
-  }
-
-  // ─────────────────────────────────────────────────
-  // ٥. تحديث مربي واحد في الكاش (بعد الحفظ/التحديث)
-  // ─────────────────────────────────────────────────
-  function updateBreeder(breederData) {
-    if (!breederData || !breederData.phone) return Promise.resolve();
-    return openDB().then(function(database) {
-      return new Promise(function(resolve, reject) {
-        var tx = database.transaction(STORE_NAME, "readwrite");
-        tx.objectStore(STORE_NAME).put(breederData);
-        tx.oncomplete = resolve;
-        tx.onerror = reject;
-      });
-    });
-  }
-
-  // حذف مربي من الكاش
-  function removeBreeder(phone) {
-    if (!phone) return Promise.resolve();
-    return openDB().then(function(database) {
-      return new Promise(function(resolve, reject) {
-        var tx = database.transaction(STORE_NAME, "readwrite");
-        tx.objectStore(STORE_NAME).delete(phone.toString().trim());
-        tx.oncomplete = resolve;
-        tx.onerror = reject;
-      });
-    });
-  }
-
-  // ─────────────────────────────────────────────────
-  // ٦. استدعاء API
-  // ─────────────────────────────────────────────────
-  function callAPI(action, payload) {
-    var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
-    return fetch(API_URL, {
-      method: "POST", mode: "cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: body, redirect: "follow"
-    }).then(function(r) {
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      return r.json();
-    });
-  }
-
-  // ─────────────────────────────────────────────────
-  // ٧. بدء المزامنة التلقائية
-  // ─────────────────────────────────────────────────
-  function startAutoSync() {
-    if (syncTimer) return;
-
-    // مزامنة أولى فورية
-    getMeta("lastSync").then(function(lastSync) {
-      var now = Date.now();
-      var age = lastSync ? (now - lastSync) : Infinity;
-
-      // إذا الكاش فارغ أو منتهي الصلاحية (أكثر من 10 دقائق) → حدّث فوراً
-      if (age > 10 * 60 * 1000) {
-        syncFromAPI(false);
-      } else {
-        var mins = Math.floor(age / 60000);
-        console.log("[CACHE] الكاش حديث (منذ " + mins + " دقيقة)، لا حاجة للمزامنة الآن");
-      }
-    });
-
-    // مزامنة دورية
-    syncTimer = setInterval(function() {
-      if (window._isLoggedIn) syncFromAPI(false);
-    }, SYNC_INTERVAL_MS);
-  }
-
-  function stopAutoSync() {
-    if (syncTimer) { clearInterval(syncTimer); syncTimer = null; }
-  }
-
-  // ─────────────────────────────────────────────────
-  // ٨. الواجهة العامة
-  // ─────────────────────────────────────────────────
-  return {
-    lookup:       lookupByPhone,
-    sync:         syncFromAPI,
-    update:       updateBreeder,
-    remove:       removeBreeder,
-    startSync:    startAutoSync,
-    stopSync:     stopAutoSync,
-    getMeta:      getMeta,
-  };
-
-})();
-
-
-// =====================================================
-// ربط الكاش بحقول الهاتف في جميع الصفحات
-// =====================================================
-
-(function patchPhoneInputs() {
-
-  // قائمة حقول الهاتف وروابطها بالحقول الأخرى
-  var PHONE_FIELDS = [
-    {
-      phoneId: "tr_phoneInput",
-      fields: {
-        name:       "tr_nameInput",
-        possession: "tr_possessionInput",
-        region:     "tr_regionInput",
-        civil:      "tr_civilInput",
-      },
-      onFill: function(data) {
-        // تحديث تاريخ الحيازة وتشغيل التحقق
-        if (data.financialDate) {
-          var el = document.getElementById("tr_quickNotesInput");
-          if (el) el.value = data.financialDate;
-          if (typeof trcheckQuickNotesDate === "function") {
-            trcheckQuickNotesDate(data.financialDate);
-          }
-        }
-        if (typeof trcheckPhoneInRecords === "function") {
-          trcheckPhoneInRecords(data.phone);
-        }
-      }
-    },
-    {
-      phoneId: "bd_phoneInput",
-      fields: {
-        name:         "bd_nameInput",
-        possession:   "bd_possessionInput",
-        region:       "bd_regionInput",
-        civil:        "bd_civilInput",
-        notes:        "bd_notes",
-        financialDate:"bd_financialDate",
-      },
-      extraFields: {
-        "bd_caseNumber":    "phone",
-        "bd_private":       "phone",
-        "bd_animal_goat":   "animals.goat",
-        "bd_animal_sheep":  "animals.sheep",
-        "bd_animal_cow":    "animals.cow",
-        "bd_animal_camel":  "animals.camel",
-        "bd_animal_horse":  "animals.horse",
-        "bd_animal_cat":    "animals.cat",
-        "bd_animal_dog":    "animals.dog",
-        "bd_animal_poultry":"animals.poultry",
-      }
-    },
-    {
-      phoneId: "vacc_phoneInput",
-      fields: {
-        name:       "vacc_nameInput",
-        possession: "vacc_possessionInput",
-        region:     "vacc_regionInput",
-        civil:      "vacc_civilInput",
-      }
-    },
-    {
-      phoneId: "phoneInput",  // صفحة العينات
-      fields: {
-        name:       "nameInput",
-        possession: "possessionInput",
-        region:     "regionInput",
-        civil:      "civilInput",
-      }
-    }
-  ];
-
-  // مساعد: قراءة قيمة متداخلة مثل "animals.goat"
-  function getNestedValue(obj, path) {
-    var parts = path.split(".");
-    var current = obj;
-    for (var i = 0; i < parts.length; i++) {
-      if (current == null) return "";
-      current = current[parts[i]];
-    }
-    return current != null ? current : "";
-  }
-
-  // مساعد: تعيين قيمة حقل
-  function safeSetField(id, value) {
-    var el = document.getElementById(id);
-    if (el) el.value = value != null ? value : "";
-  }
-
-  // تعبئة النموذج من بيانات الكاش
-  function fillFromCache(config, data) {
-    // الحقول الأساسية
-    Object.keys(config.fields).forEach(function(dataKey) {
-      var fieldId = config.fields[dataKey];
-      var value = data[dataKey] != null ? data[dataKey] : "";
-      // تنظيف علامة الاقتباس الإضافية من رقم الحيازة
-      if (dataKey === "possession") value = value.toString().replace(/^'+/, "");
-      safeSetField(fieldId, value);
-    });
-
-    // الحقول الإضافية (مثل عدد الحيوانات)
-    if (config.extraFields) {
-      Object.keys(config.extraFields).forEach(function(fieldId) {
-        var dataPath = config.extraFields[fieldId];
-        var value = getNestedValue(data, dataPath);
-        safeSetField(fieldId, value);
-      });
-    }
-
-    // دالة ما بعد التعبئة
-    if (typeof config.onFill === "function") {
-      config.onFill(data);
-    }
-  }
-
-  // ─────────────────────────────────────────────────
-  // إضافة مستمع "change" لكل حقل هاتف
-  // (نتجاوز المستمعين الحاليين ونضيف الكاش قبلهم)
-  // ─────────────────────────────────────────────────
-  function attachCacheListener(config) {
-    var el = document.getElementById(config.phoneId);
-    if (!el || el._cacheListenerAttached) return;
-
-    el._cacheListenerAttached = true;
-
-    el.addEventListener("change", function() {
-      var phone = (this.value || "").trim();
-      if (!phone) return;
-
-      // ── البحث الفوري في الكاش ──
-      BREEDER_CACHE.lookup(phone).then(function(data) {
-        if (!data) {
-          // لم يُوجد في الكاش → دعِ المنطق الأصلي يعمل (API call)
-          console.log("[CACHE] لم يُوجد في الكاش، سيُطلب من API:", phone);
-          return;
-        }
-
-        // ✅ وُجد في الكاش → تعبئة فورية
-        fillFromCache(config, data);
-
-        showToast("⚡ تم التعبئة من الكاش المحلي", "success");
-        console.log("[CACHE] تعبئة فورية من الكاش:", phone);
-
-      }).catch(function(err) {
-        console.warn("[CACHE] خطأ في البحث:", err);
-      });
-
-    }, true); // capture = true لتشغيله قبل المستمعين الأصليين
-  }
-
-  // ─────────────────────────────────────────────────
-  // تحديث الكاش عند الحفظ/التحديث/الحذف
-  // ─────────────────────────────────────────────────
- function patchBreederOperations() {
-
-    // تحديث الكاش عند حفظ مربي
-    if (window.bd_saveData && !window.bd_saveData._cachePatch) {
-      var _orig_save = window.bd_saveData;
-      window.bd_saveData = async function() {
-        await _orig_save.apply(this, arguments);
-        await syncBreederToCache("save");
-      };
-      window.bd_saveData._cachePatch = true;
-    }
-
-    // تحديث الكاش عند تحديث مربي
-    if (window.bd_updateData && !window.bd_updateData._cachePatch) {
-      var _orig_update = window.bd_updateData;
-      window.bd_updateData = async function() {
-        await _orig_update.apply(this, arguments);
-        await syncBreederToCache("update");
-      };
-      window.bd_updateData._cachePatch = true;
-    }
-// حذف من الكاش عند حذف مربي
-    if (window.bd_deleteData && !window.bd_deleteData._cachePatch) {
-      var _orig_delete = window.bd_deleteData;
-      window.bd_deleteData = async function() {
-        var phoneEl = document.getElementById("bd_phoneInput");
-        var phoneVal = phoneEl ? phoneEl.value.trim() : "";
-        await _orig_delete.apply(this, arguments);
-        if (phoneVal) {
-          BREEDER_CACHE.remove(phoneVal).then(function() {
-            showToast("⚡ تم حذف المربي من الكاش فوراً", "info");
-            console.log("[CACHE] حُذف من الكاش فوراً:", phoneVal);
-          });
-        }
-      };
-      window.bd_deleteData._cachePatch = true;
-    }
-  }
-
-  function syncBreederToCache(operation) {
-    if (operation === "delete") return;
-
-    var phone = (document.getElementById("bd_phoneInput") || {}).value || "";
-    var newPhone = (document.getElementById("bd_newPhoneInput") || {}).value || "";
-    phone = phone.toString().trim();
-    newPhone = newPhone.toString().trim();
-
-    if (!phone) return;
-
-    if (newPhone && newPhone !== phone) {
-      BREEDER_CACHE.remove(phone);
-    }
-
-    var finalPhone = (newPhone && newPhone !== phone) ? newPhone : phone;
-
-    var breederData = {
-      phone:         finalPhone,
-      name:          (document.getElementById("bd_nameInput") || {}).value || "",
-      possession:    (document.getElementById("bd_possessionInput") || {}).value || "",
-      region:        (document.getElementById("bd_regionInput") || {}).value || "",
-      civil:         (document.getElementById("bd_civilInput") || {}).value || "",
-      notes:         (document.getElementById("bd_notes") || {}).value || "",
-      financialDate: (document.getElementById("bd_financialDate") || {}).value || "",
-      dataEntry:     (document.getElementById("bd_dataEntryInput") || {}).value || "",
-      animals: {
-        goat:    (document.getElementById("bd_animal_goat") || {}).value || "",
-        sheep:   (document.getElementById("bd_animal_sheep") || {}).value || "",
-        cow:     (document.getElementById("bd_animal_cow") || {}).value || "",
-        camel:   (document.getElementById("bd_animal_camel") || {}).value || "",
-        horse:   (document.getElementById("bd_animal_horse") || {}).value || "",
-        cat:     (document.getElementById("bd_animal_cat") || {}).value || "",
-        dog:     (document.getElementById("bd_animal_dog") || {}).value || "",
-        poultry: (document.getElementById("bd_animal_poultry") || {}).value || ""
-      }
-    };
-
-    BREEDER_CACHE.update(breederData).then(function() {
-      showToast("⚡ تم تحديث الكاش فوراً", "success");
-      console.log("[CACHE] تم تحديث الكاش مباشرة:", finalPhone);
-    }).catch(function(err) {
-      console.warn("[CACHE] فشل تحديث الكاش:", err);
-    });
-  }
-
-  // ─────────────────────────────────────────────────
-  // تشغيل كل شيء بعد اكتمال تحميل الصفحة
-  // ─────────────────────────────────────────────────
-  function init() {
-    // ربط مستمعات الكاش
-    PHONE_FIELDS.forEach(function(config) {
-      // محاولة فورية
-      attachCacheListener(config);
-
-      // محاولة متأخرة (الحقول التي تُحمَّل لاحقاً)
-      setTimeout(function() { attachCacheListener(config); }, 1000);
-      setTimeout(function() { attachCacheListener(config); }, 3000);
-    });
-
-    // ربط تحديثات المربي
-    setTimeout(patchBreederOperations, 500);
-    setTimeout(patchBreederOperations, 2000);
-  }
-
-  // تشغيل عند الحمل
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
-
-})();
-
-
-// =====================================================
-// ربط الكاش مع تسجيل الدخول
-// =====================================================
-
-(function() {
-  // بدء المزامنة عند تسجيل الدخول
-  var _origUnlock = window.unlockNav;
-  if (typeof _origUnlock === "function" && !_origUnlock._cachePatch) {
-    window.unlockNav = function() {
-      _origUnlock.apply(this, arguments);
-      // بدء المزامنة بعد ثانية من فتح التنقل
-      setTimeout(function() {
-        BREEDER_CACHE.startSync();
-      }, 1000);
-    };
-    window.unlockNav._cachePatch = true;
-  }
-
-  // إيقاف المزامنة عند تسجيل الخروج
-  var _origLock = window.lockNav;
-  if (typeof _origLock === "function" && !_origLock._cachePatch) {
-    window.lockNav = function() {
-      _origLock.apply(this, arguments);
-      BREEDER_CACHE.stopSync();
-    };
-    window.lockNav._cachePatch = true;
-  }
-})();
-
-
-// =====================================================
-// زر مزامنة يدوي في صفحة الإعدادات
-// =====================================================
-
-(function addSyncButton() {
-  document.addEventListener("DOMContentLoaded", function() {
-    var homeDiv = document.getElementById("home");
-    if (!homeDiv) return;
-
-    var syncDiv = document.createElement("div");
-    syncDiv.style.cssText = "margin-top:20px;padding:15px;background:#f8ffff;" +
-      "border:3px solid #00b8d9;border-radius:8px;max-width:400px;";
-
-    syncDiv.innerHTML =
-      '<h3 style="margin:0 0 10px 0;color:#00b8d9;font-size:14px;">📦 كاش بيانات المربين</h3>' +
-      '<div id="cache_status" style="font-size:12px;color:#666;margin-bottom:10px;">جاري التحقق...</div>' +
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-        '<button id="cache_syncBtn" onclick="BREEDER_CACHE.sync(true)" ' +
-          'style="background:#2bb673;color:#fff;padding:7px 16px;border:none;border-radius:5px;' +
-          'cursor:pointer;font-family:inherit;font-weight:bold;font-size:13px;">' +
-          '🔄 مزامنة الآن</button>' +
-        '<button id="cache_clearBtn" ' +
-          'style="background:#e65050;color:#fff;padding:7px 16px;border:none;border-radius:5px;' +
-          'cursor:pointer;font-family:inherit;font-weight:bold;font-size:13px;">' +
-          '🗑️ مسح الكاش</button>' +
-      '</div>';
-
-    homeDiv.appendChild(syncDiv);
-
-    // زر مسح الكاش
-    document.getElementById("cache_clearBtn").addEventListener("click", function() {
-      if (!confirm("هل تريد مسح كاش بيانات المربين؟ سيتم إعادة تحميلها عند المزامنة التالية.")) return;
-      indexedDB.deleteDatabase("vetclinic_cache");
-      showToast("🗑️ تم مسح الكاش", "info");
-      document.getElementById("cache_status").textContent = "الكاش فارغ";
-    });
-
-    // عرض حالة الكاش
-    function updateStatus() {
-      BREEDER_CACHE.getMeta("lastSync").then(function(ts) {
-        BREEDER_CACHE.getMeta("count").then(function(count) {
-          var statusEl = document.getElementById("cache_status");
-          if (!statusEl) return;
-          if (!ts) {
-            statusEl.textContent = "⚠️ لم تتم أي مزامنة بعد";
-            return;
-          }
-          var mins = Math.floor((Date.now() - ts) / 60000);
-          var timeStr = mins < 1 ? "أقل من دقيقة" :
-                        mins < 60 ? mins + " دقيقة" :
-                        Math.floor(mins/60) + " ساعة";
-          statusEl.textContent = "✅ " + (count || 0) + " مربي | آخر مزامنة منذ " + timeStr;
-        });
-      });
-    }
-
-    updateStatus();
-    setInterval(updateStatus, 30000);
-  });
-})();
-
-/* ============================================================
-   الكاش المركزي لبيانات المربي — يُحدَّث فوراً بدون جلب من الشيت
-   ============================================================ */
-window._breedersCache = {
-  phones: [],      // مصفوفة أرقام هواتف مرتبة
-  map: {},         // خريطة: phone => {name, region, possession, civil, ...}
-  ready: false
-};
-
-/** تحديث الكاش فوراً بعد أي عملية CRUD */
-function sf_updateCache(action, data) {
-  var oldPhone = data.phone || '';
-  var newPhone = data.newPhone || oldPhone;
-
-  switch(action) {
-case 'save':
-  if (window._breedersCache.phones.indexOf(newPhone) === -1) {
-    window._breedersCache.phones.push(newPhone);
-  }
-  var animals = data.animals || {};
-  window._breedersCache.map[newPhone] = {
-    name:       data.name       || '',
-    region:     data.region     || '',
-    possession: data.possession || '',
-    civil:      data.civil      || '',
-    animals: {
-      camel:   animals.camel   || '',
-      goat:    animals.goat    || '',
-      sheep:   animals.sheep   || '',
-      cow:     animals.cow     || '',
-      horse:   animals.horse   || '',
-      cat:     animals.cat     || '',
-      dog:     animals.dog     || '',
-      poultry: animals.poultry || ''
-    }
-  };
-  break;
-
-    case 'update':
-      // إذا تغيّر الرقم نفسه
-      if (newPhone !== oldPhone && oldPhone) {
-        delete window._breedersCache.map[oldPhone];
-        var idx = window._breedersCache.phones.indexOf(oldPhone);
-        if (idx > -1) window._breedersCache.phones[idx] = newPhone;
-      }
-      window._breedersCache.map[newPhone] = {
-        name: data.name, region: data.region, possession: data.possession,
-        civil: data.civil, financialDate: data.financialDate, notes: data.notes
-      };
-      break;
-
-    case 'delete':
-      if (oldPhone) {
-        delete window._breedersCache.map[oldPhone];
-        var idx2 = window._breedersCache.phones.indexOf(oldPhone);
-        if (idx2 > -1) window._breedersCache.phones.splice(idx2, 1);
-      }
-      break;
-  }
-
-  window._breedersCache.phones.sort();
-  window._breedersCache.ready = true;
-
-  // تحديث كل القوائم المنسدلة في كل الصفحات فوراً
-  sf_refreshAllLists();
-}
-
-/** تحديث كل الـ datalists + vr_registeredPhones من الكاش المحلي */
-function sf_refreshAllLists() {
-  var phones = window._breedersCache.phones;
-
-  // 1. صفحة breeder
-  var bd_dl = document.getElementById('bd_phoneList');
-  if (bd_dl) { bd_dl.innerHTML = ''; phones.forEach(function(p){ var o=document.createElement('option'); o.value=p; bd_dl.appendChild(o); }); }
-
-  // 2. صفحة treatment
-  var tr_dl = document.getElementById('tr_phoneList');
-  if (tr_dl) { tr_dl.innerHTML = ''; phones.forEach(function(p){ var o=document.createElement('option'); o.value=p; tr_dl.appendChild(o); }); }
-
-  // 3. صفحة vaccination
-  var vacc_dl = document.getElementById('vacc_phoneList');
-  if (vacc_dl) { vacc_dl.innerHTML = ''; phones.forEach(function(p){ var o=document.createElement('option'); o.value=p; vacc_dl.appendChild(o); }); }
-
-  // 4. صفحة samples
-  var fo_dl = document.getElementById('phoneList');
-  if (fo_dl) { fo_dl.innerHTML = ''; phones.forEach(function(p){ var o=document.createElement('option'); o.value=p; fo_dl.appendChild(o); }); }
-
-  // 5. صفحة vaccinationRequests — تحديث Set المسجلين وإعادة رسم الجدول
-  if (typeof vr_registeredPhones !== 'undefined') {
-    vr_registeredPhones = new Set(phones.map(function(p){ return p.toString().trim(); }));
-    if (typeof vr_render === 'function' && document.getElementById('vaccinationRequests').classList.contains('active')) {
-      vr_render();
-    }
-  }
-}
-
-/** تهيئة الكاش من الشيت (مرة واحدة فقط عند بداية الجلسة) */
-async function sf_initCache() {
-  if (window._breedersCache.ready) return;
-  try {
-    var res = await bd_callApi("bd_getPhoneNumbers");
-    if (res.success) {
-      window._breedersCache.phones = res.data || [];
-      window._breedersCache.phones.sort();
-      window._breedersCache.ready = true;
-      sf_refreshAllLists();
-    }
-  } catch(e) { console.warn('فشل تهيئة كاش المربين:', e); }
-}
   
-</script>
 </script>
 
 </body>
