@@ -7889,43 +7889,58 @@ function foDismissOverdueAlert() {
   /* ─────────────────────────────────────────────────────
      ٨. شارة المستخدم
      ───────────────────────────────────────────────────── */
-  function showUserBadge(name, role) {
-    removeUserBadge();
+function showUserBadge(name, role) {
+  removeUserBadge();
 
-    var roleColors = {
-      admin: "#00b8d9",
-      مدير:  "#00b8d9",
-      vet:   "#2bb673",
-      طبيب:  "#2bb673",
-      tech:  "#f39c12",
-      فني:   "#f39c12",
-    };
-    var bg = roleColors[role] || roleColors[(role || "").toLowerCase()] || "#888";
+  var rawRole = (role || "").toString().trim().toLowerCase();
 
-    var badge = document.createElement("div");
-    badge.id = "perm-user-badge";
-    Object.assign(badge.style, {
-      position:    "fixed",
-      bottom:      "12px",
-      right:       "12px",
-      background:  bg,
-      color:       "#fff",
-      padding:     "6px 16px",
-      borderRadius: "20px",
-      fontSize:    "12px",
-      fontWeight:  "bold",
-      fontFamily:  "Tahoma, Arial, sans-serif",
-      zIndex:      "9999",
-      boxShadow:   "0 2px 8px rgba(0,0,0,0.25)",
-      cursor:      "pointer",
-      direction:   "rtl",
-      userSelect:  "none",
-    });
-    badge.textContent = "👤 " + name + "  |  " + role;
-    badge.title = "انقر لعرض صلاحياتك";
-    badge.onclick = showPermissionsModal;
-    document.body.appendChild(badge);
-  }
+  // ── ترجمة الأدوار ──
+  var roleLabels = {
+    admin: "إداري",
+    مدير:  "إداري",
+    vet:   "طبيب",
+    طبيب:  "طبيب",
+    tech:  "فني بيطري",
+    فني:   "فني بيطري",
+  };
+
+  // ── ألوان مُختلفة حسب نوع المستخدم ──
+  var roleColors = {
+    admin: "#8B0000",   // إداري → أحمر داكن
+    مدير:  "#8B0000",
+    vet:   "#00b8d9",   // طبيب → أزرق مائي
+    طبيب:  "#00b8d9",
+    tech:  "#e67e22",   // فني بيطري → برتقالي
+    فني:   "#e67e22",
+  };
+
+  var displayRole = roleLabels[rawRole] || roleLabels[role] || role || "مستخدم";
+  var bg = roleColors[rawRole] || roleColors[(role || "").toLowerCase()] || "#888";
+
+  var badge = document.createElement("div");
+  badge.id = "perm-user-badge";
+  Object.assign(badge.style, {
+    position:    "fixed",
+    bottom:      "12px",
+    right:       "12px",
+    background:  bg,
+    color:       "#fff",
+    padding:     "6px 16px",
+    borderRadius: "20px",
+    fontSize:    "12px",
+    fontWeight:  "bold",
+    fontFamily:  "Tahoma, Arial, sans-serif",
+    zIndex:      "9999",
+    boxShadow:   "0 2px 8px rgba(0,0,0,0.25)",
+    cursor:      "pointer",
+    direction:   "rtl",
+    userSelect:  "none",
+  });
+  badge.textContent = "👤 " + name + "  |  " + displayRole;
+  badge.title = "انقر لعرض صلاحياتك";
+  badge.onclick = showPermissionsModal;
+  document.body.appendChild(badge);
+}
 
   function removeUserBadge() {
     var old = document.getElementById("perm-user-badge");
