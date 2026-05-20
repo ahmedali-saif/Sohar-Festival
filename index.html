@@ -5453,6 +5453,7 @@ var isRegistered = vr_registeredPhones.size === 0 || vr_registeredPhones.has(r.p
 
 // ربط أحداث الفلترة (مرة واحدة فقط)
 async function vr_saveToBreeder(r) {
+  // ── 1) بناء وعرض النافذة المنبثقة ──
   var modal = document.createElement("div");
   modal.className = "custom-modal";
   modal.innerHTML = `
@@ -5491,48 +5492,58 @@ async function vr_saveToBreeder(r) {
     </div>`;
   document.body.appendChild(modal);
 
-  await new Promise(function(resolve) {
+  // ── 2) انتظار قرار المستخدم (نعم / إلغاء / خروج) ──
+  var confirmed = await new Promise(function(resolve) {
     modal.querySelector("#vr_confirmSave").onclick = function() {
-      modal.remove(); resolve(true);
+      modal.remove();
+      resolve(true);
     };
     modal.querySelector("#vr_cancelSave").onclick = function() {
-      modal.remove(); resolve(false);
+      modal.remove();
+      resolve(false);
     };
     modal.onclick = function(e) {
-      if (e.target === modal) { modal.remove(); resolve(false); }
-    };
-  }).then(async function(confirmed) {
-    if (!confirmed) return;
-    try {
-      var res = await vr_callApi("bd_saveData", { data: {
-        phone:        r.phone        || '',
-        name:         r.name         || '',
-        region:       r.area         || '',
-        possession:   r.possession   ? ("'" + r.possession) : '',
-        civil:        r.civil        || '',
-        notes: (r.notes ? r.notes + ' | ' : '') + 'تم الإضافة من طلبات التحصين',
-        animals: {
-          goat:    r.goat    || '',
-          sheep:   r.sheep   || '',
-          cow:     r.cow     || '',
-          camel:   r.camel   || '',
-          poultry: ''
-        },
-        financialDate: r.financialDate || '',
-        dataEntry:     r.dataEntry    || 'نظام التحصين'
-      }});
-
-      if (res.success) {
-        showToast('✅ تم حفظ ' + r.name + ' في سجل المربي', 'success');
-        vr_registeredPhones.add(r.phone.toString().trim());
-        vr_render();
-      } else {
-        showToast('❌ ' + (res.message || 'فشل الحفظ'), 'error');
+      if (e.target === modal) {
+        modal.remove();
+        resolve(false);
       }
-    } catch(err) {
-      showToast('❌ خطأ: ' + err.message, 'error');
-    }
+    };
   });
+
+  if (!confirmed) return;   // المستخدم ضغط إلغاء
+
+  // ── 3) Toast "جاري الحفظ" ثم الاتصال بالـ API ──
+  showToast('⏳ جاري حفظ البيانات...', 'info');
+
+  try {
+    var res = await vr_callApi("bd_saveData", { data: {
+      phone:        r.phone        || '',
+      name:         r.name         || '',
+      region:       r.area         || '',
+      possession:   r.possession   ? ("'" + r.possession) : '',
+      civil:        r.civil        || '',
+      notes: (r.notes ? r.notes + ' | ' : '') + 'تم الإضافة من طلبات التحصين',
+      animals: {
+        goat:    r.goat    || '',
+        sheep:   r.sheep   || '',
+        cow:     r.cow     || '',
+        camel:   r.camel   || '',
+        poultry: ''
+      },
+      financialDate: r.financialDate || '',
+      dataEntry:     r.dataEntry    || 'نظام التحصين'
+    }});
+
+    if (res.success) {
+      showToast('✅ تم حفظ ' + r.name + ' في سجل المربي', 'success');
+      vr_registeredPhones.add(r.phone.toString().trim());
+      vr_render();            // إعادة رسم الجدول لتحديث الحالة
+    } else {
+      showToast('❌ ' + (res.message || 'فشل الحفظ'), 'error');
+    }
+  } catch(err) {
+    showToast('❌ خطأ: ' + err.message, 'error');
+  }
 }
 // =====================================================
 // التحميل عند فتح الصفحة للمرة الأولى فقط
