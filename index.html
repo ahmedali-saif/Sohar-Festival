@@ -8658,40 +8658,38 @@ setTimeout(tryWrap, 1000);
     var regions     = state.regionList.slice().sort();
     var dataEntries = state.dataEntryList.slice().sort();
 
-    /* قوائم أرقام الهواتف في جميع الصفحات */
-    ["tr_phoneList", "vacc_phoneList", "phoneList", "bd_phoneList"].forEach(function (id) {
-      var dl = document.getElementById(id);
+    /* ── مساعد: يملأ datalist ويُعيد ربطه بالـ input لإجبار المتصفح على التحديث ── */
+    function fillAndRebind(listId, inputId, items) {
+      var dl = document.getElementById(listId);
       if (!dl) return;
+
+      /* الطريقة الوحيدة الموثوقة: افصل الـ datalist عن الـ input ثم أعده */
+      var inp = inputId ? document.getElementById(inputId) : null;
+      if (inp) inp.removeAttribute("list");
+
       dl.innerHTML = "";
-      phones.forEach(function (p) {
+      items.forEach(function (v) {
         var o = document.createElement("option");
-        o.value = p;
+        o.value = v;
         dl.appendChild(o);
       });
-    });
 
-    /* قائمة المناطق في سجل المربي */
-    var dlRegion = document.getElementById("bd_regionList");
-    if (dlRegion) {
-      dlRegion.innerHTML = "";
-      regions.forEach(function (r) {
-        var o = document.createElement("option");
-        o.value = r;
-        dlRegion.appendChild(o);
-      });
+      /* أعد الربط في الـ tick التالي حتى يلتقطه المتصفح */
+      if (inp) {
+        setTimeout(function () { inp.setAttribute("list", listId); }, 0);
+      }
     }
 
-    /* قوائم مدخلي البيانات في سجل المربي */
-    ["bd_dataEntryList", "bd_dataUpdaterList"].forEach(function (id) {
-      var dl = document.getElementById(id);
-      if (!dl) return;
-      dl.innerHTML = "";
-      dataEntries.forEach(function (d) {
-        var o = document.createElement("option");
-        o.value = d;
-        dl.appendChild(o);
-      });
-    });
+    /* قوائم الهاتف */
+    fillAndRebind("bd_phoneList",   "bd_phoneInput", phones);
+    fillAndRebind("tr_phoneList",   "tr_phoneInput", phones);
+    fillAndRebind("vacc_phoneList", "vacc_phoneInput", phones);
+    fillAndRebind("phoneList",      "phoneInput", phones);
+
+    /* المناطق ومدخلو البيانات في سجل المربي */
+    fillAndRebind("bd_regionList",     "bd_regionInput",    regions);
+    fillAndRebind("bd_dataEntryList",  "bd_dataEntryInput", dataEntries);
+    fillAndRebind("bd_dataUpdaterList","bd_dataUpdaterInput", dataEntries);
   }
 
   /* ═══════════════════════════════════════════════════════════════
