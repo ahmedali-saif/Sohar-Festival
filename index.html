@@ -5465,31 +5465,87 @@ vr_bindOnce();
 })();
 
 async function vr_saveToBreeder(r) {
-  if (!confirm('هل تريد حفظ بيانات "' + r.name + '" في سجل المربي؟')) return;
-  try {
-    var res = await vr_callApi("bd_saveData", { data: {
-      phone: r.phone, name: r.name,
-      region: r.area || '', possession: '', civil: '',
-      notes: 'تم الإضافة من طلبات التحصين',
-      animals: { goat: '', sheep: '', cow: '', camel: '', poultry: '' },
-      financialDate: '', dataEntry: 'نظام التحصين'
-    }});
-    if (res.success) {
-      showToast('✅ تم حفظ ' + r.name + ' في سجل المربي', 'success');
-      vr_registeredPhones.add(r.phone.toString().trim());
-      vr_render();
-    } else {
-      showToast('❌ ' + (res.message || 'فشل الحفظ'), 'error');
-    }
-  } catch(err) {
-    showToast('❌ خطأ: ' + err.message, 'error');
-  }
-}
+  var modal = document.createElement("div");
+  modal.className = "custom-modal";
+  modal.innerHTML = `
+    <div class="modal-box" style="max-width:480px;">
+      <h3 style="color:#00b8d9;font-size:1.1rem;margin-bottom:8px;">
+        ➕ إضافة مربي جديد
+      </h3>
+      <p style="font-size:13px;color:#555;margin-bottom:10px;line-height:1.7;">
+        سيتم حفظ البيانات التالية المأخوذة من ورقة <strong>متابعة التحصين</strong>:
+      </p>
+      <div style="background:#f0f9ff;border:1px solid #b3e5fc;border-radius:8px;
+                  padding:10px 14px;margin-bottom:18px;font-size:13px;
+                  text-align:right;direction:rtl;line-height:2.2;">
+        <div>👤 <strong>الاسم:</strong> ${r.name || '—'}</div>
+        <div>📞 <strong>الهاتف:</strong> ${r.phone || '—'}</div>
+        <div>📍 <strong>المنطقة:</strong> ${r.area || '—'}</div>
+        <div>🪪 <strong>رقم الحيازة:</strong> ${r.possession || '—'}</div>
+        <div>🪪 <strong>الرقم المدني:</strong> ${r.civil || '—'}</div>
+        <div>📅 <strong>تاريخ انتهاء الحيازة:</strong> ${r.financialDate || '—'}</div>
+        <div>🐐 <strong>ماعز:</strong> ${r.goat || '—'} &nbsp;|&nbsp;
+             🐑 <strong>أغنام:</strong> ${r.sheep || '—'} &nbsp;|&nbsp;
+             🐄 <strong>أبقار:</strong> ${r.cow || '—'} &nbsp;|&nbsp;
+             🐪 <strong>جمال:</strong> ${r.camel || '—'}</div>
+        ${r.notes ? `<div>📝 <strong>ملاحظات:</strong> ${r.notes}</div>` : ''}
+      </div>
+      <div class="modal-buttons" style="gap:12px;">
+        <button class="confirm-btn" id="vr_confirmSave"
+                style="background:#2bb673;padding:9px 28px;border-radius:6px;">
+          ✅ نعم، حفظ
+        </button>
+        <button class="cancel-btn" id="vr_cancelSave"
+                style="background:#95a5a6;padding:9px 28px;border-radius:6px;">
+          إلغاء
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
 
-// =====================================================
-// التحميل عند فتح الصفحة للمرة الأولى فقط
-// يُستدعى من showPage المركزية
-// =====================================================
+  await new Promise(function(resolve) {
+    modal.querySelector("#vr_confirmSave").onclick = function() {
+      modal.remove(); resolve(true);
+    };
+    modal.querySelector("#vr_cancelSave").onclick = function() {
+      modal.remove(); resolve(false);
+    };
+    modal.onclick = function(e) {
+      if (e.target === modal) { modal.remove(); resolve(false); }
+    };
+  }).then(async function(confirmed) {
+    if (!confirmed) return;
+    try {
+      var res = await vr_callApi("bd_saveData", { data: {
+        phone:        r.phone        || '',
+        name:         r.name         || '',
+        region:       r.area         || '',
+        possession:   r.possession   ? ("'" + r.possession) : '',
+        civil:        r.civil        || '',
+        notes: (r.notes ? r.notes + ' | ' : '') + 'تم الإضافة من طلبات التحصين',
+        animals: {
+          goat:    r.goat    || '',
+          sheep:   r.sheep   || '',
+          cow:     r.cow     || '',
+          camel:   r.camel   || '',
+          poultry: ''
+        },
+        financialDate: r.financialDate || '',
+        dataEntry:     r.dataEntry    || 'نظام التحصين'
+      }});
+
+      if (res.success) {
+        showToast('✅ تم حفظ ' + r.name + ' في سجل المربي', 'success');
+        vr_registeredPhones.add(r.phone.toString().trim());
+        vr_render();
+      } else {
+        showToast('❌ ' + (res.message || 'فشل الحفظ'), 'error');
+      }
+    } catch(err) {
+      showToast('❌ خطأ: ' + err.message, 'error');
+    }
+  });
+
 </script>
 
 </div>
