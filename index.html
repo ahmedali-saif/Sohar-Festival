@@ -794,6 +794,7 @@ input, select, textarea {
 .overdue-footer .btn-close{background:#e65050;color:#fff}
 .overdue-footer .btn-dismiss{background:#95a5a6;color:#fff}
 </style>
+<base target="_blank">
 </head>
 <body>
 <script>
@@ -1537,7 +1538,6 @@ if(m){
   document.getElementById('l_welcomeName').textContent=`مرحباً، ${lNK?(m[lNK]||u):u}!`;
   lShow(lViews.welcome);
   unlockNav();
-}
 } else {
           // تحديد سبب الخطأ
           const userExists=users.find(u2=>(u2[lUK]||'').toLowerCase()===u.toLowerCase());
