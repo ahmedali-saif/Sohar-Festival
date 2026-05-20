@@ -4156,25 +4156,49 @@ function bd_bindEvents() {
   });
 
 document.getElementById("bd_phoneInput").addEventListener("change", async function(){
-  if (bd_isClearing) return;  // ← أضف هذا السطر
+  if (bd_isClearing) return;
   var phone = this.value.trim(); if (!phone) return;
   document.getElementById("bd_private").value = phone;
-  await bd_loadCaseData(phone);
+  try { await bd_loadCaseData(phone); } catch(e) { console.error(e); }
 });
 }
 
 function bd_hideLoading() {
-  var overlay = document.getElementById("bd_pageLoadingOverlay");
-  overlay.classList.add("hidden");
-  setTimeout(function(){ overlay.style.display = "none"; }, 450);
+  var overlay = document.getElementById('bd_pageLoadingOverlay');
+  if (!overlay) return;
+  overlay.classList.add('hidden');
+  setTimeout(function(){ 
+    if (overlay) overlay.style.display = 'none'; 
+  }, 450);
 }
-
 function bd_init(){
   bd_bindEvents();
-  sf_initCache().then(function(){ bd_hideLoading(); }).catch(function(){ bd_hideLoading(); });
+  
+  // إخفاء شاشة التحميل تلقائياً بعد 6 ثوانٍ كحد أقصى
+  var forceHideTimer = setTimeout(function(){
+    bd_hideLoading();
+  }, 6000);
+  
+  try {
+    if (typeof sf_initCache === 'function') {
+      sf_initCache().then(function(){ 
+        clearTimeout(forceHideTimer);
+        bd_hideLoading(); 
+      }).catch(function(err){ 
+        clearTimeout(forceHideTimer);
+        console.warn('sf_initCache error:', err);
+        bd_hideLoading(); 
+      });
+    } else {
+      clearTimeout(forceHideTimer);
+      bd_hideLoading();
+    }
+  } catch(e) {
+    clearTimeout(forceHideTimer);
+    console.error('bd_init error:', e);
+    bd_hideLoading();
+  }
 }
-
-bd_init();
 </script>
 
 </div>
