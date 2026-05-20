@@ -795,6 +795,7 @@ input, select, textarea {
 .overdue-footer .btn-dismiss{background:#95a5a6;color:#fff}
 </style>
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
 <script>
@@ -1190,6 +1191,189 @@ lockNav();
     localStorage.removeItem('appearanceSettings');
     showToast('↺ تم إعادة تعيين المظهر', 'info');
   }
+
+  // ===== دوال إدارة صلاحيات المستخدمين =====
+
+  // قائمة الصفحات المتاحة
+  var PERM_PAGES = [
+    { id: 'breeder', label: 'سجل المربي' },
+    { id: 'treatment', label: 'سجل العلاج' },
+    { id: 'vaccination', label: 'سجل التحصين' },
+    { id: 'vaccinationRequests', label: 'طلبات التحصين' },
+    { id: 'samples', label: 'نموذج العينات' },
+    { id: 'dashboard', label: 'طباعة نماذج العينات' },
+    { id: 'settings', label: 'طباعة شهادة التحصين' },
+    { id: 'reports', label: 'الأدوية المصروفة' },
+    { id: 'financialInventory', label: 'الجرد المالي' },
+    { id: 'diseaseTracking', label: 'تتبع المرض' },
+    { id: 'animalDistribution', label: 'توزيع الحيوانات' },
+    { id: 'comprehensiveReport', label: 'التقرير الشامل' },
+    { id: 'home', label: 'الإعدادات' }
+  ];
+
+  // تحديث قائمة المستخدمين
+  async function permRefreshUsers() {
+    var select = document.getElementById('permUserSelect');
+    var loading = document.getElementById('permLoading');
+    var container = document.getElementById('permPagesContainer');
+    var noUser = document.getElementById('permNoUser');
+
+    select.innerHTML = '<option value="">-- اختر مستخدم --</option>';
+    loading.style.display = 'block';
+    container.style.display = 'none';
+    noUser.style.display = 'none';
+
+    try {
+      var res = await trcallApi("trgetPhoneNumbers");
+      if (res.success && res.data) {
+        res.data.forEach(function(phone) {
+          var opt = document.createElement('option');
+          opt.value = phone;
+          opt.textContent = phone;
+          select.appendChild(opt);
+        });
+      }
+    } catch(err) {
+      showToast('خطأ في تحميل المستخدمين: ' + err.message, 'error');
+    } finally {
+      loading.style.display = 'none';
+      noUser.style.display = 'block';
+    }
+  }
+
+  // تحميل صلاحيات مستخدم محدد
+  async function permLoadUserPermissions() {
+    var username = document.getElementById('permUserSelect').value;
+    var container = document.getElementById('permPagesContainer');
+    var noUser = document.getElementById('permNoUser');
+    var grid = document.getElementById('permPagesGrid');
+
+    if (!username) {
+      container.style.display = 'none';
+      noUser.style.display = 'block';
+      return;
+    }
+
+    container.style.display = 'block';
+    noUser.style.display = 'none';
+
+    // بناء شبكة الصفحات
+    grid.innerHTML = '';
+    PERM_PAGES.forEach(function(page) {
+      var div = document.createElement('div');
+      div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:#f8f9fa;border-radius:4px;border:1px solid #dee2e6;';
+      div.innerHTML = 
+        '<input type="checkbox" id="perm_' + page.id + '" value="' + page.id + '" style="width:18px;height:18px;cursor:pointer;">' +
+        '<label for="perm_' + page.id + '" style="cursor:pointer;font-weight:500;">' + page.label + '</label>';
+      grid.appendChild(div);
+    });
+
+    // تحميل الصلاحيات الحالية
+    var currentAllowed = [];
+    if (window._userAllowedPages && window._userAllowedPages.length > 0) {
+      currentAllowed = window._userAllowedPages;
+    }
+
+    // تحديد الصفحات المسموحة
+    PERM_PAGES.forEach(function(page) {
+      var cb = document.getElementById('perm_' + page.id);
+      if (cb) cb.checked = currentAllowed.indexOf(page.id) !== -1;
+    });
+
+    permUpdateCount();
+  }
+
+  // تحديد/إلغاء تحديد الكل
+  function permToggleAll(checked) {
+    PERM_PAGES.forEach(function(page) {
+      var cb = document.getElementById('perm_' + page.id);
+      if (cb) cb.checked = checked;
+    });
+    permUpdateCount();
+  }
+
+  // تحديث عداد الصفحات المحددة
+  function permUpdateCount() {
+    var count = 0;
+    PERM_PAGES.forEach(function(page) {
+      var cb = document.getElementById('perm_' + page.id);
+      if (cb && cb.checked) count++;
+    });
+    document.getElementById('permSelectedCount').textContent = count + ' صفحة';
+  }
+
+  // حفظ الصلاحيات
+  async function permSavePermissions() {
+    var username = document.getElementById('permUserSelect').value;
+    if (!username) {
+      showToast('الرجاء اختيار مستخدم', 'error');
+      return;
+    }
+
+    var allowed = [];
+    PERM_PAGES.forEach(function(page) {
+      var cb = document.getElementById('perm_' + page.id);
+      if (cb && cb.checked) allowed.push(page.id);
+    });
+
+    try {
+      // حفظ في localStorage
+      var allPerms = JSON.parse(localStorage.getItem('userPermissions') || '{}');
+      allPerms[username] = allowed;
+      localStorage.setItem('userPermissions', JSON.stringify(allPerms));
+
+      // تحديث الصلاحيات الحالية إذا كان المستخدم هو المستخدم الحالي
+      if (window._currentUser === username) {
+        window._userAllowedPages = allowed;
+        PERM.init(username, { pages: allowed.join(',') });
+      }
+
+      showToast('✅ تم حفظ الصلاحيات بنجاح', 'success');
+    } catch(err) {
+      showToast('خطأ في حفظ الصلاحيات: ' + err.message, 'error');
+    }
+  }
+
+  // مسح الصلاحيات
+  async function permClearPermissions() {
+    var username = document.getElementById('permUserSelect').value;
+    if (!username) {
+      showToast('الرجاء اختيار مستخدم', 'error');
+      return;
+    }
+
+    if (!confirm('هل أنت متأكد من مسح صلاحيات المستخدم ' + username + '؟')) return;
+
+    try {
+      var allPerms = JSON.parse(localStorage.getItem('userPermissions') || '{}');
+      delete allPerms[username];
+      localStorage.setItem('userPermissions', JSON.stringify(allPerms));
+
+      if (window._currentUser === username) {
+        window._userAllowedPages = [];
+        PERM.revoke();
+      }
+
+      permToggleAll(false);
+      showToast('🗑️ تم مسح الصلاحيات', 'success');
+    } catch(err) {
+      showToast('خطأ: ' + err.message, 'error');
+    }
+  }
+
+  // تحديث العداد عند تغيير أي checkbox
+  document.addEventListener('change', function(e) {
+    if (e.target && e.target.id && e.target.id.startsWith('perm_')) {
+      permUpdateCount();
+    }
+  });
+
+  // تهيئة عند تحميل التبويب
+  var permTabBtn = document.querySelector('button[onclick="homeShowTab(\'permissions\')"]');
+  if (permTabBtn) {
+    permTabBtn.addEventListener('click', permRefreshUsers);
+  }
+
   })();
   </script>
 </div>
@@ -1476,11 +1660,28 @@ lockNav();
   lEye('l_tp4','l_confPass','l_e4');
 
   function lParseCSV(t) {
-    const lines=t.trim().split('\n');
-    const heads=lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
-    return lines.slice(1).map(l=>{
-      const vs=l.split(',').map(v=>v.trim().replace(/^"|"$/g,''));
-      const o={}; heads.forEach((h,i)=>{o[h]=vs[i]||'';}); return o;
+    const lines = t.trim().split('\n');
+    const heads = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+    return lines.slice(1).map(l => {
+      // دعم القيم المحاطة بعلامات اقتباس (مثل "breeder,treatment,vaccination")
+      const vs = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < l.length; i++) {
+        const ch = l[i];
+        if (ch === '"') {
+          inQuotes = !inQuotes;
+        } else if (ch === ',' && !inQuotes) {
+          vs.push(current.trim().replace(/^"|"$/g, ''));
+          current = '';
+        } else {
+          current += ch;
+        }
+      }
+      vs.push(current.trim().replace(/^"|"$/g, ''));
+      const o = {};
+      heads.forEach((h, i) => { o[h] = vs[i] || ''; });
+      return o;
     });
   }
 
@@ -7496,6 +7697,13 @@ function foDismissOverdueAlert() {
       var allowed = isPageAllowed(pageId);
       btn.style.display = allowed ? "" : "none";
       btn.disabled = !allowed;
+
+      // إعادة تعيين الأنماط للأزرار المسموحة
+      if (allowed) {
+        btn.style.opacity = "";
+        btn.style.cursor = "";
+        btn.style.pointerEvents = "";
+      }
     });
   }
 
@@ -7552,8 +7760,10 @@ function foDismissOverdueAlert() {
   function removeButtonPermissions() {
     document.querySelectorAll("[data-perm-locked]").forEach(function (el) {
       el.removeEventListener("click", blockClickHandler, true);
+      el.disabled = false;
       el.style.opacity = "";
       el.style.cursor = "";
+      el.style.pointerEvents = "";
       el.removeAttribute("title");
       delete el.dataset.permLocked;
     });
@@ -7862,11 +8072,31 @@ function foDismissOverdueAlert() {
     global._currentUser      = null;
     global._userAllowedPages = null;
 
+    // إعادة تمكين جميع أزرار التنقل
+    document.querySelectorAll("nav button").forEach(function(btn) {
+      btn.disabled = false;
+      btn.style.opacity = '';
+      btn.style.cursor = '';
+      btn.style.pointerEvents = '';
+      btn.style.display = '';
+      btn.title = '';
+    });
+
+    // إعادة تمكين جميع العناصر التفاعلية داخل الصفحات
+    document.querySelectorAll('.page button, .page input, .page select, .page textarea, .page [data-perm-locked]').forEach(function(el) {
+      el.disabled = false;
+      el.style.opacity = '';
+      el.style.cursor = '';
+      el.style.pointerEvents = '';
+      el.title = '';
+      delete el.dataset.permLocked;
+    });
+
     stopAutoFill();
     removeButtonPermissions();
     removeUserBadge();
 
-    console.log("[PERM v6] تم إلغاء الصلاحيات");
+    console.log("[PERM v6] تم إلغاء الصلاحيات وإعادة تعيين جميع الأزرار");
   }
 
   /**
