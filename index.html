@@ -991,11 +991,16 @@ if (pageId === 'vaccination' && !window._vaccinationInitialized) {
     if (typeof vaccInit === 'function') vaccInit();
   }
 
-  if (pageId === 'vaccinationRequests' && !window._vrInitialized) {
-    window._vrInitialized = true;
-    if (typeof vr_loadData === 'function') vr_loadData();
+  if (pageId === 'vaccinationRequests') {
+    if (!window._vrInitialized) {
+      window._vrInitialized = true;
+    }
+    if (typeof vr_loadData === 'function') {
+      vr_loadData();
+    } else {
+      vr_hideLoadingOverlay();
+    }
   }
-}
 function lockNav() {
   window._isLoggedIn = false;
   document.querySelectorAll("nav button").forEach(function(btn) {
@@ -5196,7 +5201,7 @@ async function vaccInit() {
 #vaccinationRequests .toolbar { position:sticky; top:0; z-index:10; background:#eef9fb; }
 #vaccinationRequests .stats   { position:sticky; top:56px; z-index:9; background:#fff; padding:4px 0; }
 </style>
-<div id="vr_loadingOverlay" style="
+<div id="vr_loadingOverlay" class="loading-overlay" style="
   position: absolute;
   inset: 0;
   background: rgba(255,255,255,0.97);
@@ -5287,11 +5292,12 @@ var vr_registeredPhones = new Set();
 function vr_hideLoadingOverlay() {
   var overlay = document.getElementById('vr_loadingOverlay');
   if (!overlay) return;
-  overlay.style.opacity = '0';
-  overlay.style.pointerEvents = 'none';
-  setTimeout(function() { overlay.style.display = 'none'; }, 500);
+  overlay.classList.add('hide');
+  setTimeout(function() { 
+    overlay.style.display = 'none'; 
+    overlay.classList.remove('hide');
+  }, 500);
 }
-
 async function vr_callApi(action, payload) {
   var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
   var r = await fetch(VR_API_URL, {
@@ -5463,7 +5469,7 @@ var isRegistered = vr_registeredPhones.size === 0 || vr_registeredPhones.has(r.p
   }
 vr_bindOnce();
 })();
-
+setTimeout(vr_hideLoadingOverlay, 8000);
 async function vr_saveToBreeder(r) {
   var modal = document.createElement("div");
   modal.className = "custom-modal";
