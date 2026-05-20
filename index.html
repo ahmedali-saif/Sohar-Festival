@@ -8640,12 +8640,10 @@ setTimeout(tryWrap, 1000);
         metaSave({ lastUpdate: now, totalRows: state.totalRows, version: CACHE_VERSION });
         console.log("[Cache] تحديث بعد كتابة ✓ " + state.totalRows + " مربي");
         updateUI("ready");
-        /* تحديث جميع القوائم المنسدلة بما فيها bd_phoneList */
+        /* تحديث جميع القوائم المنسدلة */
         refreshAllPhoneDataLists();
-        /* استدعاء bd_refreshDropdowns مباشرة لتحديث واجهة سجل المربي */
-        if (typeof global.bd_refreshDropdowns === "function") {
-          setTimeout(global.bd_refreshDropdowns, 50);
-        }
+        /* تمرير ثانٍ بعد 400ms لضمان أن bd_phoneList لم تُستبدل من أي كود آخر */
+        setTimeout(refreshAllPhoneDataLists, 400);
       })
       .catch(function (e) {
         console.warn("[Cache] تحديث بعد كتابة فشل:", e);
@@ -9072,7 +9070,6 @@ setTimeout(tryWrap, 1000);
   }
 
 })(window);
-  
 </script>
 
 </body>
