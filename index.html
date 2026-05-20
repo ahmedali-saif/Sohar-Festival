@@ -8623,14 +8623,14 @@ var BREEDER_CACHE = (function() {
   // ─────────────────────────────────────────────────
   // تحديث الكاش عند الحفظ/التحديث/الحذف
   // ─────────────────────────────────────────────────
-  function patchBreederOperations() {
+ function patchBreederOperations() {
 
     // تحديث الكاش عند حفظ مربي
     if (window.bd_saveData && !window.bd_saveData._cachePatch) {
       var _orig_save = window.bd_saveData;
       window.bd_saveData = async function() {
         await _orig_save.apply(this, arguments);
-        syncBreederToCache();
+        await syncBreederToCache("save");
       };
       window.bd_saveData._cachePatch = true;
     }
@@ -8640,7 +8640,7 @@ var BREEDER_CACHE = (function() {
       var _orig_update = window.bd_updateData;
       window.bd_updateData = async function() {
         await _orig_update.apply(this, arguments);
-        syncBreederToCache();
+        await syncBreederToCache("update");
       };
       window.bd_updateData._cachePatch = true;
     }
@@ -8649,11 +8649,12 @@ var BREEDER_CACHE = (function() {
     if (window.bd_deleteData && !window.bd_deleteData._cachePatch) {
       var _orig_delete = window.bd_deleteData;
       window.bd_deleteData = async function() {
-        var phone = document.getElementById("bd_phoneInput");
-        var phoneVal = phone ? phone.value.trim() : "";
+        var phoneEl = document.getElementById("bd_phoneInput");
+        var phoneVal = phoneEl ? phoneEl.value.trim() : "";
         await _orig_delete.apply(this, arguments);
         if (phoneVal) {
-          BREEDER_CACHE.remove(phoneVal);
+          await BREEDER_CACHE.remove(phoneVal);
+          showToast("🗑️ تم حذف المربي من الكاش", "info");
           console.log("[CACHE] حُذف من الكاش:", phoneVal);
         }
       };
@@ -8661,19 +8662,16 @@ var BREEDER_CACHE = (function() {
     }
   }
 
-  // جمع بيانات المربي الحالي وتحديث الكاش
-  function syncBreederToCache() {
-    var phone = (document.getElementById("bd_caseNumber") || {}).value
-             || (document.getElementById("bd_phoneInput") || {}).value;
-    if (!phone) return;
-    phone = phone.toString().trim();
-
-    setTimeout(function() {
-      BREEDER_CACHE.lookup(phone).then(function() {
-        // مزامنة كاملة بعد تأخير قصير
-        BREEDER_CACHE.sync(false);
-      });
-    }, 2000);
+  // مزامنة كاملة فورية بعد أي عملية
+  async function syncBreederToCache(operation) {
+    try {
+      showToast("⏳ جاري تحديث الكاش...", "info");
+      await BREEDER_CACHE.sync(false);
+      showToast("✅ تم تحديث الكاش", "success");
+      console.log("[CACHE] تم تحديث الكاش بعد عملية:", operation);
+    } catch(err) {
+      console.warn("[CACHE] فشل تحديث الكاش:", err);
+    }
   }
 
   // ─────────────────────────────────────────────────
