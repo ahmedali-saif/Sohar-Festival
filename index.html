@@ -995,6 +995,12 @@ if (pageId === 'vaccination' && !window._vaccinationInitialized) {
     window._vrInitialized = true;
     if (typeof vr_loadData === 'function') vr_loadData();
   }
+  if (pageId === 'breeder' && !window._breederInitialized) {
+    window._breederInitialized = true;
+    var bdOverlay = document.getElementById('bd_pageLoadingOverlay');
+    if (bdOverlay) bdOverlay.style.display = 'flex';
+    if (typeof bd_init === 'function') bd_init();
+  }
 }
 function lockNav() {
   window._isLoggedIn = false;
@@ -4166,7 +4172,7 @@ document.getElementById("bd_phoneInput").addEventListener("change", async functi
 function bd_hideLoading() {
   var overlay = document.getElementById('bd_pageLoadingOverlay');
   if (!overlay) return;
-  overlay.classList.add('hidden');
+  overlay.classList.add('hide');  // ← استبدل hidden بـ hide
   setTimeout(function(){ 
     if (overlay) overlay.style.display = 'none'; 
   }, 450);
