@@ -8079,11 +8079,12 @@ function remoteSyncShowToast(topic) {
     financial: "الجرد المالي"
   };
   var label = labels[topic] || topic;
-
   var toast = document.createElement("div");
   Object.assign(toast.style, {
-    top: "50%", left: "50%",
-    transform: "translateX(-50%) translateY(-50%)",
+    position: "fixed",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
     background: "#0097a7", color: "#fff",
     padding: "10px 20px", borderRadius: "20px",
     fontFamily: "Tahoma,Arial", fontSize: "13px",
@@ -8094,14 +8095,12 @@ function remoteSyncShowToast(topic) {
   });
   toast.textContent = "🔄 تم تحديث " + label + " من جهاز آخر";
   document.body.appendChild(toast);
-
   requestAnimationFrame(function() { toast.style.opacity = "1"; });
   setTimeout(function() {
     toast.style.opacity = "0";
     setTimeout(function() { if (toast.parentNode) toast.remove(); }, 300);
   }, 4000);
 }
-
 // ─────────────────────────────────────────────────────
 // ٥. تشغيل/إيقاف الـ Polling مع تسجيل الدخول/الخروج
 // ─────────────────────────────────────────────────────
