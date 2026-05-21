@@ -7332,6 +7332,8 @@ function foDismissOverdueAlert() {
     search:     "بحث / عرض",
     tempsave:   "حفظ مؤقت",
     tempupdate: "تحديث مؤقت",
+    bd_saveVaccinationBtn: "حفظ بيانات التحصين", 
+    bd_updateVaccinationBtn: "تحديث بيانات التحصين",
   };
 
   /* ─────────────────────────────────────────────────────
@@ -7347,11 +7349,11 @@ function foDismissOverdueAlert() {
       { id: "tr_tempUpdateBtn", action: "tempupdate" },
     ],
     breeder: [
-      { id: "bd_saveBtn",              action: "save"   },
-      { id: "bd_updateBtn",            action: "update" },
+      { id: "bd_saveBtn",              action: "bdsave"   },
+      { id: "bd_updateBtn",            action: "bdupdate" },
       { id: "bd_deleteBtn",            action: "delete" },
-      { id: "bd_saveVaccinationBtn",   action: "save"   },
-      { id: "bd_updateVaccinationBtn", action: "update" },
+      { id: "bd_saveVaccinationBtn",   action: "bdsave"   },
+      { id: "bd_updateVaccinationBtn", action: "bdupdate" },
       { id: "bd_deleteVaccinationBtn", action: "delete" },
       { id: "bd_updatePossessionBtn",  action: "update" },
     ],
