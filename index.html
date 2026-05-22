@@ -9188,9 +9188,7 @@ function refreshAndRepatch() {
   
 (function() {
   "use strict";
-
-  // === نظام تتبع سرعة إدخال الحالات ===
-var TR_SAVE_TIMESTAMPS = [];
+  var TR_SAVE_TIMESTAMPS = [];
   var TR_MAX_CASES = 2;
   var TR_TIME_WINDOW_MS = 3 * 60 * 1000;
 
@@ -9231,66 +9229,56 @@ var TR_SAVE_TIMESTAMPS = [];
       '<div style="background:#fff;border-radius:14px;border:3px solid #e67e22;' +
       'padding:28px 32px;max-width:440px;width:90%;text-align:center;' +
       'box-shadow:0 12px 40px rgba(0,0,0,0.25);font-family:Tahoma,Arial,sans-serif;">' +
-
       '<div style="font-size:48px;margin-bottom:12px;">⚠️</div>' +
-
       '<div style="font-size:17px;font-weight:bold;color:#d35400;margin-bottom:14px;">' +
       'تنبيه: إدخال متسارع للحالات' +
       '</div>' +
-
       '<div style="font-size:14px;color:#444;line-height:1.8;margin-bottom:22px;' +
       'background:#fff8f0;border:1px solid #f0c07a;border-radius:8px;padding:12px 16px;">' +
-      'أنت تقوم بإدخال الحالات بشكل متسارع دون الالتزام بالتعليمات المعتمدة الخاصة بإدخال الحالات بشكل فردي ومنظم، ونأمل الالتزام بالإجراءات المحددة، وفي حال تكرار المخالفة سيتم رفع تنبيه إلى دائرة الثروة الحيوانية المركزية مع إرفاق اسم الطبيب القائم بإدخال البيانات ضمن تفاصيل التنبيه.' +
+      'أنت تقوم بإدخال الحالات بشكل متسارع دون الالتزام بالتعليمات المعتمدة الخاصة بإدخال الحالات بشكل فردي ومنظم.' +
       '</div>' +
-
       '<button id="tr-speed-warn-close" ' +
       'style="background:#e67e22;color:#fff;border:none;border-radius:8px;' +
       'padding:10px 36px;font-size:14px;font-weight:bold;cursor:pointer;' +
       'font-family:Tahoma,Arial,sans-serif;">حسناً، فهمت</button>' +
-
       '</div>';
 
     document.body.appendChild(overlay);
-fetch("https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec", {
-  method: "POST",
-  mode: "no-cors",
-  headers: { "Content-Type": "text/plain;charset=utf-8" },
-  body: JSON.stringify({
-    action: "sendSpeedWarningEmail",
-    username: window._currentUser || "غير معروف",
-    time: new Date().toLocaleString("ar-SA"),
-    count: TR_SAVE_TIMESTAMPS.length
-  }),
-  redirect: "follow"
-});
+
+    fetch("https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec", {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        action: "sendSpeedWarningEmail",
+        username: window._currentUser || "غير معروف",
+        time: new Date().toLocaleString("ar-SA"),
+        count: TR_SAVE_TIMESTAMPS.length
+      }),
+      redirect: "follow"
+    });
+
     document.getElementById("tr-speed-warn-close").onclick = function() {
       overlay.remove();
       TR_SAVE_TIMESTAMPS = [];
+      document.removeEventListener("keydown", blockEscape);
     };
 
-    // منع الإغلاق بالنقر خارج النافذة
     overlay.addEventListener("click", function(e) {
       e.stopPropagation();
     });
-
-    // منع إغلاق النافذة بمفتاح Escape
-    document.addEventListener("keydown", blockEscape);
 
     function blockEscape(e) {
       if (e.key === "Escape") {
         e.preventDefault();
         e.stopImmediatePropagation();
       }
-      // إزالة المستمع بعد إغلاق النافذة
       if (!document.getElementById("tr-speed-warning-modal")) {
         document.removeEventListener("keydown", blockEscape);
       }
     }
 
-    // إزالة مستمع Escape بعد الإغلاق عبر الزر
-    document.getElementById("tr-speed-warn-close").addEventListener("click", function() {
-      document.removeEventListener("keydown", blockEscape);
-    }, { once: true });
+    document.addEventListener("keydown", blockEscape);
   }
 
   function tryPatch() {
