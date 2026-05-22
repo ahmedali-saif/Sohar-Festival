@@ -8344,7 +8344,6 @@ setTimeout(tryWrap, 1000);
      ═══════════════════════════════════════════════════════════════ */
   function buildIndex(rows) {
     state.phoneMap      = {};
-    state.phoneList     = []; // ← إضافة: تفريغ القائمة لمنع تكرار الأرقام;
     state.phoneList     = [];
     state.regionList    = [];
     state.dataEntryList = [];
@@ -8383,9 +8382,7 @@ setTimeout(tryWrap, 1000);
     state.loading = true;
     updateUI("loading");
     if (onProgress) onProgress(0, "جاري الاتصال بالخادم...");
-    if (global.showToast) global.showToast("⏳ جاري تحميل البيانات...", "info");
-
-    apiFn("bd_getAllBreeders")
+      apiFn("bd_getAllBreeders")
       .then(function (res) {
         if (!res || !res.success || !res.data)
           throw new Error((res && res.message) ? res.message : "فشل جلب البيانات");
@@ -8402,13 +8399,11 @@ setTimeout(tryWrap, 1000);
         if (onProgress) onProgress(100, "اكتمل الكاش ✓");
         state.loading = false;
         updateUI("ready");
-        if (global.showToast) global.showToast("✅ تم تحميل " + state.totalRows + " مربي", "success");
         if (onDone) onDone(state.totalRows);
       })
       .catch(function (err) {
         state.loading = false;
         updateUI(state.loaded ? "ready" : "idle");
-        if (global.showToast) global.showToast("❌ فشل تحميل البيانات: " + (err.message || String(err)), "error");
         if (onError) onError(err.message || String(err));
       });
   }
@@ -8628,118 +8623,27 @@ setTimeout(tryWrap, 1000);
   }
 
   /* ── تحديث الكاش وإعادة الاعتراض بعد عمليات الكتابة ── */
-/* ═══════════════════════════════════════════════════════════════
-     ٥.٥ تحديث جزئي (Incremental Update)
-     ═══════════════════════════════════════════════════════════════ */
-  function fetchIncrementalUpdate() {
-    if (!state.enabled) return;
-    var apiFn = _origBdCallApi || global.bd_callApi;
-    if (typeof apiFn !== "function") return;
-
-    // إذا لم يكن هناك كاش سابق، نجلب الكل (أول تشغيل)
-    if (!state.lastUpdate || state.totalRows === 0) {
-      return fetchAndBuildCache(
-        function(p, msg) { updateUI("loading"); },
-        function(total) { updateUI("ready"); },
-        function(err) { updateUI(state.loaded ? "ready" : "idle"); }
-      );
-    }
-
-    if (global.showToast) global.showToast("⏳ جاري فحص التحديثات الجديدة...", "info");
-
-    apiFn("bd_getAllBreeders")
-      .then(function (res) {
-        if (!res || !res.success || !res.data) {
-          if (global.showToast) global.showToast("❌ فشل التحديث", "error");
-          return;
-        }
-
-        var updatedCount = 0;
-        var newCount = 0;
-
-        res.data.forEach(function (row) {
-          var phone = String(row.phone || row[0] || "");
-          if (!phone) return;
-
-          var existing = state.phoneMap[phone];
-          if (!existing) {
-            // سجل جديد
-            state.phoneMap[phone] = row;
-            state.phoneList.push(phone);
-            state.totalRows++;
-            newCount++;
-          } else {
-            // مقارنة بسيطة: إذا كان JSON مختلفاً = معدّل
-            if (JSON.stringify(existing) !== JSON.stringify(row)) {
-              state.phoneMap[phone] = row;
-              updatedCount++;
-            }
-          }
-        });
-
-        // حفظ الكاش المدمج
-        var rows = [];
-        for (var p in state.phoneMap) rows.push(state.phoneMap[p]);
-        storageSave(rows);
-
-        var now = new Date().toISOString();
-        state.lastUpdate = now;
-        metaSave({ lastUpdate: now, totalRows: state.totalRows, version: CACHE_VERSION });
-
-        updateUI("ready");
-        refreshAllPhoneDataLists();
-
-        // بناء رسالة النتيجة
-        var totalChanged = updatedCount + newCount;
-        if (totalChanged === 0) {
-          if (global.showToast) global.showToast("✅ لا توجد تحديثات جديدة", "success");
-        } else {
-          var msg = "✅ تم تحديث بيانات " + totalChanged + " مربي";
-          if (newCount > 0 && updatedCount > 0) {
-            msg += " (" + newCount + " جديد، " + updatedCount + " معدّل)";
-          } else if (newCount > 0) {
-            msg += " (" + newCount + " جديد)";
-          } else {
-            msg += " (" + updatedCount + " معدّل)";
-          }
-          if (global.showToast) global.showToast(msg, "success");
-        }
-
-        // تحديث القائمة المنسدلة
-        setTimeout(function() {
-          var dl = document.getElementById("bd_phoneList");
-          if (!dl) return;
-          var phones = state.phoneList.slice().sort();
-          dl.innerHTML = "";
-          phones.forEach(function(v) {
-            var o = document.createElement("option");
-            o.value = v;
-            dl.appendChild(o);
-          });
-          var inp = document.getElementById("bd_phoneInput");
-          if (inp) {
-            inp.removeAttribute("list");
-            setTimeout(function() { inp.setAttribute("list", "bd_phoneList"); }, 50);
-          }
-        }, 600);
-      })
-      .catch(function (e) {
-        console.warn("[Cache] فشل التحديث الجزئي:", e);
-        if (global.showToast) global.showToast("❌ فشل التحديث: " + (e.message || e), "error");
-      });
-  }
-
-  /* ── تحديث الكاش وإعادة الاعتراض بعد عمليات الكتابة ── */
-  function refreshAndRepatch() {
+function refreshAndRepatch() {
   if (!state.enabled) return;
-
   var apiFn = _origBdCallApi || global.bd_callApi;
   if (typeof apiFn !== "function") return;
-
-  apiFn("bd_getAllBreeders")
+ state.loading = true;
+  setProgress(0, "جاري تحديث الكاش...");
+  var prog = document.getElementById("cache-prog");
+  if (prog) prog.style.display = "block";
+  var csState = document.getElementById("cs-state");
+  if (csState) csState.textContent = "يتحدث...";
+  var spill = document.getElementById("cache-spill");
+  var sText = document.getElementById("cache-spill-txt");
+  if (spill) spill.className = spill.className.replace(/\b(idle|loading|ready|off)\b/g, "").trim() + " loading";
+  if (sText) sText.textContent = "جاري التحديث...";
+apiFn("bd_getAllBreeders")
     .then(function (res) {
       if (!res || !res.success || !res.data) {
-        if (global.showToast) global.showToast("❌ فشل تحديث الكاش بعد الكتابة", "error");
+        state.loading = false;
+        var prog2 = document.getElementById("cache-prog");
+        if (prog2) prog2.style.display = "none";
+        updateUI("ready");
         return;
       }
       buildIndex(res.data);
@@ -8748,12 +8652,11 @@ setTimeout(tryWrap, 1000);
       state.lastUpdate = now;
       metaSave({ lastUpdate: now, totalRows: state.totalRows, version: CACHE_VERSION });
       console.log("[Cache] تحديث بعد كتابة ✓ " + state.totalRows + " مربي");
+      state.loading = false;
       updateUI("ready");
       refreshAllPhoneDataLists();
       setTimeout(refreshAllPhoneDataLists, 400);
-      if (global.showToast) global.showToast("✅ تم تحديث الكاش بعد العملية", "success");
-
-      // ← الإضافة: تحديث القائمة المنسدلة في سجل المربي مباشرة
+      
       setTimeout(function() {
         var dl = document.getElementById("bd_phoneList");
         if (!dl) return;
@@ -8764,7 +8667,6 @@ setTimeout(tryWrap, 1000);
           o.value = v;
           dl.appendChild(o);
         });
-        // إجبار المتصفح على تحديث الـ datalist
         var inp = document.getElementById("bd_phoneInput");
         if (inp) {
           inp.removeAttribute("list");
@@ -8774,11 +8676,13 @@ setTimeout(tryWrap, 1000);
     })
     .catch(function (e) {
       console.warn("[Cache] تحديث بعد كتابة فشل:", e);
-      if (global.showToast) global.showToast("❌ فشل تحديث الكاش بعد الكتابة", "error");
+      state.loading = false;
+      updateUI("ready");
     });
 }
 
-function refreshAllPhoneDataLists() {
+  /* ── تحديث datalists الهاتف في جميع الصفحات ── */
+  function refreshAllPhoneDataLists() {
     var phones      = state.phoneList.slice().sort();
     var regions     = state.regionList.slice().sort();
     var dataEntries = state.dataEntryList.slice().sort();
@@ -9093,7 +8997,37 @@ function refreshAllPhoneDataLists() {
 
     refreshCache: function () {
       if (state.loading) return;
-      fetchIncrementalUpdate();
+      if (global.showToast) global.showToast("⏳ جاري تحديث الكاش...", "info");
+
+      var apiFn = _origBdCallApi || global.bd_callApi;
+      if (typeof apiFn !== "function") {
+        if (global.showToast) global.showToast("❌ دالة API غير موجودة", "error");
+        return;
+      }
+
+      state.loading = true;
+      updateUI("loading");
+
+      apiFn("bd_getAllBreeders")
+        .then(function (res) {
+          if (!res || !res.success || !res.data)
+            throw new Error((res && res.message) || "فشل جلب البيانات");
+          buildIndex(res.data);
+          storageSave(res.data);
+          var now = new Date().toISOString();
+          state.lastUpdate = now;
+          metaSave({ lastUpdate: now, totalRows: state.totalRows, version: CACHE_VERSION });
+          state.loading = false;
+          updateUI("ready");
+          refreshAllPhoneDataLists();
+          if (state.enabled) patchAppFunctions();
+        if (global.showToast) global.showToast("✅ تم تحديث بيانات الكاش بنجاح (" + state.totalRows + " مربي)", "success");
+        })
+        .catch(function (err) {
+          state.loading = false;
+          updateUI(state.loaded ? "ready" : "idle");
+          if (global.showToast) global.showToast("❌ فشل التحديث: " + (err.message || err), "error");
+        });
     },
 
     clearCache: function () {
