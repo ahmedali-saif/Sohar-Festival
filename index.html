@@ -9190,33 +9190,27 @@ function refreshAndRepatch() {
   "use strict";
 
   // === نظام تتبع سرعة إدخال الحالات ===
-  var TR_SAVE_TIMESTAMPS = [];
-  var TR_SPEED_WARNED_THIS_SESSION = false;
+var TR_SAVE_TIMESTAMPS = [];
   var TR_MAX_CASES = 3;
-  var TR_TIME_WINDOW_MS = 3 * 60 * 1000; // 3 دقائق
+  var TR_TIME_WINDOW_MS = 3 * 60 * 1000;
 
-  // اعتراض دالة trsaveData الأصلية
   function patchTrSaveData() {
     if (!window.trsaveData || window.trsaveData._speedPatched) return;
 
     var _origSave = window.trsaveData;
 
     window.trsaveData = async function() {
-      // تسجيل الوقت الحالي
       var now = Date.now();
       TR_SAVE_TIMESTAMPS.push(now);
 
-      // إبقاء الطوابع الزمنية ضمن النافذة الزمنية فقط
       TR_SAVE_TIMESTAMPS = TR_SAVE_TIMESTAMPS.filter(function(ts) {
         return now - ts <= TR_TIME_WINDOW_MS;
       });
 
-      // فحص: هل تجاوز عدد الحالات الحد المسموح؟
       if (TR_SAVE_TIMESTAMPS.length > TR_MAX_CASES) {
         showSpeedWarningModal();
       }
 
-      // استمرار في الحفظ بغض النظر عن التحذير
       return _origSave.apply(this, arguments);
     };
 
@@ -9224,14 +9218,13 @@ function refreshAndRepatch() {
   }
 
   function showSpeedWarningModal() {
-    // إزالة أي نافذة موجودة مسبقاً
     var existing = document.getElementById("tr-speed-warning-modal");
-    if (existing) existing.remove();
+    if (existing) return;
 
     var overlay = document.createElement("div");
     overlay.id = "tr-speed-warning-modal";
     overlay.style.cssText =
-      "position:fixed;inset:0;background:rgba(0,0,0,0.55);" +
+      "position:fixed;inset:0;background:rgba(0,0,0,0.75);" +
       "display:flex;align-items:center;justify-content:center;z-index:99999;direction:rtl;";
 
     overlay.innerHTML =
@@ -9247,7 +9240,7 @@ function refreshAndRepatch() {
 
       '<div style="font-size:14px;color:#444;line-height:1.8;margin-bottom:22px;' +
       'background:#fff8f0;border:1px solid #f0c07a;border-radius:8px;padding:12px 16px;">' +
-      'أنت تقوم بإدخال الحالات بشكل متسارع دون الالتزام بالتعليمات المعتمدة الخاصة بإدخال الحالات بشكل فردي ومنظم، ونأمل الالتزام بالإجراءات المحددة، وفي حال تكرار المخالفة سيتم رفع تنبيه إلى دائرة الثروة الحيوانية المركزية مع إرفاق اسم الطبيب القائم بإدخال البيانات ضمن تفاصيل التنبيه.' +
+      'أنت تقوم بإدخال الحالات بشكل متسارع دون الالتزام بالتعليمات المعتمدة الخاصة بإدخال الحالات بشكل فردي ومنظم.' +
       '</div>' +
 
       '<button id="tr-speed-warn-close" ' +
@@ -9261,20 +9254,34 @@ function refreshAndRepatch() {
 
     document.getElementById("tr-speed-warn-close").onclick = function() {
       overlay.remove();
-      // إعادة تعيين العداد بعد الإغلاق
       TR_SAVE_TIMESTAMPS = [];
     };
 
-    // إغلاق بالنقر خارج النافذة
+    // منع الإغلاق بالنقر خارج النافذة
     overlay.addEventListener("click", function(e) {
-      if (e.target === overlay) {
-        overlay.remove();
-        TR_SAVE_TIMESTAMPS = [];
-      }
+      e.stopPropagation();
     });
+
+    // منع إغلاق النافذة بمفتاح Escape
+    document.addEventListener("keydown", blockEscape);
+
+    function blockEscape(e) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+      // إزالة المستمع بعد إغلاق النافذة
+      if (!document.getElementById("tr-speed-warning-modal")) {
+        document.removeEventListener("keydown", blockEscape);
+      }
+    }
+
+    // إزالة مستمع Escape بعد الإغلاق عبر الزر
+    document.getElementById("tr-speed-warn-close").addEventListener("click", function() {
+      document.removeEventListener("keydown", blockEscape);
+    }, { once: true });
   }
 
-  // محاولة التصحيح بعد تحميل الصفحة
   function tryPatch() {
     if (typeof window.trsaveData === "function") {
       patchTrSaveData();
