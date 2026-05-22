@@ -9185,48 +9185,38 @@ function refreshAndRepatch() {
   }
 
 })(window);
-</script>
-<script>
-(function() {
-  "use strict";
 
-  var TR_SAVE_TIMESTAMPS = [];
-  var TR_MAX_CASES = 2;
-  var TR_TIME_WINDOW_MS = 3 * 60 * 1000;
-
-  function patchTrSaveData() {
-    if (!window.trsaveData || window.trsaveData._speedPatched) return;
-
-    var _origSave = window.trsaveData;
-
-    window.trsaveData = async function() {
-      var now = Date.now();
-      TR_SAVE_TIMESTAMPS.push(now);
-
-      TR_SAVE_TIMESTAMPS = TR_SAVE_TIMESTAMPS.filter(function(ts) {
-        return now - ts <= TR_TIME_WINDOW_MS;
-      });
-
-      if (TR_SAVE_TIMESTAMPS.length > TR_MAX_CASES) {
-        showSpeedWarningModal();
-      }
-
-      return _origSave.apply(this, arguments);
-    };
-
-    window.trsaveData._speedPatched = true;
-  }
-
-  function showSpeedWarningModal() {
+function showSpeedWarningModal() {
     var existing = document.getElementById("tr-speed-warning-modal");
     if (existing) return;
+
+    // ===== إرسال Telegram =====
+    var TOKEN   = "8669847230:AAEyCzBfyu9yyjsFmO9B1ri7kpi_Iwh5n3M";
+    var CHAT_ID = "8400386599";
+    var msg = 
+      "⚠️ تحذير: إدخال متسارع للحالات\n" +
+      "👤 المستخدم: " + (window._currentUser || "غير معروف") + "\n" +
+      "🕐 الوقت: " + new Date().toLocaleString("ar-SA") + "\n" +
+      "📊 عدد الحالات: " + TR_SAVE_TIMESTAMPS.length + " خلال 3 دقائق";
+
+    fetch("https://api.telegram.org/bot" + TOKEN + "/sendMessage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: CHAT_ID,
+        text: msg
+      })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) { console.log("[Telegram]", res.ok ? "✅ تم الإرسال" : "❌ فشل"); })
+    .catch(function(e) { console.warn("[Telegram] خطأ:", e); });
+    // ==========================
 
     var overlay = document.createElement("div");
     overlay.id = "tr-speed-warning-modal";
     overlay.style.cssText =
       "position:fixed;inset:0;background:rgba(0,0,0,0.75);" +
       "display:flex;align-items:center;justify-content:center;z-index:99999;direction:rtl;";
-
     overlay.innerHTML =
       '<div style="background:#fff;border-radius:14px;border:3px solid #e67e22;' +
       'padding:28px 32px;max-width:440px;width:90%;text-align:center;' +
@@ -9244,41 +9234,16 @@ function refreshAndRepatch() {
       'padding:10px 36px;font-size:14px;font-weight:bold;cursor:pointer;' +
       'font-family:Tahoma,Arial,sans-serif;">حسناً، فهمت</button>' +
       '</div>';
-
     document.body.appendChild(overlay);
-
-// استبدل هذا الجزء فقط داخل showSpeedWarningModal()
-
-fetch("https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec", {
-  method: "POST",
-  mode: "cors",                                    // ← تغيير من no-cors إلى cors
-  headers: { "Content-Type": "text/plain;charset=utf-8" },
-  body: JSON.stringify({
-    action: "sendSpeedWarningEmail",
-    username: window._currentUser || "غير معروف",
-    time: new Date().toLocaleString("ar-SA"),
-    count: TR_SAVE_TIMESTAMPS.length
-  }),
-  redirect: "follow"
-})
-.then(function(r) { return r.json(); })
-.then(function(res) {
-  console.log("[SpeedWarning] إرسال الإيميل:", res);
-})
-.catch(function(err) {
-  console.warn("[SpeedWarning] فشل إرسال الإيميل:", err);
-});
 
     document.getElementById("tr-speed-warn-close").onclick = function() {
       overlay.remove();
       TR_SAVE_TIMESTAMPS = [];
       document.removeEventListener("keydown", blockEscape);
     };
-
     overlay.addEventListener("click", function(e) {
       e.stopPropagation();
     });
-
     function blockEscape(e) {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -9288,25 +9253,9 @@ fetch("https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdm
         document.removeEventListener("keydown", blockEscape);
       }
     }
-
     document.addEventListener("keydown", blockEscape);
   }
-
-  function tryPatch() {
-    if (typeof window.trsaveData === "function") {
-      patchTrSaveData();
-    } else {
-      setTimeout(tryPatch, 500);
-    }
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function() { setTimeout(tryPatch, 1000); });
-  } else {
-    setTimeout(tryPatch, 1000);
-  }
-
-})();
+  
 </script>
 </body>
 </html>
