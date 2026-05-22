@@ -9185,7 +9185,52 @@ function refreshAndRepatch() {
   }
 
 })(window);
+(function() {
+  "use strict";
 
+  var TR_SAVE_TIMESTAMPS = [];
+  var TR_MAX_CASES = 2;
+  var TR_TIME_WINDOW_MS = 3 * 60 * 1000;
+
+  function patchTrSaveData() {
+    if (!window.trsaveData || window.trsaveData._speedPatched) return;
+
+    var _origSave = window.trsaveData;
+
+    window.trsaveData = async function() {
+      var now = Date.now();
+      TR_SAVE_TIMESTAMPS.push(now);
+
+      TR_SAVE_TIMESTAMPS = TR_SAVE_TIMESTAMPS.filter(function(ts) {
+        return now - ts <= TR_TIME_WINDOW_MS;
+      });
+
+      if (TR_SAVE_TIMESTAMPS.length > TR_MAX_CASES) {
+        showSpeedWarningModal();
+      }
+
+      return _origSave.apply(this, arguments);
+    };
+
+    window.trsaveData._speedPatched = true;
+  }
+
+  function tryPatch() {
+    if (typeof window.trsaveData === "function") {
+      patchTrSaveData();
+    } else {
+      setTimeout(tryPatch, 500);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function() { setTimeout(tryPatch, 1000); });
+  } else {
+    setTimeout(tryPatch, 1000);
+  }
+
+})();
+  
 function showSpeedWarningModal() {
     var existing = document.getElementById("tr-speed-warning-modal");
     if (existing) return;
