@@ -8383,7 +8383,9 @@ setTimeout(tryWrap, 1000);
     updateUI("loading");
     if (onProgress) onProgress(0, "جاري الاتصال بالخادم...");
 
-    apiFn("bd_getAllBreeders")
+    var meta = metaLoad();
+  var savedHash = meta ? (meta.hash || '') : '';
+  apiFn("bd_getBreedersSince", { lastRow: state.totalRows, lastKnownHash: savedHash })
       .then(function (res) {
         if (!res || !res.success || !res.data)
           throw new Error((res && res.message) ? res.message : "فشل جلب البيانات");
@@ -8395,7 +8397,7 @@ setTimeout(tryWrap, 1000);
 
         var now = new Date().toISOString();
         state.lastUpdate = now;
-        metaSave({ lastUpdate: now, totalRows: state.totalRows, version: CACHE_VERSION });
+        metaSave({ lastUpdate: now, totalRows: state.totalRows, version: CACHE_VERSION, hash: res.currentHash || '' });
 
         if (onProgress) onProgress(100, "اكتمل الكاش ✓");
         state.loading = false;
@@ -8641,21 +8643,46 @@ function refreshAndRepatch() {
   if (spill) spill.className = spill.className.replace(/\b(idle|loading|ready|off)\b/g, "").trim() + " loading";
   if (sText) sText.textContent = "جاري التحديث...";
 
-  apiFn("bd_getAllBreeders")
+ var meta = metaLoad();
+  var savedHash = meta ? (meta.hash || '') : '';
+  apiFn("bd_getBreedersSince", { lastRow: state.totalRows, lastKnownHash: savedHash })
     .then(function (res) {
-      if (!res || !res.success || !res.data) {
-       state.loading = false;
-      var prog2 = document.getElementById("cache-prog");
-      if (prog2) prog2.style.display = "none";
-      updateUI("ready");
+      if (!res || !res.success) {
+        state.loading = false;
+        var prog2 = document.getElementById("cache-prog");
+        if (prog2) prog2.style.display = "none";
+        updateUI("ready");
         return;
       }
-      buildIndex(res.data);
-      storageSave(res.data);
+
+      if (res.noChange) {
+        state.loading = false;
+        var prog2 = document.getElementById("cache-prog");
+        if (prog2) prog2.style.display = "none";
+        updateUI("ready");
+        return;
+      }
+
+      var updatedCount = (res.data || []).length;
+
+      if (res.fullRefresh && updatedCount > 0) {
+        buildIndex(res.data);
+        storageSave(res.data);
+      } else if (updatedCount > 0) {
+        var existing = storageLoad() || [];
+        var existingMap = {};
+        existing.forEach(function(r) { if (r.phone) existingMap[r.phone] = r; });
+        res.data.forEach(function(r) { if (r.phone) existingMap[r.phone] = r; });
+        var merged = Object.keys(existingMap).map(function(k) { return existingMap[k]; });
+        buildIndex(merged);
+        storageSave(merged);
+      }
+
+      if (res.totalRows) state.totalRows = res.totalRows;
       var now = new Date().toISOString();
       state.lastUpdate = now;
-      metaSave({ lastUpdate: now, totalRows: state.totalRows, version: CACHE_VERSION });
-      console.log("[Cache] تحديث بعد كتابة ✓ " + state.totalRows + " مربي");
+      metaSave({ lastUpdate: now, totalRows: state.totalRows, version: CACHE_VERSION, hash: res.currentHash || '' });
+      console.log("[Cache] تحديث جزئي ✓ " + updatedCount + " سجل");
       state.loading = false;
       updateUI("ready");
       refreshAllPhoneDataLists();
@@ -9025,7 +9052,13 @@ function refreshAndRepatch() {
           updateUI("ready");
           refreshAllPhoneDataLists();
           if (state.enabled) patchAppFunctions();
-          if (global.showToast) global.showToast("✅ تم تحديث بيانات الكاش بنجاح (" + state.totalRows + " مربي)", "success");
+          var updated = (res.data && !res.noChange) ? res.data.length : 0;
+          var msg = res.noChange
+            ? "✅ الكاش محدث — لا توجد بيانات جديدة"
+            : res.fullRefresh
+              ? "✅ تم تحديث الكاش بالكامل (" + updated + " مربي)"
+              : "✅ تم إضافة " + updated + " مربي جديد للكاش";
+          if (global.showToast) global.showToast(msg, "success");
         })
         .catch(function (err) {
           state.loading = false;
