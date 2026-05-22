@@ -8630,14 +8630,24 @@ function refreshAndRepatch() {
   var apiFn = _origBdCallApi || global.bd_callApi;
   if (typeof apiFn !== "function") return;
 
-  state.loading = true;
-  updateUI("loading");
+ state.loading = true;
+  setProgress(0, "جاري تحديث الكاش...");
+  var prog = document.getElementById("cache-prog");
+  if (prog) prog.style.display = "block";
+  var csState = document.getElementById("cs-state");
+  if (csState) csState.textContent = "يتحدث...";
+  var spill = document.getElementById("cache-spill");
+  var sText = document.getElementById("cache-spill-txt");
+  if (spill) spill.className = spill.className.replace(/\b(idle|loading|ready|off)\b/g, "").trim() + " loading";
+  if (sText) sText.textContent = "جاري التحديث...";
 
   apiFn("bd_getAllBreeders")
     .then(function (res) {
       if (!res || !res.success || !res.data) {
-        state.loading = false;
-        updateUI("ready");
+       state.loading = false;
+      var prog2 = document.getElementById("cache-prog");
+      if (prog2) prog2.style.display = "none";
+      updateUI("ready");
         return;
       }
       buildIndex(res.data);
