@@ -8984,7 +8984,36 @@ function refreshAndRepatch() {
     refreshCache: function () {
       if (state.loading) return;
       if (global.showToast) global.showToast("⏳ جاري تحديث الكاش...", "info");
-      refreshAndRepatch();
+
+      var apiFn = _origBdCallApi || global.bd_callApi;
+      if (typeof apiFn !== "function") {
+        if (global.showToast) global.showToast("❌ دالة API غير موجودة", "error");
+        return;
+      }
+
+      state.loading = true;
+      updateUI("loading");
+
+      apiFn("bd_getAllBreeders")
+        .then(function (res) {
+          if (!res || !res.success || !res.data)
+            throw new Error((res && res.message) || "فشل جلب البيانات");
+          buildIndex(res.data);
+          storageSave(res.data);
+          var now = new Date().toISOString();
+          state.lastUpdate = now;
+          metaSave({ lastUpdate: now, totalRows: state.totalRows, version: CACHE_VERSION });
+          state.loading = false;
+          updateUI("ready");
+          refreshAllPhoneDataLists();
+          if (state.enabled) patchAppFunctions();
+          if (global.showToast) global.showToast("✅ تم تحديث بيانات الكاش بنجاح (" + state.totalRows + " مربي)", "success");
+        })
+        .catch(function (err) {
+          state.loading = false;
+          updateUI(state.loaded ? "ready" : "idle");
+          if (global.showToast) global.showToast("❌ فشل التحديث: " + (err.message || err), "error");
+        });
     },
 
     clearCache: function () {
