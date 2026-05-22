@@ -9251,7 +9251,18 @@ var TR_SAVE_TIMESTAMPS = [];
       '</div>';
 
     document.body.appendChild(overlay);
-
+fetch("https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec", {
+  method: "POST",
+  mode: "no-cors",
+  headers: { "Content-Type": "text/plain;charset=utf-8" },
+  body: JSON.stringify({
+    action: "sendSpeedWarningEmail",
+    username: window._currentUser || "غير معروف",
+    time: new Date().toLocaleString("ar-SA"),
+    count: TR_SAVE_TIMESTAMPS.length
+  }),
+  redirect: "follow"
+});
     document.getElementById("tr-speed-warn-close").onclick = function() {
       overlay.remove();
       TR_SAVE_TIMESTAMPS = [];
