@@ -8627,7 +8627,38 @@ function refreshAndRepatch() {
   if (!state.enabled) return;
   var apiFn = _origBdCallApi || global.bd_callApi;
   if (typeof apiFn !== "function") return;
- state.loading = true;
+
+  // ── رسالة انتظار ──
+  var waitOverlay = document.createElement("div");
+  waitOverlay.id = "cache-wait-overlay";
+  Object.assign(waitOverlay.style, {
+    position: "fixed", inset: "0",
+    background: "rgba(0,0,0,0.5)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    zIndex: "99998", direction: "rtl"
+  });
+  waitOverlay.innerHTML =
+    '<div style="background:#fff;border-radius:14px;border:3px solid #00b8d9;' +
+    'padding:28px 40px;text-align:center;font-family:Tahoma,Arial;' +
+    'box-shadow:0 8px 30px rgba(0,0,0,.25);min-width:260px;">' +
+    '<div style="width:48px;height:48px;border:5px solid #e0e0e0;' +
+    'border-top:5px solid #00b8d9;border-radius:50%;' +
+    'animation:spin 1s linear infinite;margin:0 auto 16px;"></div>' +
+    '<div style="font-size:15px;font-weight:bold;color:#004e66;margin-bottom:8px;">⏳ جاري تحديث الكاش...</div>' +
+    '<div style="font-size:12px;color:#666;">الرجاء الانتظار حتى تصبح البيانات متاحة</div>' +
+    '</div>';
+  document.body.appendChild(waitOverlay);
+
+  function removeWaitOverlay() {
+    var el = document.getElementById("cache-wait-overlay");
+    if (el) {
+      el.style.transition = "opacity 0.3s ease";
+      el.style.opacity = "0";
+      setTimeout(function() { if (el.parentNode) el.remove(); }, 300);
+    }
+  }
+
+  state.loading = true;
   setProgress(0, "جاري تحديث الكاش...");
   var prog = document.getElementById("cache-prog");
   if (prog) prog.style.display = "block";
@@ -8637,12 +8668,14 @@ function refreshAndRepatch() {
   var sText = document.getElementById("cache-spill-txt");
   if (spill) spill.className = spill.className.replace(/\b(idle|loading|ready|off)\b/g, "").trim() + " loading";
   if (sText) sText.textContent = "جاري التحديث...";
-apiFn("bd_getAllBreeders")
+
+  apiFn("bd_getAllBreeders")
     .then(function (res) {
       if (!res || !res.success || !res.data) {
         state.loading = false;
         var prog2 = document.getElementById("cache-prog");
         if (prog2) prog2.style.display = "none";
+        removeWaitOverlay();
         updateUI("ready");
         return;
       }
@@ -8653,10 +8686,12 @@ apiFn("bd_getAllBreeders")
       metaSave({ lastUpdate: now, totalRows: state.totalRows, version: CACHE_VERSION });
       console.log("[Cache] تحديث بعد كتابة ✓ " + state.totalRows + " مربي");
       state.loading = false;
+      removeWaitOverlay();
+      showToast("✅ تم تحديث الكاش — البيانات جاهزة الآن", "success");
       updateUI("ready");
       refreshAllPhoneDataLists();
       setTimeout(refreshAllPhoneDataLists, 400);
-      
+
       setTimeout(function() {
         var dl = document.getElementById("bd_phoneList");
         if (!dl) return;
@@ -8674,13 +8709,13 @@ apiFn("bd_getAllBreeders")
         }
       }, 600);
     })
-    .catch(function (e) {
+.catch(function (e) {
       console.warn("[Cache] تحديث بعد كتابة فشل:", e);
       state.loading = false;
+      removeWaitOverlay();
       updateUI("ready");
     });
 }
-
   /* ── تحديث datalists الهاتف في جميع الصفحات ── */
   function refreshAllPhoneDataLists() {
     var phones      = state.phoneList.slice().sort();
