@@ -9186,71 +9186,64 @@ function refreshAndRepatch() {
 
 })(window);
 
-(function() {
+
+  (function() {
   "use strict";
 
-  var TR_MAX_CASES = 1;                // الحد الأقصى للحالات المسموح بها
-  var TR_TIME_WINDOW_MS = 3 * 60 * 1000; // 3 دقائق
-  var LS_KEY = "tr_save_timestamps";
+  var TR_MAX_CASES = 1;                // الحد الأقصى 2 ضغطة خلال 3 دقائق (أي 3 ضغطات تسبب التنبيه)
+  var TR_TIME_WINDOW_MS = 3 * 60 * 1000;
 
+  // دالة لجلب التواقيت من localStorage أو تهيئتها
   function getTimestamps() {
-    try {
-      var raw = localStorage.getItem(LS_KEY);
-      if (raw) {
-        var arr = JSON.parse(raw);
-        var now = Date.now();
-        arr = arr.filter(function(ts) { return now - ts <= TR_TIME_WINDOW_MS; });
-        return arr;
-      }
-    } catch(e) {}
+    var stored = localStorage.getItem("TR_SAVE_TIMESTAMPS");
+    if (stored) {
+      try {
+        var arr = JSON.parse(stored);
+        if (Array.isArray(arr)) return arr;
+      } catch(e) {}
+    }
     return [];
   }
 
-  function saveTimestamps(arr) {
-    try {
-      localStorage.setItem(LS_KEY, JSON.stringify(arr));
-    } catch(e) {}
+  // دالة لحفظ التواقيت في localStorage
+  function saveTimestamps(timestamps) {
+    localStorage.setItem("TR_SAVE_TIMESTAMPS", JSON.stringify(timestamps));
   }
 
-  function checkSpeed() {
+  // دالة تنظيف التواقيت القديمة
+  function cleanOldTimestamps(now) {
+    var timestamps = getTimestamps();
+    var filtered = timestamps.filter(function(ts) {
+      return now - ts <= TR_TIME_WINDOW_MS;
+    });
+    if (filtered.length !== timestamps.length) {
+      saveTimestamps(filtered);
+    }
+    return filtered;
+  }
+
+  // دالة إضافة طابع زمني جديد
+  function addTimestamp() {
     var now = Date.now();
     var timestamps = getTimestamps();
     timestamps.push(now);
-    // فلترة القديمة
-    timestamps = timestamps.filter(function(ts) {
-      return now - ts <= TR_TIME_WINDOW_MS;
-    });
     saveTimestamps(timestamps);
+    return cleanOldTimestamps(now);
+  }
 
-    // التنبيه عند التجاوز (>= لأن الحد = 2 يعني الضغطة الثانية هي التجاوز)
-    if (timestamps.length >= TR_MAX_CASES) {
+  // التحقق من السرعة
+  function checkSpeed() {
+    var now = Date.now();
+    var validTimestamps = cleanOldTimestamps(now);
+    if (validTimestamps.length > TR_MAX_CASES) {
       showSpeedWarningModal();
+      // بعد ظهور التحذير، يمكن مسح التواقيت لمنع تكرار النوافذ فوراً
+      saveTimestamps([]);
     }
   }
 
-  function attachToSaveBtn() {
-    var btn = document.getElementById("tr_saveBtn");
-    if (!btn) { setTimeout(attachToSaveBtn, 500); return; }
-    if (btn._speedListenerAdded) return;
-
-    btn.addEventListener("click", function() {
-      setTimeout(checkSpeed, 2000);
-    }, true);
-
-    btn._speedListenerAdded = true;
-    console.log("[SpeedCheck] ✅ تم ربط زر الحفظ");
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function() {
-      setTimeout(attachToSaveBtn, 1500);
-    });
-  } else {
-    setTimeout(attachToSaveBtn, 1500);
-  }
-})();
-  
-function showSpeedWarningModal() {
+  // عرض النافذة المنبثقة (نفس الكود الأصلي مع تحسينات بسيطة)
+  function showSpeedWarningModal() {
     var existing = document.getElementById("tr-speed-warning-modal");
     if (existing) return;
 
@@ -9261,7 +9254,7 @@ function showSpeedWarningModal() {
       "⚠️ تحذير: إدخال متسارع للحالات\n" +
       "👤 المستخدم: " + (window._currentUser || "غير معروف") + "\n" +
       "🕐 الوقت: " + new Date().toLocaleString("ar-SA") + "\n" +
-      "📊 عدد الحالات: " + TR_SAVE_TIMESTAMPS.length + " خلال 3 دقائق";
+      "📊 عدد الحالات: " + (getTimestamps().length) + " خلال 3 دقائق";
 
     fetch("https://api.telegram.org/bot" + TOKEN + "/sendMessage", {
       method: "POST",
@@ -9302,7 +9295,7 @@ function showSpeedWarningModal() {
 
     document.getElementById("tr-speed-warn-close").onclick = function() {
       overlay.remove();
-      TR_SAVE_TIMESTAMPS = [];
+      // لا نقوم بمسح التواقيت هنا لأننا مسحناها بالفعل في checkSpeed
       document.removeEventListener("keydown", blockEscape);
     };
     overlay.addEventListener("click", function(e) {
@@ -9319,7 +9312,68 @@ function showSpeedWarningModal() {
     }
     document.addEventListener("keydown", blockEscape);
   }
-  
+
+  // ربط زر الحفظ مع منع الإرسال الافتراضي مؤقتاً
+  function attachToSaveBtn() {
+    var btn = document.getElementById("tr_saveBtn");
+    if (!btn) return false; // لم يتم العثور على الزر بعد
+    if (btn._speedListenerAdded) return true;
+
+    btn.addEventListener("click", function(event) {
+      // منع الإرسال الفوري للنموذج (إن كان الزر داخل form)
+      var form = btn.closest("form");
+      if (form) {
+        event.preventDefault();  // نمنع الإرسال مؤقتاً
+      }
+
+      // إضافة طابع زمني والتحقق من السرعة فوراً (بدون تأخير)
+      var updatedTimestamps = addTimestamp(); // هذه الدالة تنظف القديم وتضيف الجديد
+      console.log("[SpeedCheck] عدد الضغطات الفعلية خلال 3 دقائق:", updatedTimestamps.length);
+      checkSpeed(); // داخلها ستظهر النافذة إذا تجاوز الحد
+
+      // بعد الانتهاء، إذا كان هناك نموذج، نعيد إرساله بعد 10ms (لضمان تسجيل كل شيء)
+      if (form) {
+        // نستخدم setTimeout لتجنب أي تعارض مع alert أو modal قد تظهر
+        setTimeout(function() {
+          form.submit();
+        }, 10);
+      }
+    }, true); // true = مرحلة الالتقاط لضمان التنفيذ قبل أي مستمع آخر
+
+    btn._speedListenerAdded = true;
+    console.log("[SpeedCheck] ✅ تم ربط زر الحفظ بنجاح");
+    return true;
+  }
+
+  // مراقبة ظهور الزر ديناميكياً باستخدام MutationObserver (أفضل من setInterval)
+  function observeSaveButton() {
+    if (attachToSaveBtn()) return; // تم الربط فوراً
+
+    var observer = new MutationObserver(function(mutations, obs) {
+      if (attachToSaveBtn()) {
+        obs.disconnect(); // توقف عن المراقبة بعد الربط
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  // بدء المراقبة عند تحميل الصفحة
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function() {
+      observeSaveButton();
+    });
+  } else {
+    observeSaveButton();
+  }
+
+  // (اختياري) تنظيف localStorage القديم بعد فترة لمنع التراكم
+  window.addEventListener("beforeunload", function() {
+    // لا داعي لحذفها، لكن يمكن تنظيف التواقيت الأقدم من 3 دقائق عند كل بدء تشغيل
+    var now = Date.now();
+    cleanOldTimestamps(now);
+  });
+})();
+
 </script>
 </body>
 </html>
