@@ -8382,10 +8382,7 @@ setTimeout(tryWrap, 1000);
     state.loading = true;
     updateUI("loading");
     if (onProgress) onProgress(0, "جاري الاتصال بالخادم...");
-
-    var meta = metaLoad();
-  var savedHash = meta ? (meta.hash || '') : '';
-  apiFn("bd_getBreedersSince", { lastRow: state.totalRows, lastKnownHash: savedHash })
+      apiFn("bd_getAllBreeders")
       .then(function (res) {
         if (!res || !res.success || !res.data)
           throw new Error((res && res.message) ? res.message : "فشل جلب البيانات");
@@ -8397,7 +8394,7 @@ setTimeout(tryWrap, 1000);
 
         var now = new Date().toISOString();
         state.lastUpdate = now;
-        metaSave({ lastUpdate: now, totalRows: state.totalRows, version: CACHE_VERSION, hash: res.currentHash || '' });
+        metaSave({ lastUpdate: now, totalRows: state.totalRows, version: CACHE_VERSION });
 
         if (onProgress) onProgress(100, "اكتمل الكاش ✓");
         state.loading = false;
@@ -8628,10 +8625,8 @@ setTimeout(tryWrap, 1000);
   /* ── تحديث الكاش وإعادة الاعتراض بعد عمليات الكتابة ── */
 function refreshAndRepatch() {
   if (!state.enabled) return;
-
   var apiFn = _origBdCallApi || global.bd_callApi;
   if (typeof apiFn !== "function") return;
-
  state.loading = true;
   setProgress(0, "جاري تحديث الكاش...");
   var prog = document.getElementById("cache-prog");
@@ -8642,47 +8637,21 @@ function refreshAndRepatch() {
   var sText = document.getElementById("cache-spill-txt");
   if (spill) spill.className = spill.className.replace(/\b(idle|loading|ready|off)\b/g, "").trim() + " loading";
   if (sText) sText.textContent = "جاري التحديث...";
-
- var meta = metaLoad();
-  var savedHash = meta ? (meta.hash || '') : '';
-  apiFn("bd_getBreedersSince", { lastRow: state.totalRows, lastKnownHash: savedHash })
+apiFn("bd_getAllBreeders")
     .then(function (res) {
-      if (!res || !res.success) {
+      if (!res || !res.success || !res.data) {
         state.loading = false;
         var prog2 = document.getElementById("cache-prog");
         if (prog2) prog2.style.display = "none";
         updateUI("ready");
         return;
       }
-
-      if (res.noChange) {
-        state.loading = false;
-        var prog2 = document.getElementById("cache-prog");
-        if (prog2) prog2.style.display = "none";
-        updateUI("ready");
-        return;
-      }
-
-      var updatedCount = (res.data || []).length;
-
-      if (res.fullRefresh && updatedCount > 0) {
-        buildIndex(res.data);
-        storageSave(res.data);
-      } else if (updatedCount > 0) {
-        var existing = storageLoad() || [];
-        var existingMap = {};
-        existing.forEach(function(r) { if (r.phone) existingMap[r.phone] = r; });
-        res.data.forEach(function(r) { if (r.phone) existingMap[r.phone] = r; });
-        var merged = Object.keys(existingMap).map(function(k) { return existingMap[k]; });
-        buildIndex(merged);
-        storageSave(merged);
-      }
-
-      if (res.totalRows) state.totalRows = res.totalRows;
+      buildIndex(res.data);
+      storageSave(res.data);
       var now = new Date().toISOString();
       state.lastUpdate = now;
-      metaSave({ lastUpdate: now, totalRows: state.totalRows, version: CACHE_VERSION, hash: res.currentHash || '' });
-      console.log("[Cache] تحديث جزئي ✓ " + updatedCount + " سجل");
+      metaSave({ lastUpdate: now, totalRows: state.totalRows, version: CACHE_VERSION });
+      console.log("[Cache] تحديث بعد كتابة ✓ " + state.totalRows + " مربي");
       state.loading = false;
       updateUI("ready");
       refreshAllPhoneDataLists();
@@ -9052,13 +9021,7 @@ function refreshAndRepatch() {
           updateUI("ready");
           refreshAllPhoneDataLists();
           if (state.enabled) patchAppFunctions();
-          var updated = (res.data && !res.noChange) ? res.data.length : 0;
-          var msg = res.noChange
-            ? "✅ الكاش محدث — لا توجد بيانات جديدة"
-            : res.fullRefresh
-              ? "✅ تم تحديث الكاش بالكامل (" + updated + " مربي)"
-              : "✅ تم إضافة " + updated + " مربي جديد للكاش";
-          if (global.showToast) global.showToast(msg, "success");
+        if (global.showToast) global.showToast("✅ تم تحديث بيانات الكاش بنجاح (" + state.totalRows + " مربي)", "success");
         })
         .catch(function (err) {
           state.loading = false;
