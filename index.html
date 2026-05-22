@@ -3782,8 +3782,10 @@ async function trSelectIncompleteCase(caseNumber) {
   <div class="row"><label>📞أختر الرقم</label>
     <input list="bd_phoneList" id="bd_phoneInput" style="width:265px" placeholder="اختر أو اكتب رقم الهاتف"><datalist id="bd_phoneList"></datalist>
   </div>
+  <div class="row"><label>آخر رقم تم التعديل عليه</label>
+    <input type="text" id="bd_lastEditedPhone" readonly style="width:180px;background:#f0f0f0;color:#004e66;font-weight:bold;cursor:default;">
+  </div>
 </div>
-
 <div class="main-container">
   <div class="right-panel">
     <div class="card">
@@ -3906,6 +3908,12 @@ function bd_clearForm() {
   document.getElementById("bd_searchResultsHeader").innerHTML="";
   bd_isClearing = false;  // ← أضف هذا السطر
 }
+
+  function bd_setLastEdited() {
+  var el = document.getElementById("bd_lastEditedPhone");
+  if (el) el.value = bd_getValue("bd_phoneInput") || bd_getValue("bd_caseNumber");
+}
+  
 function bd_validateSave() {
   if(bd_getValue("bd_private")!==""){bd_showMessage("وضع تحديث — استخدم زر التحديث",true);return false;}
   if(!bd_getValue("bd_caseNumber")){bd_showMessage("رقم الهاتف مطلوب",true);return false;}
@@ -3945,7 +3953,7 @@ async function bd_saveData() {
   bd_showMessage("جاري الحفظ...", false, "info");
   try{
     var res=await bd_callApi("bd_saveData",{data:data});
-if(res.success){bd_showMessage("تم الحفظ بنجاح",false);bd_clearForm();bd_refreshDropdowns();if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists();}
+if(res.success){bd_setLastEdited();bd_showMessage("تم الحفظ بنجاح",false);bd_clearForm();bd_refreshDropdowns();if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists();}
 else bd_showMessage(res.message,true);
   }catch(err){bd_showMessage("خطأ: "+err.message,true);}
   finally{btn.disabled=false;}
@@ -3967,7 +3975,7 @@ async function bd_updateData() {
     bd_showMessage("جاري التحديث...", false, "info");
     try{
  var res=await bd_callApi("bd_updateData",{data:data});
-if(res.success){bd_showMessage("تم التحديث بنجاح",false);bd_clearForm();bd_refreshDropdowns();setTimeout(function(){ if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists(); }, 800);}
+if(res.success){bd_setLastEdited();bd_showMessage("تم التحديث بنجاح",false);bd_clearForm();bd_refreshDropdowns();setTimeout(function(){ if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists(); }, 800);}
 else bd_showMessage(res.message,true);
     }catch(err){bd_showMessage("خطأ: "+err.message,true);}
     finally{btn.disabled=false;}
@@ -3983,7 +3991,7 @@ async function bd_deleteData() {
     bd_showMessage("جاري الحذف...", false, "info");
     try{
       var res=await bd_callApi("bd_deleteData",{phone:phone});
-if(res.success){bd_showMessage("تم الحذف بنجاح",false);bd_clearForm();bd_refreshDropdowns();if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists();}
+if(res.success){bd_setLastEdited();bd_showMessage("تم الحذف بنجاح",false);bd_clearForm();bd_refreshDropdowns();if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists();}
 else bd_showMessage(res.message,true);
     }catch(err){bd_showMessage("خطأ: "+err.message,true);}
     finally{btn.disabled=false;}
@@ -4077,7 +4085,7 @@ async function bd_saveVaccination() {
     animals:{goat:goat,sheep:sheep,cow:cow},dataEntry:dataEntry};
   try{
     var res=await bd_callApi("bd_saveVaccinationData",{data:vacData});
-    if(res.success){bd_showMessage("تم حفظ بيانات التحصين",false);bd_clearForm();}
+    if(res.success){bd_setLastEdited();bd_showMessage("تم حفظ بيانات التحصين",false);bd_clearForm();}
     else bd_showMessage(res.message,true);
   }catch(err){bd_showMessage("خطأ: "+err.message,true);}
   finally{btn.disabled=false;}
@@ -4104,7 +4112,7 @@ async function bd_updateVaccination() {
     try{await bd_callApi("bd_updateData",{data:bd_collectBreederDataForUpdate()});}catch(e){}
     try{
       var res=await bd_callApi("bd_updateVaccinationData",{data:vacData});
-      if(res.success){bd_showMessage("تم تحديث بيانات التحصين",false);bd_clearForm();}
+      if(res.success){bd_setLastEdited();bd_showMessage("تم تحديث بيانات التحصين",false);bd_clearForm();}
       else bd_showMessage(res.message,true);
     }catch(err){bd_showMessage("خطأ: "+err.message,true);}
     finally{btn.disabled=false;}
@@ -4120,7 +4128,7 @@ async function bd_deleteVaccination() {
     bd_showMessage("جاري الحذف...", false, "info");
     try{
       var res=await bd_callApi("bd_deleteVaccinationData",{phone:phone});
-      if(res.success){bd_showMessage("تم الحذف",false);bd_clearForm();}
+      if(res.success){bd_setLastEdited();bd_showMessage("تم الحذف",false);bd_clearForm();}
       else bd_showMessage(res.message,true);
     }catch(err){bd_showMessage("خطأ: "+err.message,true);}
     finally{btn.disabled=false;}
