@@ -9185,6 +9185,112 @@ function refreshAndRepatch() {
   }
 
 })(window);
+  
+(function() {
+  "use strict";
+
+  // === نظام تتبع سرعة إدخال الحالات ===
+  var TR_SAVE_TIMESTAMPS = [];
+  var TR_SPEED_WARNED_THIS_SESSION = false;
+  var TR_MAX_CASES = 3;
+  var TR_TIME_WINDOW_MS = 3 * 60 * 1000; // 3 دقائق
+
+  // اعتراض دالة trsaveData الأصلية
+  function patchTrSaveData() {
+    if (!window.trsaveData || window.trsaveData._speedPatched) return;
+
+    var _origSave = window.trsaveData;
+
+    window.trsaveData = async function() {
+      // تسجيل الوقت الحالي
+      var now = Date.now();
+      TR_SAVE_TIMESTAMPS.push(now);
+
+      // إبقاء الطوابع الزمنية ضمن النافذة الزمنية فقط
+      TR_SAVE_TIMESTAMPS = TR_SAVE_TIMESTAMPS.filter(function(ts) {
+        return now - ts <= TR_TIME_WINDOW_MS;
+      });
+
+      // فحص: هل تجاوز عدد الحالات الحد المسموح؟
+      if (TR_SAVE_TIMESTAMPS.length > TR_MAX_CASES) {
+        showSpeedWarningModal();
+      }
+
+      // استمرار في الحفظ بغض النظر عن التحذير
+      return _origSave.apply(this, arguments);
+    };
+
+    window.trsaveData._speedPatched = true;
+  }
+
+  function showSpeedWarningModal() {
+    // إزالة أي نافذة موجودة مسبقاً
+    var existing = document.getElementById("tr-speed-warning-modal");
+    if (existing) existing.remove();
+
+    var overlay = document.createElement("div");
+    overlay.id = "tr-speed-warning-modal";
+    overlay.style.cssText =
+      "position:fixed;inset:0;background:rgba(0,0,0,0.55);" +
+      "display:flex;align-items:center;justify-content:center;z-index:99999;direction:rtl;";
+
+    overlay.innerHTML =
+      '<div style="background:#fff;border-radius:14px;border:3px solid #e67e22;' +
+      'padding:28px 32px;max-width:440px;width:90%;text-align:center;' +
+      'box-shadow:0 12px 40px rgba(0,0,0,0.25);font-family:Tahoma,Arial,sans-serif;">' +
+
+      '<div style="font-size:48px;margin-bottom:12px;">⚠️</div>' +
+
+      '<div style="font-size:17px;font-weight:bold;color:#d35400;margin-bottom:14px;">' +
+      'تنبيه: إدخال متسارع للحالات' +
+      '</div>' +
+
+      '<div style="font-size:14px;color:#444;line-height:1.8;margin-bottom:22px;' +
+      'background:#fff8f0;border:1px solid #f0c07a;border-radius:8px;padding:12px 16px;">' +
+      'أنت تقوم بإدخال الحالات بشكل متسارع دون الالتزام بالتعليمات المعتمدة الخاصة بإدخال الحالات بشكل فردي ومنظم.' +
+      '</div>' +
+
+      '<button id="tr-speed-warn-close" ' +
+      'style="background:#e67e22;color:#fff;border:none;border-radius:8px;' +
+      'padding:10px 36px;font-size:14px;font-weight:bold;cursor:pointer;' +
+      'font-family:Tahoma,Arial,sans-serif;">حسناً، فهمت</button>' +
+
+      '</div>';
+
+    document.body.appendChild(overlay);
+
+    document.getElementById("tr-speed-warn-close").onclick = function() {
+      overlay.remove();
+      // إعادة تعيين العداد بعد الإغلاق
+      TR_SAVE_TIMESTAMPS = [];
+    };
+
+    // إغلاق بالنقر خارج النافذة
+    overlay.addEventListener("click", function(e) {
+      if (e.target === overlay) {
+        overlay.remove();
+        TR_SAVE_TIMESTAMPS = [];
+      }
+    });
+  }
+
+  // محاولة التصحيح بعد تحميل الصفحة
+  function tryPatch() {
+    if (typeof window.trsaveData === "function") {
+      patchTrSaveData();
+    } else {
+      setTimeout(tryPatch, 500);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function() { setTimeout(tryPatch, 1000); });
+  } else {
+    setTimeout(tryPatch, 1000);
+  }
+
+})();
+
 </script>
 
 </body>
