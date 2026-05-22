@@ -9185,20 +9185,45 @@ function refreshAndRepatch() {
   }
 
 })(window);
+
 (function() {
   "use strict";
 
-  var TR_SAVE_TIMESTAMPS = [];
-  var TR_MAX_CASES = 2;
-  var TR_TIME_WINDOW_MS = 3 * 60 * 1000;
+  var TR_MAX_CASES = 1;                // الحد الأقصى للحالات المسموح بها
+  var TR_TIME_WINDOW_MS = 3 * 60 * 1000; // 3 دقائق
+  var LS_KEY = "tr_save_timestamps";
+
+  function getTimestamps() {
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (raw) {
+        var arr = JSON.parse(raw);
+        var now = Date.now();
+        arr = arr.filter(function(ts) { return now - ts <= TR_TIME_WINDOW_MS; });
+        return arr;
+      }
+    } catch(e) {}
+    return [];
+  }
+
+  function saveTimestamps(arr) {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(arr));
+    } catch(e) {}
+  }
 
   function checkSpeed() {
     var now = Date.now();
-    TR_SAVE_TIMESTAMPS.push(now);
-    TR_SAVE_TIMESTAMPS = TR_SAVE_TIMESTAMPS.filter(function(ts) {
+    var timestamps = getTimestamps();
+    timestamps.push(now);
+    // فلترة القديمة
+    timestamps = timestamps.filter(function(ts) {
       return now - ts <= TR_TIME_WINDOW_MS;
     });
-    if (TR_SAVE_TIMESTAMPS.length > TR_MAX_CASES) {
+    saveTimestamps(timestamps);
+
+    // التنبيه عند التجاوز (>= لأن الحد = 2 يعني الضغطة الثانية هي التجاوز)
+    if (timestamps.length >= TR_MAX_CASES) {
       showSpeedWarningModal();
     }
   }
@@ -9209,9 +9234,8 @@ function refreshAndRepatch() {
     if (btn._speedListenerAdded) return;
 
     btn.addEventListener("click", function() {
-      // نتأخر قليلاً حتى ينتهي الحفظ الأصلي أولاً
       setTimeout(checkSpeed, 2000);
-    }, true); // true = capture phase يضمن التنفيذ
+    }, true);
 
     btn._speedListenerAdded = true;
     console.log("[SpeedCheck] ✅ تم ربط زر الحفظ");
@@ -9224,7 +9248,6 @@ function refreshAndRepatch() {
   } else {
     setTimeout(attachToSaveBtn, 1500);
   }
-
 })();
   
 function showSpeedWarningModal() {
