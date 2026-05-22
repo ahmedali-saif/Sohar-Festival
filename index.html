@@ -4194,6 +4194,10 @@ bd_init();
     <label>إدخل رقم حالة التحصين</label>
     <input type="text" id="vacc_caseNumber">
   </div>
+  <div class="top-group">
+    <label>آخر رقم تم التعديل عليه</label>
+    <input type="text" id="vacc_lastEditedCase" readonly style="width:140px;background:#f0f0f0;color:#004e66;font-weight:bold;cursor:default;">
+  </div>
   <div id="vacc_topBarMessage"></div>
 </div>
 
@@ -4531,6 +4535,11 @@ function vaccClearForm() {
   vaccClearTopBarMessage();
 }
 
+  function vacc_setLastEdited() {
+  var el = document.getElementById("vacc_lastEditedCase");
+  if (el) el.value = vaccGetValue("vacc_caseNumber") || vaccGetValue("vacc_phoneInput");
+}
+
 function vaccCollectFormData() {
   var caseNumber = vaccGetValue('vacc_caseNumber');
   var isUpdate = caseNumber && caseNumber.trim() !== '';
@@ -4590,6 +4599,7 @@ async function vaccSaveData() {
   try {
     var res = await vaccCallApi("saveData", { data: vaccCollectFormData() });
     if (res.success) {
+      vacc_setLastEdited();
       vaccShowMessage('✅ تم حفظ بيانات التحصين بنجاح', false);
       vaccClearForm();
     } else {
@@ -4619,6 +4629,7 @@ async function vaccUpdateData() {
   try {
     var res = await vaccCallApi("updateData", { data: vaccCollectFormData() });
     if (res.success) {
+      vacc_setLastEdited();
       vaccShowMessage('✅ تم تحديث بيانات التحصين بنجاح', false);
       vaccClearForm();
     } else {
@@ -4657,6 +4668,7 @@ async function vaccDeleteCase() {
     try {
       var res = await vaccCallApi("deleteData", { caseNumber: caseNum });
       if (res.success) {
+        vacc_setLastEdited();
         vaccShowMessage('✅ تم حذف بيانات التحصين بنجاح', false);
         vaccClearForm();
       } else {
