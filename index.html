@@ -9824,181 +9824,148 @@ function refreshAndRepatch() {
     "dataUpdaterInput"
   ];
  
-  /* ── الحصول على اسم المستخدم الحالي ── */
-  function getCurrentName() {
-    /* PERM يحفظ الاسم في state.displayName
-       لكنه غير مباشر — نقرأ من الشارة أو من _currentUser */
+  /* ── قراءة اسم المستخدم الحالي ── */
+  function getName() {
     var badge = document.getElementById("perm-user-badge");
     if (badge) {
-      var text = badge.textContent || "";
-      /* الشارة: "👤 الاسم  |  الدور" */
-      var parts = text.replace("👤", "").split("|");
-      if (parts[0] && parts[0].trim()) return parts[0].trim();
+      var t = (badge.textContent || "").replace("👤", "").split("|")[0].trim();
+      if (t) return t;
     }
     return global._currentUser || "";
   }
  
-  /* ── إرجاع قيمة الحقل إذا كان فارغاً ── */
-  function restoreField(el) {
-    if (!el) return;
-    var name = getCurrentName();
-    if (!name) return;
-    /* أعِد القيمة فقط إذا كان الحقل فارغاً */
-    if (el.value.trim() === "") {
-      el.value = name;
-    }
-  }
+  /* ── تأمين حقل واحد: منع أي تعديل أو مسح ── */
+  function lockField(el) {
+    if (!el || el._locked) return;
+    el._locked = true;
  
-  /* ── ربط مراقبة حقل واحد ── */
-  function watchField(el) {
-    if (!el || el._autoRestoreBound) return;
-    el._autoRestoreBound = true;
- 
-    /* ١. عند الكتابة: إذا مسح المستخدم الحقل يدوياً أعد القيمة */
-    el.addEventListener("input", function () {
-      if (this.value.trim() === "") {
-        var self = this;
-        setTimeout(function () { restoreField(self); }, 150);
+    /* منع لوحة المفاتيح (Delete, Backspace, Ctrl+A ثم Delete) */
+    el.addEventListener("keydown", function (e) {
+      /* السماح فقط بـ Tab و Enter للتنقل */
+      if (e.key !== "Tab" && e.key !== "Enter") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
       }
-    });
+    }, true);
  
-    /* ٢. عند فقدان التركيز: إذا كان فارغاً أعد القيمة */
-    el.addEventListener("blur", function () {
-      restoreField(this);
-    });
+    /* منع القص واللصق */
+    el.addEventListener("cut",   function (e) { e.preventDefault(); }, true);
+    el.addEventListener("paste", function (e) { e.preventDefault(); }, true);
+ 
+    /* منع التحديد والحذف بالفأرة (right-click cut) */
+    el.addEventListener("input", function () {
+      var name = getName();
+      if (name && this.value !== name) this.value = name;
+    }, true);
+ 
+    /* تلميح مرئي */
+    el.title = "لا يمكن تعديل هذا الحقل";
+    el.style.cursor = "default";
+    el.style.backgroundColor = "#f0f8ff";
+    el.style.borderColor = "#00b8d9";
   }
  
-  /* ── ربط جميع الحقول الموجودة الآن ── */
-  function bindAllFields() {
+  /* ── تأمين جميع الحقول ── */
+  function lockAllFields() {
+    var name = getName();
     FIELD_IDS.forEach(function (id) {
-      watchField(document.getElementById(id));
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (name) el.value = name;   /* تعبئة أولى */
+      lockField(el);
     });
   }
  
-  /* ── اعتراض دوال المسح في كل صفحة ── */
-  function patchClearFunctions() {
+  /* ══════════════════════════════════════════════════════
+     اعتراض Object.defineProperty على value
+     حتى لا يستطيع أي كود مثل el.value = "" تفريغ الحقل
+     ══════════════════════════════════════════════════════ */
+  function interceptValueSetter(el) {
+    if (!el || el._valueLocked) return;
+    el._valueLocked = true;
  
-    /* --- سجل العلاج: trclearForm و trclearFormExcept --- */
-    if (global.trclearForm && !global.trclearForm._arPatch) {
-      var _origTrClear = global.trclearForm;
-      global.trclearForm = function () {
-        _origTrClear.apply(this, arguments);
-        setTimeout(function () {
-          restoreField(document.getElementById("tr_dataEntryInput"));
-          restoreField(document.getElementById("tr_dataUpdaterInput"));
-        }, 50);
-      };
-      global.trclearForm._arPatch = true;
-    }
+    var proto    = Object.getPrototypeOf(el);
+    var descriptor = Object.getOwnPropertyDescriptor(proto, "value");
+    if (!descriptor) return;
  
-    if (global.trclearFormExcept && !global.trclearFormExcept._arPatch) {
-      var _origTrExcept = global.trclearFormExcept;
-      global.trclearFormExcept = function (exceptId) {
-        _origTrExcept.apply(this, arguments);
-        setTimeout(function () {
-          if (exceptId !== "tr_dataEntryInput")
-            restoreField(document.getElementById("tr_dataEntryInput"));
-          if (exceptId !== "tr_dataUpdaterInput")
-            restoreField(document.getElementById("tr_dataUpdaterInput"));
-        }, 50);
-      };
-      global.trclearFormExcept._arPatch = true;
-    }
+    var origSet = descriptor.set;
+    var origGet = descriptor.get;
  
-    /* --- سجل المربي: bd_clearForm --- */
-    if (global.bd_clearForm && !global.bd_clearForm._arPatch) {
-      var _origBdClear = global.bd_clearForm;
-      global.bd_clearForm = function () {
-        _origBdClear.apply(this, arguments);
-        setTimeout(function () {
-          restoreField(document.getElementById("bd_dataEntryInput"));
-          restoreField(document.getElementById("bd_dataUpdaterInput"));
-        }, 50);
-      };
-      global.bd_clearForm._arPatch = true;
-    }
- 
-    /* --- سجل التحصين: vaccClearForm --- */
-    if (global.vaccClearForm && !global.vaccClearForm._arPatch) {
-      var _origVaccClear = global.vaccClearForm;
-      global.vaccClearForm = function () {
-        _origVaccClear.apply(this, arguments);
-        setTimeout(function () {
-          restoreField(document.getElementById("vacc_dataEntryInput"));
-          restoreField(document.getElementById("vacc_dataUpdaterInput"));
-        }, 50);
-      };
-      global.vaccClearForm._arPatch = true;
-    }
- 
-    /* --- نموذج العينات: fochearForm --- */
-    if (global.fochearForm && !global.fochearForm._arPatch) {
-      var _origFoClear = global.fochearForm;
-      global.fochearForm = function () {
-        _origFoClear.apply(this, arguments);
-        setTimeout(function () {
-          restoreField(document.getElementById("dataEntryInput"));
-          restoreField(document.getElementById("dataUpdaterInput"));
-        }, 50);
-      };
-      global.fochearForm._arPatch = true;
-    }
+    Object.defineProperty(el, "value", {
+      get: function () { return origGet.call(this); },
+      set: function (v) {
+        var name = getName();
+        /* السماح بالقيمة الصحيحة فقط أو القيمة الفارغة تُستبدل بالاسم */
+        if (!v || v.toString().trim() === "") {
+          if (name) origSet.call(this, name);
+        } else {
+          origSet.call(this, v);
+        }
+      },
+      configurable: true
+    });
   }
  
-  /* ── محاولة ربط الدوال حتى تتوفر ── */
-  var _patchAttempts = 0;
-  function tryPatchAll() {
-    bindAllFields();
-    patchClearFunctions();
- 
-    /* نعيد المحاولة حتى 10 مرات كل ثانية للصفحات التي تُحمَّل لاحقاً */
-    if (++_patchAttempts < 10) {
-      setTimeout(tryPatchAll, 1000);
-    }
+  /* ── تطبيق الاعتراض على جميع الحقول ── */
+  function interceptAllFields() {
+    FIELD_IDS.forEach(function (id) {
+      interceptValueSetter(document.getElementById(id));
+    });
   }
  
-  /* ── عند تسجيل الدخول: اربط الحقول وأعِد القيمة فوراً ── */
+  /* ══════════════════════════════════════════════════════
+     ربط مع تسجيل الدخول
+     ══════════════════════════════════════════════════════ */
   function onLogin() {
     setTimeout(function () {
-      bindAllFields();
-      /* أعِد القيمة لجميع الحقول الفارغة فور تسجيل الدخول */
-      FIELD_IDS.forEach(function (id) {
-        restoreField(document.getElementById(id));
-      });
-    }, 1000);
+      lockAllFields();
+      interceptAllFields();
+      console.log("[LockDataEntry] ✅ تم تأمين حقول مدخل البيانات");
+    }, 800);
   }
  
-  /* اعتراض unlockNav لتشغيل الربط عند تسجيل الدخول */
   function patchUnlockNav() {
-    if (!global.unlockNav || global.unlockNav._arPatch) return;
+    if (!global.unlockNav || global.unlockNav._ldePatch) return;
     var _orig = global.unlockNav;
     global.unlockNav = function () {
       _orig.apply(this, arguments);
       onLogin();
     };
-    global.unlockNav._arPatch = true;
-    console.log("[AutoRestore] ✅ تم الربط مع تسجيل الدخول");
+    global.unlockNav._ldePatch = true;
   }
  
-  function tryPatchNav() {
-    if (global.unlockNav) { patchUnlockNav(); }
-    else { setTimeout(tryPatchNav, 300); }
+  /* ربط مع تسجيل الخروج — رفع التأمين عند الخروج */
+  function patchLockNav() {
+    if (!global.lockNav || global.lockNav._ldePatch) return;
+    var _orig = global.lockNav;
+    global.lockNav = function () {
+      _orig.apply(this, arguments);
+      /* رفع اعتراض value عند الخروج */
+      FIELD_IDS.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el || !el._valueLocked) return;
+        delete el._valueLocked;
+        /* حذف الخاصية المخصصة لاستعادة السلوك الأصلي */
+        try { delete el.value; } catch(e) {}
+        if (el) el.value = "";
+      });
+    };
+    global.lockNav._ldePatch = true;
   }
  
-  /* ── نقطة البداية ── */
-  function init() {
-    tryPatchAll();
-    tryPatchNav();
+  function tryPatch() {
+    if (global.unlockNav) patchUnlockNav();
+    else setTimeout(tryPatch, 300);
+    if (global.lockNav) patchLockNav();
   }
  
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+    document.addEventListener("DOMContentLoaded", tryPatch);
   } else {
-    init();
+    tryPatch();
   }
  
 })(window);
-
   
 </script>
 </body>
