@@ -8591,7 +8591,7 @@ setTimeout(tryWrap, 1000);
 
         if (typeof global.trcheckPhoneInRecords === "function") global.trcheckPhoneInRecords(phone);
         if (typeof global.trunblockButtons === "function") global.trunblockButtons();
-        if (typeof global.trshowMessage === "function") global.trshowMessage("✅ تم جلب بيانات المربي (كاش)", false);
+        if (typeof global.trshowMessage === "function") global.trshowMessage("✅تم جلب بيانات المربي", false);
         cacheShowBadge();
       };
       global.trfetchBreederData._cachePatch = true;
@@ -9808,8 +9808,198 @@ function refreshAndRepatch() {
   } else {
     tryPatch();
   }
+})(window);
+
+(function (global) {
+  "use strict";
+ 
+  var FIELD_IDS = [
+    "tr_dataEntryInput",
+    "tr_dataUpdaterInput",
+    "bd_dataEntryInput",
+    "bd_dataUpdaterInput",
+    "vacc_dataEntryInput",
+    "vacc_dataUpdaterInput",
+    "dataEntryInput",
+    "dataUpdaterInput"
+  ];
+ 
+  /* ── الحصول على اسم المستخدم الحالي ── */
+  function getCurrentName() {
+    /* PERM يحفظ الاسم في state.displayName
+       لكنه غير مباشر — نقرأ من الشارة أو من _currentUser */
+    var badge = document.getElementById("perm-user-badge");
+    if (badge) {
+      var text = badge.textContent || "";
+      /* الشارة: "👤 الاسم  |  الدور" */
+      var parts = text.replace("👤", "").split("|");
+      if (parts[0] && parts[0].trim()) return parts[0].trim();
+    }
+    return global._currentUser || "";
+  }
+ 
+  /* ── إرجاع قيمة الحقل إذا كان فارغاً ── */
+  function restoreField(el) {
+    if (!el) return;
+    var name = getCurrentName();
+    if (!name) return;
+    /* أعِد القيمة فقط إذا كان الحقل فارغاً */
+    if (el.value.trim() === "") {
+      el.value = name;
+    }
+  }
+ 
+  /* ── ربط مراقبة حقل واحد ── */
+  function watchField(el) {
+    if (!el || el._autoRestoreBound) return;
+    el._autoRestoreBound = true;
+ 
+    /* ١. عند الكتابة: إذا مسح المستخدم الحقل يدوياً أعد القيمة */
+    el.addEventListener("input", function () {
+      if (this.value.trim() === "") {
+        var self = this;
+        setTimeout(function () { restoreField(self); }, 150);
+      }
+    });
+ 
+    /* ٢. عند فقدان التركيز: إذا كان فارغاً أعد القيمة */
+    el.addEventListener("blur", function () {
+      restoreField(this);
+    });
+  }
+ 
+  /* ── ربط جميع الحقول الموجودة الآن ── */
+  function bindAllFields() {
+    FIELD_IDS.forEach(function (id) {
+      watchField(document.getElementById(id));
+    });
+  }
+ 
+  /* ── اعتراض دوال المسح في كل صفحة ── */
+  function patchClearFunctions() {
+ 
+    /* --- سجل العلاج: trclearForm و trclearFormExcept --- */
+    if (global.trclearForm && !global.trclearForm._arPatch) {
+      var _origTrClear = global.trclearForm;
+      global.trclearForm = function () {
+        _origTrClear.apply(this, arguments);
+        setTimeout(function () {
+          restoreField(document.getElementById("tr_dataEntryInput"));
+          restoreField(document.getElementById("tr_dataUpdaterInput"));
+        }, 50);
+      };
+      global.trclearForm._arPatch = true;
+    }
+ 
+    if (global.trclearFormExcept && !global.trclearFormExcept._arPatch) {
+      var _origTrExcept = global.trclearFormExcept;
+      global.trclearFormExcept = function (exceptId) {
+        _origTrExcept.apply(this, arguments);
+        setTimeout(function () {
+          if (exceptId !== "tr_dataEntryInput")
+            restoreField(document.getElementById("tr_dataEntryInput"));
+          if (exceptId !== "tr_dataUpdaterInput")
+            restoreField(document.getElementById("tr_dataUpdaterInput"));
+        }, 50);
+      };
+      global.trclearFormExcept._arPatch = true;
+    }
+ 
+    /* --- سجل المربي: bd_clearForm --- */
+    if (global.bd_clearForm && !global.bd_clearForm._arPatch) {
+      var _origBdClear = global.bd_clearForm;
+      global.bd_clearForm = function () {
+        _origBdClear.apply(this, arguments);
+        setTimeout(function () {
+          restoreField(document.getElementById("bd_dataEntryInput"));
+          restoreField(document.getElementById("bd_dataUpdaterInput"));
+        }, 50);
+      };
+      global.bd_clearForm._arPatch = true;
+    }
+ 
+    /* --- سجل التحصين: vaccClearForm --- */
+    if (global.vaccClearForm && !global.vaccClearForm._arPatch) {
+      var _origVaccClear = global.vaccClearForm;
+      global.vaccClearForm = function () {
+        _origVaccClear.apply(this, arguments);
+        setTimeout(function () {
+          restoreField(document.getElementById("vacc_dataEntryInput"));
+          restoreField(document.getElementById("vacc_dataUpdaterInput"));
+        }, 50);
+      };
+      global.vaccClearForm._arPatch = true;
+    }
+ 
+    /* --- نموذج العينات: fochearForm --- */
+    if (global.fochearForm && !global.fochearForm._arPatch) {
+      var _origFoClear = global.fochearForm;
+      global.fochearForm = function () {
+        _origFoClear.apply(this, arguments);
+        setTimeout(function () {
+          restoreField(document.getElementById("dataEntryInput"));
+          restoreField(document.getElementById("dataUpdaterInput"));
+        }, 50);
+      };
+      global.fochearForm._arPatch = true;
+    }
+  }
+ 
+  /* ── محاولة ربط الدوال حتى تتوفر ── */
+  var _patchAttempts = 0;
+  function tryPatchAll() {
+    bindAllFields();
+    patchClearFunctions();
+ 
+    /* نعيد المحاولة حتى 10 مرات كل ثانية للصفحات التي تُحمَّل لاحقاً */
+    if (++_patchAttempts < 10) {
+      setTimeout(tryPatchAll, 1000);
+    }
+  }
+ 
+  /* ── عند تسجيل الدخول: اربط الحقول وأعِد القيمة فوراً ── */
+  function onLogin() {
+    setTimeout(function () {
+      bindAllFields();
+      /* أعِد القيمة لجميع الحقول الفارغة فور تسجيل الدخول */
+      FIELD_IDS.forEach(function (id) {
+        restoreField(document.getElementById(id));
+      });
+    }, 1000);
+  }
+ 
+  /* اعتراض unlockNav لتشغيل الربط عند تسجيل الدخول */
+  function patchUnlockNav() {
+    if (!global.unlockNav || global.unlockNav._arPatch) return;
+    var _orig = global.unlockNav;
+    global.unlockNav = function () {
+      _orig.apply(this, arguments);
+      onLogin();
+    };
+    global.unlockNav._arPatch = true;
+    console.log("[AutoRestore] ✅ تم الربط مع تسجيل الدخول");
+  }
+ 
+  function tryPatchNav() {
+    if (global.unlockNav) { patchUnlockNav(); }
+    else { setTimeout(tryPatchNav, 300); }
+  }
+ 
+  /* ── نقطة البداية ── */
+  function init() {
+    tryPatchAll();
+    tryPatchNav();
+  }
+ 
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
  
 })(window);
+
+  
 </script>
 </body>
 </html>
