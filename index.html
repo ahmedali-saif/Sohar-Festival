@@ -9382,12 +9382,13 @@ function refreshAndRepatch() {
   "use strict";
 
   /* ── الإعدادات ── */
-  var DISEASE_THRESHOLD = 15;   // الحد الأقصى للحالات في الشهر الواحد
-  var TG_TOKEN  = "8669847230:AAEyCzBfyu9yyjsFmO9B1ri7kpi_Iwh5n3M";
-  var TG_CHAT   = "8400386599";
+  var DISEASE_THRESHOLD = 15;
+  var DISEASE_COL_INDEXES = [6, 9, 12, 15, 18]; // G, J, M, P, S
+  var TG_TOKEN = "8669847230:AAEyCzBfyu9yyjsFmO9B1ri7kpi_Iwh5n3M";
+  var TG_CHAT  = "8400386599";
 
-  /* ── منع التنبيه المكرر لنفس المرض في نفس الجلسة ── */
-  var _alreadyAlerted = {};   // { "مرض_YYYY-MM": true }
+  /* منع تكرار التنبيه لنفس المرض في نفس الجلسة */
+  var _alreadyAlerted = {};
 
   /* ═══════════════════════════════════════════════════════
      ١. إرسال رسالة Telegram
@@ -9400,7 +9401,7 @@ function refreshAndRepatch() {
     })
     .then(function (r) { return r.json(); })
     .then(function (res) {
-      console.log("[DiseaseAlert] Telegram:", res.ok ? "✅ أُرسل" : "❌ فشل — " + JSON.stringify(res));
+      console.log("[DiseaseAlert] Telegram:", res.ok ? "✅ أُرسل" : "❌ فشل");
     })
     .catch(function (e) { console.warn("[DiseaseAlert] Telegram خطأ:", e); });
   }
@@ -9414,11 +9415,11 @@ function refreshAndRepatch() {
 
     var rows = alerts.map(function (a) {
       return (
-        "<tr>" +
-        "<td style='padding:8px 12px;border:1px solid #f5c6c1;" +
+        "<tr style='background:" + (alerts.indexOf(a) % 2 === 0 ? "#fff5f5" : "#fff") + ";'>" +
+        "<td style='padding:9px 14px;border:1px solid #f5c6c1;" +
         "font-weight:bold;color:#7a0000;text-align:right;'>" + a.disease + "</td>" +
-        "<td style='padding:8px 12px;border:1px solid #f5c6c1;" +
-        "text-align:center;font-weight:bold;color:#e65050;font-size:16px;'>" + a.count + "</td>" +
+        "<td style='padding:9px 14px;border:1px solid #f5c6c1;" +
+        "text-align:center;font-weight:bold;color:#e65050;font-size:17px;'>" + a.count + "</td>" +
         "</tr>"
       );
     }).join("");
@@ -9432,47 +9433,57 @@ function refreshAndRepatch() {
 
     overlay.innerHTML =
       "<div style='background:#fff;border-radius:16px;border:3px solid #e65050;" +
-      "max-width:500px;width:92%;box-shadow:0 16px 50px rgba(0,0,0,0.3);overflow:hidden;'>" +
+      "max-width:520px;width:93%;box-shadow:0 16px 50px rgba(0,0,0,0.3);" +
+      "overflow:hidden;animation:daaSlideIn .35s ease;'>" +
 
-      // رأس النافذة
+      /* رأس */
       "<div style='background:linear-gradient(135deg,#e65050,#c0392b);color:#fff;" +
       "padding:16px 20px;display:flex;align-items:center;justify-content:space-between;'>" +
       "<div style='display:flex;align-items:center;gap:10px;'>" +
-      "<span style='font-size:28px;'>⚠️</span>" +
+      "<span style='font-size:30px;'>⚠️</span>" +
       "<div>" +
       "<div style='font-size:15px;font-weight:bold;'>تنبيه: أمراض تجاوزت الحد الشهري</div>" +
-      "<div style='font-size:11px;opacity:.85;'>تم تسجيل أكثر من " + DISEASE_THRESHOLD + " حالة هذا الشهر</div>" +
-      "</div></div>" +
+      "<div style='font-size:11px;opacity:.85;margin-top:2px;'>" +
+      "تم تسجيل أكثر من " + DISEASE_THRESHOLD + " حالة لنفس المرض هذا الشهر" +
+      "</div></div></div>" +
       "<button id='daa-close' style='background:rgba(255,255,255,.2);border:none;" +
-      "color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:16px;" +
-      "display:flex;align-items:center;justify-content:center;'>✕</button>" +
+      "color:#fff;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:17px;" +
+      "line-height:1;flex-shrink:0;'>✕</button>" +
       "</div>" +
 
-      // جسم النافذة
+      /* جسم */
       "<div style='padding:20px;'>" +
       "<div style='background:#fdecea;border:1px solid #f5c6c1;border-radius:8px;" +
-      "padding:12px 15px;margin-bottom:16px;font-size:13px;color:#7a0000;line-height:1.9;'>" +
-      "📋 الأمراض التالية تجاوزت <strong>" + DISEASE_THRESHOLD + " حالة</strong>" +
-      " مسجلة خلال الشهر الحالي.<br>" +
+      "padding:12px 15px;margin-bottom:16px;font-size:13px;color:#7a0000;line-height:2;'>" +
+      "📋 الأمراض التالية تجاوزت <strong>" + DISEASE_THRESHOLD + " حالة</strong> مسجلة " +
+      "خلال الشهر الحالي.<br>" +
       "يرجى مراجعة الحالات المسجلة والتحقق من صحة البيانات." +
       "</div>" +
 
-      "<table style='width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;'>" +
+      "<table style='width:100%;border-collapse:collapse;font-size:13px;margin-bottom:18px;" +
+      "border-radius:6px;overflow:hidden;'>" +
       "<thead><tr>" +
-      "<th style='background:#e65050;color:#fff;padding:8px 12px;border:1px solid #c0392b;" +
-      "text-align:right;'>اسم المرض</th>" +
-      "<th style='background:#e65050;color:#fff;padding:8px 12px;border:1px solid #c0392b;" +
-      "text-align:center;width:110px;'>عدد الحالات</th>" +
+      "<th style='background:#c0392b;color:#fff;padding:9px 14px;" +
+      "border:1px solid #a93226;text-align:right;'>🦠 اسم المرض</th>" +
+      "<th style='background:#c0392b;color:#fff;padding:9px 14px;" +
+      "border:1px solid #a93226;text-align:center;width:120px;'>📊 عدد الحالات</th>" +
       "</tr></thead><tbody>" +
       rows +
       "</tbody></table>" +
 
       "<div style='text-align:center;'>" +
-      "<button id='daa-ok' style='background:#e65050;color:#fff;border:none;" +
-      "border-radius:8px;padding:10px 40px;font-size:14px;font-weight:bold;cursor:pointer;" +
-      "font-family:Tahoma,Arial,sans-serif;box-shadow:0 3px 8px rgba(229,80,80,.4);'>" +
-      "حسناً، سأراجع البيانات" +
-      "</button></div></div></div>";
+      "<button id='daa-ok' style='background:linear-gradient(135deg,#e65050,#c0392b);" +
+      "color:#fff;border:none;border-radius:8px;padding:11px 44px;" +
+      "font-size:14px;font-weight:bold;cursor:pointer;" +
+      "font-family:Tahoma,Arial,sans-serif;" +
+      "box-shadow:0 4px 12px rgba(229,80,80,.4);transition:all .2s;'>" +
+      "حسناً، سأراجع البيانات ✓" +
+      "</button></div></div></div>" +
+
+      "<style>" +
+      "@keyframes daaSlideIn{from{transform:translateY(-30px);opacity:0}" +
+      "to{transform:translateY(0);opacity:1}}" +
+      "</style>";
 
     document.body.appendChild(overlay);
 
@@ -9485,68 +9496,54 @@ function refreshAndRepatch() {
   }
 
   /* ═══════════════════════════════════════════════════════
-     ٣. الدالة الرئيسية — تحليل بيانات الشهر الحالي
+     ٣. الدالة الرئيسية — فحص الأمراض
      ═══════════════════════════════════════════════════════ */
   async function trCheckDiseaseThreshold() {
     var callFn = global.trcallApi;
     if (typeof callFn !== "function") return;
 
     try {
-      /* ١. تحديد نطاق الشهر الحالي */
+      /* نطاق الشهر الحالي */
       var now      = new Date();
       var year     = now.getFullYear();
       var month    = now.getMonth() + 1;
       var yearMonth = year + "-" + String(month).padStart(2, "0");
       var firstDay  = yearMonth + "-01";
-      var lastDayN  = new Date(year, month, 0).getDate();   // عدد أيام الشهر
+      var lastDayN  = new Date(year, month, 0).getDate();
       var lastDay   = yearMonth + "-" + String(lastDayN).padStart(2, "0");
 
-      /* ٢. جلب سجلات الشهر */
+      console.log("[DiseaseAlert] جلب سجلات الشهر:", firstDay, "→", lastDay);
+
+      /* جلب السجلات */
       var res = await callFn("trsearchInTreatmentSheet", {
         keyword  : "",
         startDate: firstDay,
         endDate  : lastDay
       });
 
-      if (!res.success || !res.data || res.data.length <= 1) return;
-
-      var headers  = res.data[0];          // الصف الأول = عناوين
-      var dataRows = res.data.slice(1);    // باقي الصفوف = بيانات
-
-      /* ٣. تحديد أعمدة الأمراض من العناوين */
-      var diseaseColIndexes = [];
-      headers.forEach(function (h, idx) {
-        var lower = (h || "").toString().toLowerCase();
-        if (
-          lower.indexOf("مرض")     !== -1 ||
-          lower.indexOf("تشخيص")  !== -1 ||
-          lower.indexOf("disease") !== -1
-        ) {
-          diseaseColIndexes.push(idx);
-        }
-      });
-
-      /*
-       * إذا لم تُوجَد عناوين مطابقة، نفترض الأعمدة 3→7
-       * (النمط الشائع في بيانات سجل العلاج)
-       */
-      if (diseaseColIndexes.length === 0) {
-        for (var i = 3; i <= 7 && i < headers.length; i++) {
-          diseaseColIndexes.push(i);
-        }
+      if (!res.success || !res.data || res.data.length <= 1) {
+        console.log("[DiseaseAlert] لا توجد بيانات كافية للفحص");
+        return;
       }
 
-      /* ٤. إحصاء الأمراض */
+      var dataRows = res.data.slice(1); // تخطي صف العناوين
+      console.log("[DiseaseAlert] عدد السجلات:", dataRows.length);
+
+      /* إحصاء الأمراض من الأعمدة G,J,M,P,S (6,9,12,15,18) */
       var diseaseCount = {};
+
       dataRows.forEach(function (row) {
-        diseaseColIndexes.forEach(function (colIdx) {
+        DISEASE_COL_INDEXES.forEach(function (colIdx) {
+          if (colIdx >= row.length) return;
           var disease = (row[colIdx] || "").toString().trim().replace(/\s+/g, " ");
-          if (!disease || disease === "-") return;
+          if (!disease || disease === "-" || disease === "0") return;
           diseaseCount[disease] = (diseaseCount[disease] || 0) + 1;
         });
       });
 
-      /* ٥. اكتشاف الأمراض التي تجاوزت الحد */
+      console.log("[DiseaseAlert] إحصاء الأمراض:", JSON.stringify(diseaseCount));
+
+      /* فحص التجاوز */
       var today    = now.toLocaleDateString("ar-SA");
       var username = global._currentUser || "غير معروف";
       var alerts   = [];
@@ -9556,29 +9553,29 @@ function refreshAndRepatch() {
         var alertKey = disease + "_" + yearMonth;
 
         if (count > DISEASE_THRESHOLD && !_alreadyAlerted[alertKey]) {
-          _alreadyAlerted[alertKey] = true;   // منع تكرار التنبيه في نفس الجلسة
+          _alreadyAlerted[alertKey] = true;
           alerts.push({ disease: disease, count: count });
 
-          /* إرسال Telegram */
+          /* نص Telegram */
           var tgText =
-            "⚠️ تنبيه: مرض تجاوز الحد الشهري\n" +
-            "━━━━━━━━━━━━━━━━━━━━\n" +
-            "🦠 اسم المرض: " + disease + "\n" +
-            "📊 عدد الحالات: " + count + " حالة هذا الشهر\n" +
-            "👤 المستخدم: " + username + "\n" +
-            "📅 تاريخ آخر تسجيل: " + today + "\n" +
-            "━━━━━━━━━━━━━━━━━━━━\n" +
-            "⚠️ تم تسجيل المرض (" + disease + ") أكثر من " +
-            DISEASE_THRESHOLD + " مرة خلال هذا الشهر،\n" +
-            "يرجى مراجعة الحالات المسجلة في العيادة البيطرية.";
+            "\u26a0\ufe0f \u062a\u0646\u0628\u064a\u0647: \u0645\u0631\u0636 \u062a\u062c\u0627\u0648\u0632 \u0627\u0644\u062d\u062f \u0627\u0644\u0634\u0647\u0631\u064a\n" +
+            "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n" +
+            "\uD83E\uDDA0 \u0627\u0633\u0645 \u0627\u0644\u0645\u0631\u0636: " + disease + "\n" +
+            "\uD83D\uDCCA \u0639\u062f\u062f \u0627\u0644\u062d\u0627\u0644\u0627\u062a: " + count + " \u062d\u0627\u0644\u0629 \u0647\u0630\u0627 \u0627\u0644\u0634\u0647\u0631\n" +
+            "\uD83D\uDC64 \u0627\u0644\u0645\u0633\u062a\u062e\u062f\u0645: " + username + "\n" +
+            "\uD83D\uDCC5 \u062a\u0627\u0631\u064a\u062e \u0622\u062e\u0631 \u062a\u0633\u062c\u064a\u0644: " + today + "\n" +
+            "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n" +
+            "\u26a0\ufe0f \u062a\u0645 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u0645\u0631\u0636 (" + disease + ") \u0623\u0643\u062b\u0631 \u0645\u0646 " +
+            DISEASE_THRESHOLD + " \u0645\u0631\u0629 \u062e\u0644\u0627\u0644 \u0647\u0630\u0627 \u0627\u0644\u0634\u0647\u0631\u060c\n" +
+            "\u064a\u0631\u062c\u0649 \u0645\u0631\u0627\u062c\u0639\u0629 \u0627\u0644\u062d\u0627\u0644\u0627\u062a \u0627\u0644\u0645\u0633\u062c\u0644\u0629 \u0641\u064a \u0627\u0644\u0639\u064a\u0627\u062f\u0629 \u0627\u0644\u0628\u064a\u0637\u0631\u064a\u0629.";
 
           sendTelegram(tgText);
         }
       });
 
-      /* ٦. عرض النافذة الداخلية */
+      /* عرض النافذة */
       if (alerts.length > 0) {
-        alerts.sort(function (a, b) { return b.count - a.count; });  // ترتيب تنازلي
+        alerts.sort(function (a, b) { return b.count - a.count; });
         showDiseaseAlertModal(alerts);
       }
 
@@ -9587,11 +9584,11 @@ function refreshAndRepatch() {
     }
   }
 
-  /* ── تصدير للنطاق العام (لإمكانية الاستدعاء اليدوي) ── */
+  /* تصدير للاستدعاء اليدوي من Console */
   global.trCheckDiseaseThreshold = trCheckDiseaseThreshold;
 
   /* ═══════════════════════════════════════════════════════
-     ٤. اعتراض trsaveData لتشغيل الفحص بعد الحفظ الناجح
+     ٤. ربط الفحص بزر الحفظ
      ═══════════════════════════════════════════════════════ */
   function patchTrSaveData() {
     if (!global.trsaveData || global.trsaveData._diseaseAlertPatched) return;
@@ -9599,20 +9596,15 @@ function refreshAndRepatch() {
     var _orig = global.trsaveData;
 
     global.trsaveData = async function () {
-      /* استدعاء الدالة الأصلية */
       await _orig.apply(this, arguments);
-      /*
-       * تشغيل فحص الأمراض بعد ثانيتين
-       * (لإعطاء الوقت الكافي لتحديث الجدول)
-       */
-      setTimeout(trCheckDiseaseThreshold, 2000);
+      /* تأخير 2.5 ثانية لضمان اكتمال تحديث الجدول */
+      setTimeout(trCheckDiseaseThreshold, 2500);
     };
 
     global.trsaveData._diseaseAlertPatched = true;
-    console.log("[DiseaseAlert] ✅ تم ربط الفحص بزر الحفظ");
+    console.log("[DiseaseAlert] ✅ تم ربط الفحص بزر الحفظ — أعمدة التشخيص: G,J,M,P,S");
   }
 
-  /* ── تكرار المحاولة حتى تُعرَّف trsaveData ── */
   function tryPatch() {
     if (global.trsaveData) {
       patchTrSaveData();
