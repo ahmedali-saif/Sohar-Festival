@@ -9597,7 +9597,219 @@ function refreshAndRepatch() {
  
 })(window);
 
-  
+  (function (global) {
+  "use strict";
+ 
+  var TG_TOKEN = "8669847230:AAEyCzBfyu9yyjsFmO9B1ri7kpi_Iwh5n3M";
+  var TG_CHAT  = "8400386599";
+  var _notified = false;
+ 
+  /* ── إرسال رسالة Telegram ── */
+  function sendTelegram(text) {
+    fetch("https://api.telegram.org/bot" + TG_TOKEN + "/sendMessage", {
+      method : "POST",
+      headers: { "Content-Type": "application/json" },
+      body   : JSON.stringify({ chat_id: TG_CHAT, text: text })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (res) {
+      console.log("[TgNotify] Telegram:", res.ok ? "✅ أُرسل" : "❌ " + (res.description || ""));
+    })
+    .catch(function (e) { console.warn("[TgNotify] خطأ:", e); });
+  }
+ 
+  /* ══════════════════════════════════════════════════════
+     ١. الحالات العلاجية غير المكتملة
+     ══════════════════════════════════════════════════════ */
+  async function notifyIncompleteCases(username, dateStr, timeStr) {
+    var callFn = global.trcallApi;
+    if (typeof callFn !== "function") return;
+ 
+    try {
+      var res   = await callFn("trgetIncompleteCases");
+      var cases = (res && res.cases) ? res.cases : [];
+      if (!cases.length) {
+        console.log("[TgNotify] لا توجد حالات غير مكتملة");
+        return;
+      }
+ 
+      var lines = [
+        "📋 تنبيه: حالات علاجية غير مكتملة",
+        "━━━━━━━━━━━━━━━━━━━━",
+        "👤 المستخدم: " + username,
+        "🕐 وقت الفتح: " + timeStr + " — " + dateStr,
+        "📊 عدد الحالات: " + cases.length + " حالة غير مكتملة",
+        "━━━━━━━━━━━━━━━━━━━━",
+      ];
+ 
+      var maxShow = Math.min(cases.length, 20);
+      for (var i = 0; i < maxShow; i++) {
+        var c = cases[i];
+        lines.push(
+          (i + 1) + ". رقم الحالة: " + (c.caseNumber || "—") +
+          " | الاسم: "    + (c.name      || "—") +
+          " | هاتف: "     + (c.phone     || "—") +
+          " | مدخل: "     + (c.dataEntry || "—")
+        );
+      }
+      if (cases.length > 20)
+        lines.push("... و " + (cases.length - 20) + " حالة أخرى");
+ 
+      lines.push("━━━━━━━━━━━━━━━━━━━━");
+      lines.push("⚠️ يرجى مراجعة هذه الحالات وإكمال بياناتها.");
+ 
+      sendTelegram(lines.join("\n"));
+ 
+    } catch (err) {
+      console.warn("[TgNotify] خطأ في الحالات غير المكتملة:", err.message || err);
+    }
+  }
+ 
+  /* ══════════════════════════════════════════════════════
+     ٢. العينات التي تجاوزت 7 أيام بدون نتيجة
+     ══════════════════════════════════════════════════════ */
+  async function notifyOverdueSamples(username, dateStr, timeStr) {
+    var callFn = global.focallApi;
+    if (typeof callFn !== "function") return;
+ 
+    try {
+      var res = await callFn("fosearchSamplesData", { showAll: true });
+      if (!res.success || !res.data || !res.data.length) return;
+ 
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+ 
+      /* فلترة العينات المتأخرة */
+      var overdue = [];
+      res.data.forEach(function (row) {
+        /* هل يوجد فحص بدون نتيجة؟ */
+        var hasUnresolved = false;
+        for (var k = 1; k <= 5; k++) {
+          var test   = (row["test"   + k] || "").toString().trim();
+          var result = (row["result" + k] || "").toString().trim();
+          if (test && !result) { hasUnresolved = true; break; }
+        }
+        if (!hasUnresolved) return;
+ 
+        /* حساب الأيام منذ الإرسال */
+        var sentRaw = row["sampleSentDate"] || row["samplesentdate"] || "";
+        if (!sentRaw) return;
+        var sentDate = new Date(sentRaw);
+        sentDate.setHours(0, 0, 0, 0);
+        if (isNaN(sentDate.getTime())) return;
+        var diffDays = Math.floor((today - sentDate) / 86400000);
+        if (diffDays <= 7) return;
+ 
+        /* الفحوصات بدون نتيجة */
+        var pendingTests = [];
+        for (var j = 1; j <= 5; j++) {
+          var t = (row["test" + j] || "").toString().trim();
+          var r = (row["result" + j] || "").toString().trim();
+          if (t && !r) pendingTests.push(t);
+        }
+ 
+        overdue.push({
+          caseNumber  : row.caseNumberrt || "—",
+          name        : row.name         || "—",
+          region      : row.region       || "—",
+          sampleType  : row.sampleType   || "—",
+          sentDate    : sentRaw,
+          diffDays    : diffDays,
+          pendingTests: pendingTests.join("، ")
+        });
+      });
+ 
+      if (!overdue.length) {
+        console.log("[TgNotify] لا توجد عينات متأخرة");
+        return;
+      }
+ 
+      /* ترتيب تنازلي حسب أيام الانتظار */
+      overdue.sort(function (a, b) { return b.diffDays - a.diffDays; });
+ 
+      var lines = [
+        "🧪 تنبيه: عينات تجاوزت 7 أيام بدون نتيجة",
+        "━━━━━━━━━━━━━━━━━━━━",
+        "👤 المستخدم: " + username,
+        "🕐 وقت الفتح: " + timeStr + " — " + dateStr,
+        "📊 عدد العينات: " + overdue.length + " عينة متأخرة",
+        "━━━━━━━━━━━━━━━━━━━━",
+      ];
+ 
+      var maxShow = Math.min(overdue.length, 20);
+      for (var i = 0; i < maxShow; i++) {
+        var s = overdue[i];
+        lines.push(
+          (i + 1) + ". رقم العينة: " + s.caseNumber +
+          " | الاسم: "       + s.name        +
+          " | المنطقة: "     + s.region      +
+          " | أيام الانتظار: " + s.diffDays + " يوم" +
+          " | الفحوصات: "    + (s.pendingTests || "—")
+        );
+      }
+      if (overdue.length > 20)
+        lines.push("... و " + (overdue.length - 20) + " عينة أخرى");
+ 
+      lines.push("━━━━━━━━━━━━━━━━━━━━");
+      lines.push("⏰ يرجى متابعة هذه العينات مع المختبر وإدخال النتائج.");
+ 
+      sendTelegram(lines.join("\n"));
+ 
+    } catch (err) {
+      console.warn("[TgNotify] خطأ في العينات المتأخرة:", err.message || err);
+    }
+  }
+ 
+  /* ══════════════════════════════════════════════════════
+     ٣. الدالة الرئيسية — تُشغَّل مرة واحدة عند تسجيل الدخول
+     ══════════════════════════════════════════════════════ */
+  async function runAllNotifications() {
+    if (_notified) return;
+    _notified = true;
+ 
+    var username = global._currentUser || "غير معروف";
+    var now      = new Date();
+    var dateStr  = now.toLocaleDateString("ar-SA");
+    var timeStr  = now.toLocaleTimeString("ar-SA");
+ 
+    /* إرسال الإشعارين بفاصل ثانيتين لتجنب تقييد Telegram */
+    await notifyIncompleteCases(username, dateStr, timeStr);
+    setTimeout(function () {
+      notifyOverdueSamples(username, dateStr, timeStr);
+    }, 2000);
+  }
+ 
+  /* ══════════════════════════════════════════════════════
+     ٤. الربط مع unlockNav (يُشغَّل بعد تسجيل الدخول)
+     ══════════════════════════════════════════════════════ */
+  function patchUnlockNav() {
+    if (!global.unlockNav || global.unlockNav._inPatch) return;
+ 
+    var _orig = global.unlockNav;
+    global.unlockNav = function () {
+      _orig.apply(this, arguments);
+      /* تأخير 5 ثوانٍ لضمان اكتمال تحميل النظام */
+      setTimeout(runAllNotifications, 5000);
+    };
+    global.unlockNav._inPatch = true;
+    console.log("[TgNotify] ✅ تم الربط — سيُرسل إشعار بعد تسجيل الدخول");
+  }
+ 
+  function tryPatch() {
+    if (global.unlockNav) { patchUnlockNav(); }
+    else { setTimeout(tryPatch, 300); }
+  }
+ 
+  /* تصدير للاختبار اليدوي من Console */
+  global.runAllNotifications = runAllNotifications;
+ 
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", tryPatch);
+  } else {
+    tryPatch();
+  }
+ 
+})(window);
 </script>
 </body>
 </html>
