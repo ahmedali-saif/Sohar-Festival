@@ -6881,6 +6881,32 @@ function ani_setDefaultDates() {
 document.addEventListener('DOMContentLoaded', function() {
   ani_setDefaultDates();
   ani_loadData();
+
+  // ربط أحداث التاريخ بالبحث التلقائي
+  document.getElementById('ani_dateFrom').addEventListener('change', function() {
+    var to = document.getElementById('ani_dateTo').value;
+    if (to && this.value > to) {
+      showToast('⚠️ تاريخ البداية يجب أن يكون أصغر من تاريخ النهاية', 'warning');
+      this.value = '';
+      return;
+    }
+    ani_loadData();
+  });
+
+  document.getElementById('ani_dateTo').addEventListener('change', function() {
+    var from = document.getElementById('ani_dateFrom').value;
+    if (!from) {
+      showToast('⚠️ الرجاء إدخال تاريخ البداية أولاً', 'warning');
+      this.value = '';
+      return;
+    }
+    if (from > this.value) {
+      showToast('⚠️ تاريخ البداية يجب أن يكون أصغر من تاريخ النهاية', 'warning');
+      this.value = '';
+      return;
+    }
+    ani_loadData();
+  });
 });
 </script>
 
