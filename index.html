@@ -9304,25 +9304,21 @@ function refreshAndRepatch() {
     if (existing) return;
 
     // ===== إرسال Telegram =====
-    var TOKEN   = "8669847230:AAEyCzBfyu9yyjsFmO9B1ri7kpi_Iwh5n3M";
-    var CHAT_ID = "8400386599";
-    var msg = 
-      "⚠️ تحذير: إدخال متسارع للحالات\n" +
-      "👤 المستخدم: " + (window._currentUser || "غير معروف") + "\n" +
-      "🕐 الوقت: " + new Date().toLocaleString("ar-SA") + "\n" +
-      "📊 عدد الحالات: " + (getTimestamps().length) + " خلال 3 دقائق";
+var msg = 
+  "⚠️ تحذير: إدخال متسارع للحالات\n" +
+  "👤 المستخدم: " + (window._currentUser || "غير معروف") + "\n" +
+  "🕐 الوقت: " + new Date().toLocaleString("ar-SA") + "\n" +
+  "📊 عدد الحالات: " + (getTimestamps().length) + " خلال 3 دقائق";
 
-    fetch("https://api.telegram.org/bot" + TOKEN + "/sendMessage", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: CHAT_ID,
-        text: msg
-      })
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(res) { console.log("[Telegram]", res.ok ? "✅ تم الإرسال" : "❌ فشل"); })
-    .catch(function(e) { console.warn("[Telegram] خطأ:", e); });
+fetch("https://ntfy.sh/oman_lab_2026_alerts_x92", {
+  method: "POST",
+  headers: { "Content-Type": "text/plain; charset=utf-8" },
+  body: msg
+})
+.then(function(r) {
+  console.log("[ntfy]", r.ok ? "✅ تم الإرسال" : "❌ فشل");
+})
+.catch(function(e) { console.warn("[ntfy] خطأ:", e); });
     // ==========================
 
     var overlay = document.createElement("div");
@@ -9440,27 +9436,25 @@ function refreshAndRepatch() {
   /* ── الإعدادات ── */
   var DISEASE_THRESHOLD    = 15;
   var DISEASE_COL_INDEXES  = [6, 9, 12, 15, 18]; // أعمدة G,J,M,P,S
-  var TG_TOKEN = "8669847230:AAEyCzBfyu9yyjsFmO9B1ri7kpi_Iwh5n3M";
-  var TG_CHAT  = "8400386599";
- 
   /* منع تكرار التنبيه لنفس المرض في نفس الجلسة */
   var _alreadyAlerted = {};
  
   /* ═══════════════════════════════════════════════════════
      ١. إرسال رسالة Telegram
      ═══════════════════════════════════════════════════════ */
-  function sendTelegram(text) {
-    fetch("https://api.telegram.org/bot" + TG_TOKEN + "/sendMessage", {
-      method : "POST",
-      headers: { "Content-Type": "application/json" },
-      body   : JSON.stringify({ chat_id: TG_CHAT, text: text })
-    })
-    .then(function (r) { return r.json(); })
-    .then(function (res) {
-      console.log("[DiseaseAlert] Telegram:", res.ok ? "✅ أُرسل" : "❌ فشل");
-    })
-    .catch(function (e) { console.warn("[DiseaseAlert] Telegram خطأ:", e); });
-  }
+  var NTFY_TOPIC = "oman_lab_2026_alerts_x92";
+
+function sendTelegram(text) {
+  fetch("https://ntfy.sh/" + NTFY_TOPIC, {
+    method : "POST",
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+    body   : text
+  })
+  .then(function (r) {
+    console.log("[DiseaseAlert] ntfy:", r.ok ? "✅ أُرسل" : "❌ فشل");
+  })
+  .catch(function (e) { console.warn("[DiseaseAlert] ntfy خطأ:", e); });
+}
  
   /* ═══════════════════════════════════════════════════════
      ٢. النافذة المنبثقة داخل النظام
@@ -9656,24 +9650,19 @@ function refreshAndRepatch() {
   (function (global) {
   "use strict";
  
-  var TG_TOKEN = "8669847230:AAEyCzBfyu9yyjsFmO9B1ri7kpi_Iwh5n3M";
-  var TG_CHAT  = "8400386599";
-  var _notified = false;
- 
-  /* ── إرسال رسالة Telegram ── */
-  function sendTelegram(text) {
-    fetch("https://api.telegram.org/bot" + TG_TOKEN + "/sendMessage", {
-      method : "POST",
-      headers: { "Content-Type": "application/json" },
-      body   : JSON.stringify({ chat_id: TG_CHAT, text: text })
-    })
-    .then(function (r) { return r.json(); })
-    .then(function (res) {
-      console.log("[TgNotify] Telegram:", res.ok ? "✅ أُرسل" : "❌ " + (res.description || ""));
-    })
-    .catch(function (e) { console.warn("[TgNotify] خطأ:", e); });
-  }
- 
+var _notified = false;
+
+function sendTelegram(text) {
+  fetch("https://ntfy.sh/oman_lab_2026_alerts_x92", {
+    method : "POST",
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+    body   : text
+  })
+  .then(function (r) {
+    console.log("[TgNotify] ntfy:", r.ok ? "✅ أُرسل" : "❌ فشل");
+  })
+  .catch(function (e) { console.warn("[TgNotify] ntfy خطأ:", e); });
+}
   /* ══════════════════════════════════════════════════════
      ١. الحالات العلاجية غير المكتملة
      ══════════════════════════════════════════════════════ */
