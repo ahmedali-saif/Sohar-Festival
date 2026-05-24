@@ -6755,9 +6755,18 @@ document.addEventListener('DOMContentLoaded', function() {
 <div id="animalDistribution" class="page">
   <div class="card">
   <h3>الحيوانات المحصنة حسب المنطقة</h3>
-  <div class="date-row" style="display:flex;gap:12px;justify-content:center;align-items:center;margin:10px 0;flex-wrap:wrap">
-   <button class="print-btn" onclick="ani_printTable()">🖨️ طباعة</button>
-<button class="update" onclick="ani_loadData()">🔄 تحديث</button>
+ <div class="date-row" style="display:flex;gap:12px;justify-content:center;align-items:center;margin:10px 0;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-weight:bold">من تاريخ:</label>
+      <input type="date" id="ani_dateFrom">
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-weight:bold">إلى تاريخ:</label>
+      <input type="date" id="ani_dateTo">
+    </div>
+    <button class="save" onclick="ani_loadData()">🔍 بحث</button>
+    <button class="print-btn" onclick="ani_printTable()">🖨️ طباعة</button>
+    <button class="update" onclick="ani_loadData()">🔄 تحديث</button>
   </div>
   <div id="ani_loadingMsg">⏳ جاري تحميل البيانات...</div>
   <div id="ani_searchResultsContainer" style="display:none; width:100%">
@@ -6792,17 +6801,23 @@ async function ani_callApi(action, payload) {
 async function ani_loadData() {
   var loadingMsg       = document.getElementById('ani_loadingMsg');
   var resultsContainer = document.getElementById('ani_searchResultsContainer');
+  var dateFrom         = document.getElementById('ani_dateFrom').value;
+  var dateTo           = document.getElementById('ani_dateTo').value;
+
   loadingMsg.style.display = 'block';
   loadingMsg.textContent   = '⏳ جاري تحميل البيانات...';
   resultsContainer.style.display = 'none';
+
   try {
-    var regionMap = await ani_callApi("getVaccinationByRegion");
+    var regionMap = await ani_callApi("getVaccinationByRegion", {
+      dateFrom: dateFrom,
+      dateTo: dateTo
+    });
     ani_renderTable(regionMap);
   } catch (err) {
     loadingMsg.textContent = '❌ خطأ: ' + err.message;
   }
 }
-
 function ani_renderTable(regionMap) {
   var tbody = document.getElementById('ani_searchResultsBody');
   var tfoot = document.getElementById('ani_searchResultsFoot');
@@ -6848,8 +6863,23 @@ function ani_printTable() {
   w.print();
 }
 
+// تهيئة — تعيين التاريخ الافتراضي (بداية الشهر الحالي إلى اليوم)
+function ani_setDefaultDates() {
+  var today = new Date();
+  var y = today.getFullYear();
+  var m = String(today.getMonth() + 1).padStart(2, '0');
+  var d = String(today.getDate()).padStart(2, '0');
+  var firstDay = y + '-' + m + '-01';
+
+  var fromEl = document.getElementById('ani_dateFrom');
+  var toEl   = document.getElementById('ani_dateTo');
+  if (fromEl) fromEl.value = firstDay;
+  if (toEl)   toEl.value   = y + '-' + m + '-' + d;
+}
+
 // تهيئة
 document.addEventListener('DOMContentLoaded', function() {
+  ani_setDefaultDates();
   ani_loadData();
 });
 </script>
