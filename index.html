@@ -1483,13 +1483,8 @@ if(m){
   lCU={...m, _u:u};
   window._currentUser = u;
 
-  // ===== قراءة رابط الولاية من الشيت =====
-  const urlKey = Object.keys(m).find(k => k.toLowerCase().trim() === 'api_url');
-  if (urlKey && m[urlKey] && m[urlKey].trim() !== '') {
-    window._activeApiUrl = m[urlKey].trim();
-    console.log('[API] رابط الولاية:', m['wilayat'] || '—');
-  }
-  PERM.init(u, m);
+  PERM.init(u, m);  // ← هذا السطر فقط
+
   document.getElementById('l_welcomeName').textContent=`مرحباً، ${lNK?(m[lNK]||u):u}!`;
   lShow(lViews.welcome);
   unlockNav();
@@ -1858,7 +1853,7 @@ document.getElementById('l_logoutBtn').addEventListener('click', ()=>{
   // =====================================================
   // طباعة نماذج العينات — جميع الأسماء مسبوقة بـ db_
   // =====================================================
-  var DB__URL = window._activeApiUrl || "https://script.google.com/macros/s/AKfycby...exec";
+  var DB__URL = "https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec";
 
   async function db_call(action, payload) {
     var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
@@ -2048,7 +2043,7 @@ document.getElementById('l_logoutBtn').addEventListener('click', ()=>{
 
 <script>
 "use strict";
-var SETTINGS__URL = window._activeApiUrl || "https://script.google.com/macros/s/AKfycby...exec";
+const SETTINGS__URL = "https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec";
 function hideSettingsLoadingOverlay() {
   var overlay = document.getElementById('loadingOverlay');
   if (overlay) { overlay.classList.add('hide'); setTimeout(function() { overlay.style.display = 'none'; }, 500); }
@@ -2319,7 +2314,7 @@ function printCertificateLandscape() {
   </div>
 </div>
 <script>
-var dim_SERVICE_URL = window._activeApiUrl || "https://script.google.com/macros/s/AKfycby...exec";
+var dim_SERVICE_URL = "https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec";
 async function dim_callApi(action, payload) {
   var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
   var r = await fetch(dim_SERVICE_URL, { method:"POST", mode:"cors", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:body, redirect:"follow" });
@@ -2544,7 +2539,9 @@ document.addEventListener('DOMContentLoaded', function(){ dim_loadData(); });
 //  الإعدادات العامة
 // ============================================================
 
-var TR_API_URL = window._activeApiUrl || "https://script.google.com/macros/s/AKfycby...exec";
+const TR_API_URL =
+  "https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec";
+
 
 // ============================================================
 //  الحالة العامة (State)
@@ -3859,7 +3856,7 @@ async function trSelectIncompleteCase(caseNumber) {
 <script>
 "use strict";
 
-var bd_API_URL = window._activeApiUrl || "https://script.google.com/macros/s/AKfycby...exec";
+var bd_API_URL = "https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec";
 var storedUrl = localStorage.getItem("breeders_api_url");
 if (storedUrl) bd_API_URL = storedUrl;
 var bd_isClearing = false;
@@ -4336,7 +4333,7 @@ bd_init();
 // =====================================================
 // سجل التحصين - جميع الأسماء مسبوقة بـ vacc_ لتجنب التعارض
 // =====================================================
-var VACC_API_URL = window._activeApiUrl || "https://script.google.com/macros/s/AKfycby...exec";
+var VACC_API_URL = "https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec";
 var vacc_isSaving = false;
 
 function vaccHideLoadingOverlay() {
@@ -5051,7 +5048,7 @@ async function vaccInit() {
 // =====================================================
 // متابعة طلبات التحصين - جميع الأسماء مسبوقة بـ vr_
 // =====================================================
-var VR_API_URL = window._activeApiUrl || "https://script.google.com/macros/s/AKfycby...exec";
+var VR_API_URL = "https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec";
 var vr_allData = [];
 var vr_dataLoaded = false;
 var vr_registeredPhones = new Set();
@@ -5458,7 +5455,7 @@ async function vr_saveToBreeder(r) {
 // ===================================================
 // API Setup - رابط ثابت
 // ===================================================
-var SAMPLES_API_URL = window._activeApiUrl || "https://script.google.com/macros/s/AKfycby...exec";
+const SAMPLES_API_URL = "https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec";
 // ===================================================
 // إخفاء شاشة التحميل
 // ===================================================
@@ -6057,7 +6054,7 @@ if (document.readyState === 'loading') {
    fin_SERVICE_URL — رابط خدمة الجرد المالي (ثابت مخصص)
    لا يُعدَّل هذا الثابت إلا عند تغيير نشر الـ Web App
    ============================================================ */
-var fin_SERVICE_URL = window._activeApiUrl || "https://script.google.com/macros/s/AKfycby...exec";
+var fin_SERVICE_URL = "https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec";
 
 async function fin_callApi(action, payload) {
   var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
@@ -6224,7 +6221,7 @@ function fin_localToday() {
    dtr_SERVICE_URL — رابط خدمة تتبع المرض (ثابت مخصص)
    لا يُعدَّل هذا الثابت إلا عند تغيير نشر الـ Web App
    ============================================================ */
-var dtr_SERVICE_URL = window._activeApiUrl || "https://script.google.com/macros/s/AKfycby...exec";
+var dtr_SERVICE_URL = "https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec";
 var dtr_userClick = false;
 async function dtr_callApi(action, payload) {
   var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
@@ -6790,7 +6787,8 @@ document.addEventListener('DOMContentLoaded', function() {
    ani_SERVICE_URL — رابط خدمة الحيوانات المحصنة (ثابت مخصص)
    لا يُعدَّل هذا الثابت إلا عند تغيير نشر الـ Web App
    ============================================================ */
-var ani_SERVICE_URL = window._activeApiUrl || "https://script.google.com/macros/s/AKfycby...exec";
+var ani_SERVICE_URL = "https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec";
+
 async function ani_callApi(action, payload) {
   var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
   var r = await fetch(ani_SERVICE_URL, {
@@ -6977,7 +6975,8 @@ document.addEventListener('DOMContentLoaded', function() {
    rpt_SERVICE_URL — رابط خدمة التقرير الشامل (ثابت مخصص)
    لا يُعدَّل هذا الثابت إلا عند تغيير نشر الـ Web App
    ============================================================ */
-var rpt_SERVICE_URL = window._activeApiUrl || "https://script.google.com/macros/s/AKfycby...exec";
+var rpt_SERVICE_URL = "https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec";
+
 async function rpt_callApi(action, payload) {
   var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
   var r = await fetch(rpt_SERVICE_URL, {
