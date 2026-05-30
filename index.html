@@ -1454,83 +1454,92 @@ function lAlert(elId, icoId, txId, type, msg) {
   }
 
 async function lDoLogin() {
-    const u=document.getElementById('l_username').value.trim();
-    const p=document.getElementById('l_password').value.trim();
-document.getElementById('l_loginErr').style.display='none';
+  const u = document.getElementById('l_username').value.trim();
+  const p = document.getElementById('l_password').value.trim();
 
-if (!u || !p) {
-  lAlert('l_loginErr','l_loginErrIco','l_loginErrTx','error','الرجاء إدخال اسم المستخدم وكلمة المرور.');
-  return;
-}
+  document.getElementById('l_loginErr').style.display = 'none';
 
-    document.getElementById('l_loginBtn').disabled=true;
-    document.getElementById('l_lsp').style.display='block';
-    document.getElementById('l_lbt').textContent='جارٍ التحقق...';
-    document.getElementById('l_lbi').style.display='none';
+  if (!u || !p) {
+    lAlert('l_loginErr','l_loginErrIco','l_loginErrTx',
+           'error','الرجاء إدخال اسم المستخدم وكلمة المرور.');
+    return;
+  }
 
-    try {
-      const r=await fetch(CSV_URL);
-      if(!r.ok) throw new Error();
-      const users=lParseCSV(await r.text());
-      lUK=lFk(users[0]||{}, ['user','اسم','username']);
-      lPK=lFk(users[0]||{}, ['pass','كلمة','password']);
-      lNK=lFk(users[0]||{}, ['name','الاسم','full']);
-      if(!lUK||!lPK){
-        lAlert('l_loginErr','l_loginErrIco','l_loginErrTx','error','تعذّر العثور على أعمدة البيانات.');
-      } else {
-        const m=users.find(u2=>(u2[lUK]||'').toLowerCase()===u.toLowerCase()&&(u2[lPK]||'')===p);
-if(m){
-  lCU={...m, _u:u};
-  window._currentUser = u;
+  document.getElementById('l_loginBtn').disabled      = true;
+  document.getElementById('l_lsp').style.display      = 'block';
+  document.getElementById('l_lbt').textContent        = 'جارٍ التحقق...';
+  document.getElementById('l_lbi').style.display      = 'none';
 
-  PERM.init(u, m);  // ← هذا السطر فقط
+  // رابط هذا الـ Script الخاص بالمصادقة
+  const AUTH_URL = 'https://script.google.com/macros/s/AKfycbwke264iU5mQ6he6CQ7zn7guHguL9DUnFMKARkgZsCGPT3QTG47psoaTYu5rEw0ijO7Mg/exec';
 
-  document.getElementById('l_welcomeName').textContent=`مرحباً، ${lNK?(m[lNK]||u):u}!`;
-  lShow(lViews.welcome);
-  unlockNav();
-} else {
-          // تحديد سبب الخطأ
-          const userExists=users.find(u2=>(u2[lUK]||'').toLowerCase()===u.toLowerCase());
-          let errMsg = '';
-          if(!userExists){
-            errMsg='❌ اسم المستخدم غير موجود، تحقق من الاسم وأعد المحاولة.';
-          } else {
-            errMsg='❌ كلمة المرور غير صحيحة، تحقق منها وأعد المحاولة.';
-          }
-          lAlert('l_loginErr','','l_loginErrTx','error', errMsg);
+  try {
+    const res = await fetch(AUTH_URL, {
+      method:   'POST',
+      mode:     'cors',
+      headers:  { 'Content-Type': 'text/plain;charset=utf-8' },
+      body:     JSON.stringify({ action: 'login', username: u, password: p }),
+      redirect: 'follow'
+    });
 
-          // تفريغ كلمة المرور وإعادة التركيز
-          document.getElementById('l_password').value='';
-          document.getElementById('l_password').focus();
+    const data = await res.json();
 
-          // تلوين الحقل الخاطئ
-          if(!userExists){
-            document.getElementById('l_username').style.borderColor='#e74c3c';
-            document.getElementById('l_username').style.background='#fdecea';
-          } else {
-            document.getElementById('l_password').style.borderColor='#e74c3c';
-            document.getElementById('l_password').style.background='#fdecea';
-          }
+    if (data.success) {
 
-          // إعادة اللون الطبيعي بعد 4 ثوانٍ
-          setTimeout(function(){
-            document.getElementById('l_username').style.borderColor='';
-            document.getElementById('l_username').style.background='';
-            document.getElementById('l_password').style.borderColor='';
-            document.getElementById('l_password').style.background='';
-          }, 4000);
+      // ✅ حفظ ما نحتاجه فقط — لا كلمة مرور أبداً
+      lCU = { name: data.name, role: data.role, _u: u };
+      window._currentUser = u;
+
+      // تطبيق رابط الولاية إن وُجد
+      if (data.api_url && data.api_url.trim() !== '') {
+        if (typeof wilayatSetAllUrls === 'function') {
+          wilayatSetAllUrls(data.api_url.trim());
         }
       }
-    } catch {
-      lAlert('l_loginErr','l_loginErrIco','l_loginErrTx','error','خطأ في الاتصال. تأكد من مشاركة الجدول بشكل عام.');
-    } finally {
-      // ← هذا هو المهم — يعمل دائماً سواء نجح أو فشل
-      document.getElementById('l_loginBtn').disabled=false;
-      document.getElementById('l_lsp').style.display='none';
-      document.getElementById('l_lbt').textContent='دخول';
-      document.getElementById('l_lbi').style.display='block';
+
+      // تطبيق الصلاحيات
+      if (typeof PERM !== 'undefined' && typeof PERM.init === 'function') {
+        PERM.init(u, data);
+      }
+
+      document.getElementById('l_welcomeName').textContent =
+        'مرحباً ' + (data.name || u);
+      lShow(lViews.welcome);
+      unlockNav();
+
+    } else {
+
+      lAlert('l_loginErr', '', 'l_loginErrTx', 'error',
+             '❌ ' + (data.message || 'بيانات الدخول غير صحيحة'));
+
+      document.getElementById('l_password').value = '';
+      document.getElementById('l_password').focus();
+
+      // تلوين الحقل الخاطئ
+      const field = data.message &&
+                    data.message.indexOf('كلمة') !== -1
+                    ? 'l_password' : 'l_username';
+      const el = document.getElementById(field);
+      if (el) {
+        el.style.borderColor  = '#e74c3c';
+        el.style.background   = '#fdecea';
+        setTimeout(function() {
+          el.style.borderColor = '';
+          el.style.background  = '';
+        }, 4000);
+      }
     }
+
+  } catch (err) {
+    lAlert('l_loginErr','l_loginErrIco','l_loginErrTx',
+           'error','خطأ في الاتصال. تحقق من الإنترنت.');
+  } finally {
+    document.getElementById('l_loginBtn').disabled = false;
+    document.getElementById('l_lsp').style.display = 'none';
+    document.getElementById('l_lbt').textContent   = 'دخول';
+    document.getElementById('l_lbi').style.display = 'block';
   }
+}
 
   document.getElementById('l_loginBtn').addEventListener('click', lDoLogin);
   document.getElementById('l_username').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('l_password').focus(); });
@@ -1576,44 +1585,79 @@ document.getElementById('l_logoutBtn').addEventListener('click', ()=>{
     lbl.textContent=lb[s]; lbl.style.color=cl[s];
   }
 
-  document.getElementById('l_cpBtn').addEventListener('click', async ()=>{
-    const oldP=document.getElementById('l_oldPass').value.trim();
-    const newP=document.getElementById('l_newPass').value.trim();
-    const conf=document.getElementById('l_confPass').value.trim();
-    document.getElementById('l_cpAlert').style.display='none';
+document.getElementById('l_cpBtn').addEventListener('click', async () => {
+  const oldP  = document.getElementById('l_oldPass').value.trim();
+  const newP  = document.getElementById('l_newPass').value.trim();
+  const conf  = document.getElementById('l_confPass').value.trim();
 
-    if(!oldP||!newP||!conf){ lAlert('l_cpAlert','l_cpAlertIco','l_cpAlertTx','error','يرجاء ملء جميع الحقول.'); return; }
-    if(oldP!==lCU[lPK])    { lAlert('l_cpAlert','l_cpAlertIco','l_cpAlertTx','error','كلمة المرور الحالية غير صحيحة.'); return; }
-    if(newP.length<6)       { lAlert('l_cpAlert','l_cpAlertIco','l_cpAlertTx','error','كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل.'); return; }
-    if(newP!==conf)         { lAlert('l_cpAlert','l_cpAlertIco','l_cpAlertTx','error','كلمة المرور وتأكيدها غير متطابقتين.'); return; }
-    if(newP===oldP)         { lAlert('l_cpAlert','l_cpAlertIco','l_cpAlertTx','warn','كلمة المرور الجديدة مطابقة للحالية.'); return; }
+  document.getElementById('l_cpAlert').style.display = 'none';
 
-    document.getElementById('l_cpBtn').disabled=true;
-    document.getElementById('l_cpsp').style.display='block';
-    document.getElementById('l_cpbt').textContent='جارٍ التحديث...';
-    document.getElementById('l_cpbi').style.display='none';
+  if (!oldP || !newP || !conf) {
+    lAlert('l_cpAlert','l_cpAlertIco','l_cpAlertTx',
+           'error','يرجاء ملء جميع الحقول.');
+    return;
+  }
+  if (newP.length < 6) {
+    lAlert('l_cpAlert','l_cpAlertIco','l_cpAlertTx',
+           'error','كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل.');
+    return;
+  }
+  if (newP !== conf) {
+    lAlert('l_cpAlert','l_cpAlertIco','l_cpAlertTx',
+           'error','كلمة المرور وتأكيدها غير متطابقتين.');
+    return;
+  }
+  if (newP === oldP) {
+    lAlert('l_cpAlert','l_cpAlertIco','l_cpAlertTx',
+           'warn','كلمة المرور الجديدة مطابقة للحالية.');
+    return;
+  }
 
-    try {
-      const params=new URLSearchParams({sheetId:SHEET_ID,usernameKey:lUK,passwordKey:lPK,username:lCU._u,newPassword:newP});
-      const res=await fetch(`${SCRIPT_URL}?${params}`);
-      const txt=await res.text();
-      if(txt.includes('success')||res.ok){
-        lCU[lPK]=newP;
-        lAlert('l_cpAlert','l_cpAlertIco','l_cpAlertTx','success','✓ تم تحديث كلمة المرور بنجاح');
-        ['l_oldPass','l_newPass','l_confPass'].forEach(id=>document.getElementById(id).value='');
-        lUpdateStrength('');
-      } else {
-        lAlert('l_cpAlert','l_cpAlertIco','l_cpAlertTx','error','فشل التحديث. تأكد من إعدادات Apps Script.');
-      }
-    } catch {
-      lAlert('l_cpAlert','l_cpAlertIco','l_cpAlertTx','error','خطأ في الاتصال بـ Apps Script.');
+  document.getElementById('l_cpBtn').disabled      = true;
+  document.getElementById('l_cpsp').style.display  = 'block';
+  document.getElementById('l_cpbt').textContent    = 'جارٍ التحديث...';
+  document.getElementById('l_cpbi').style.display  = 'none';
+
+  const AUTH_URL = 'https://script.google.com/macros/s/AKfycbwke264iU5mQ6he6CQ7zn7guHguL9DUnFMKARkgZsCGPT3QTG47psoaTYu5rEw0ijO7Mg/exec';
+
+  try {
+    const res = await fetch(AUTH_URL, {
+      method:   'POST',
+      mode:     'cors',
+      headers:  { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action:      'changePassword',
+        username:    lCU._u,
+        oldPassword: oldP,
+        newPassword: newP
+      }),
+      redirect: 'follow'
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      lAlert('l_cpAlert','l_cpAlertIco','l_cpAlertTx',
+             'success','✓ تم تحديث كلمة المرور بنجاح');
+      ['l_oldPass','l_newPass','l_confPass'].forEach(function(id) {
+        document.getElementById(id).value = '';
+      });
+      lUpdateStrength('');
+    } else {
+      lAlert('l_cpAlert','l_cpAlertIco','l_cpAlertTx',
+             'error', data.message || 'فشل التحديث.');
     }
 
-    document.getElementById('l_cpBtn').disabled=false;
-    document.getElementById('l_cpsp').style.display='none';
-    document.getElementById('l_cpbt').textContent='تحديث كلمة المرور';
-    document.getElementById('l_cpbi').style.display='block';
-  });
+  } catch (err) {
+    lAlert('l_cpAlert','l_cpAlertIco','l_cpAlertTx',
+           'error','خطأ في الاتصال.');
+  } finally {
+    document.getElementById('l_cpBtn').disabled     = false;
+    document.getElementById('l_cpsp').style.display = 'none';
+    document.getElementById('l_cpbt').textContent   = 'تحديث كلمة المرور';
+    document.getElementById('l_cpbi').style.display = 'block';
+  }
+});
 
   lShow(lViews.login);
 })();
