@@ -1890,7 +1890,176 @@ async function wilayatApply() {
   lEye('l_tp2','l_oldPass','l_e2');
   lEye('l_tp3','l_newPass','l_e3');
   lEye('l_tp4','l_confPass','l_e4');
+// ── حفظ عدة مستخدمين للدخول السريع ──
+(function() {
+  var MAX_USERS = 5; // الحد الأقصى للمستخدمين المحفوظين
+  var STORAGE_KEY = 'saved_usernames';
+  
+  var usernameInput = document.getElementById('l_username');
+  var passwordInput = document.getElementById('l_password');
 
+  function getSavedUsers() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+    catch(e) { return []; }
+  }
+
+  function saveUser(username) {
+    if (!username) return;
+    var users = getSavedUsers();
+    // إزالة إذا موجود مسبقاً ثم إضافة في الأول
+    users = users.filter(function(u) { return u !== username; });
+    users.unshift(username);
+    // الاحتفاظ بأحدث MAX_USERS فقط
+    users = users.slice(0, MAX_USERS);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+  }
+
+  function removeUser(username) {
+    var users = getSavedUsers().filter(function(u) { return u !== username; });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+  }
+
+  // ── بناء قائمة المستخدمين ──
+  function buildUsersList() {
+    var existing = document.getElementById('l_savedUsersRow');
+    if (existing) existing.remove();
+
+    var users = getSavedUsers();
+    if (!users.length) return;
+
+    var row = document.createElement('div');
+    row.id = 'l_savedUsersRow';
+    row.style.cssText = 'margin-bottom:14px;';
+
+    var label = document.createElement('div');
+    label.style.cssText = 'font-size:12px;color:#6b7a8d;margin-bottom:6px;font-weight:600;';
+    label.textContent = 'الدخول السريع:';
+    row.appendChild(label);
+
+    var list = document.createElement('div');
+    list.style.cssText = 'display:flex;flex-direction:column;gap:5px;';
+
+    users.forEach(function(user) {
+      var item = document.createElement('div');
+      item.style.cssText =
+        'display:flex;align-items:center;justify-content:space-between;' +
+        'background:#f7f9fc;border:1.5px solid #d0dae6;border-radius:10px;' +
+        'padding:8px 12px;cursor:pointer;transition:all 0.2s;';
+
+      item.innerHTML =
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6b7a8d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>' +
+        '<span style="font-size:14px;font-weight:600;color:#1a2535;">' + user + '</span>' +
+        '</div>' +
+        '<button type="button" data-user="' + user + '" class="l_removeUser" ' +
+        'style="background:none;border:none;cursor:pointer;color:#e74c3c;font-size:16px;' +
+        'line-height:1;padding:0 2px;" title="حذف">×</button>';
+
+      // النقر على العنصر لتعبئة الحقل
+      item.addEventListener('click', function(e) {
+        if (e.target.classList.contains('l_removeUser')) return;
+        usernameInput.value = user;
+        passwordInput.focus();
+        // تمييز العنصر المختار
+        list.querySelectorAll('div').forEach(function(el) {
+          el.style.background = '#f7f9fc';
+          el.style.borderColor = '#d0dae6';
+        });
+        item.style.background = '#e0f7fc';
+        item.style.borderColor = '#00b8d9';
+      });
+
+      // حذف مستخدم
+      item.querySelector('.l_removeUser').addEventListener('click', function(e) {
+        e.stopPropagation();
+        var u = this.getAttribute('data-user');
+        removeUser(u);
+        if (usernameInput.value === u) usernameInput.value = '';
+        buildUsersList();
+        showToast('تم حذف ' + u, 'info');
+      });
+
+      // hover
+      item.addEventListener('mouseenter', function() {
+        if (usernameInput.value !== user) {
+          item.style.background = '#eef3fa';
+          item.style.borderColor = '#b0bec5';
+        }
+      });
+      item.addEventListener('mouseleave', function() {
+        if (usernameInput.value !== user) {
+          item.style.background = '#f7f9fc';
+          item.style.borderColor = '#d0dae6';
+        }
+      });
+
+      list.appendChild(item);
+    });
+
+    // زر مسح الكل
+    if (users.length > 1) {
+      var clearAll = document.createElement('button');
+      clearAll.type = 'button';
+      clearAll.textContent = 'مسح الكل';
+      clearAll.style.cssText =
+        'margin-top:4px;background:none;border:none;cursor:pointer;' +
+        'font-size:11px;color:#e65050;text-decoration:underline;' +
+        'text-align:right;padding:0;font-family:inherit;';
+      clearAll.onclick = function() {
+        localStorage.removeItem(STORAGE_KEY);
+        usernameInput.value = '';
+        buildUsersList();
+        showToast('تم مسح جميع المستخدمين المحفوظين', 'info');
+      };
+      list.appendChild(clearAll);
+    }
+
+    row.appendChild(list);
+
+    // إضافة القائمة قبل حقل اسم المستخدم
+    var firstGroup = document.querySelector('#l_loginView .lform-group');
+    if (firstGroup) {
+      firstGroup.parentNode.insertBefore(row, firstGroup);
+    }
+  }
+
+  // ── مربع "تذكرني" ──
+  var rememberRow = document.createElement('div');
+  rememberRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:-8px;margin-bottom:4px;';
+  rememberRow.innerHTML =
+    '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#6b7a8d;">' +
+    '<input type="checkbox" id="l_remember" checked style="width:16px;height:16px;cursor:pointer;">' +
+    'تذكر اسم المستخدم</label>';
+
+  var loginBtn = document.getElementById('l_loginBtn');
+  if (loginBtn && loginBtn.parentNode) {
+    loginBtn.parentNode.insertBefore(rememberRow, loginBtn);
+  }
+
+  // ── الحفظ عند تسجيل الدخول ──
+  function onLoginAttempt() {
+    var checkbox = document.getElementById('l_remember');
+    var user = usernameInput ? usernameInput.value.trim() : '';
+    if (checkbox && checkbox.checked && user) {
+      saveUser(user);
+    }
+  }
+
+  if (loginBtn) loginBtn.addEventListener('click', onLoginAttempt, true);
+  passwordInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') onLoginAttempt();
+  });
+
+  // ── تعبئة تلقائية إذا كان هناك مستخدم واحد فقط ──
+  var users = getSavedUsers();
+  if (users.length === 1) {
+    usernameInput.value = users[0];
+    setTimeout(function() { passwordInput && passwordInput.focus(); }, 100);
+  }
+
+  // بناء القائمة عند التحميل
+  buildUsersList();
+})();
   function lParseCSV(t) {
     const lines = t.trim().split('\n');
     const heads = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
