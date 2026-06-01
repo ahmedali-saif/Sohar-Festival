@@ -5534,6 +5534,7 @@ async function vaccInit() {
         <option value="date">حسب تاريخ الإدخال</option>
       </select>
       <button onclick="vr_loadData()" style="background:#00b8d9;color:#fff;padding:6px 18px;border:none;border-radius:5px;font-weight:bold;cursor:pointer;">🔄 تحديث</button>
+      <button onclick="vr_printTable()" style="background:#8e44ad;color:#fff;padding:6px 18px;border:none;border-radius:5px;font-weight:bold;cursor:pointer;">🖨️ طباعة</button>
     </div>
 
     <div class="stats">
@@ -5864,6 +5865,75 @@ async function vr_saveToBreeder(r) {
 // التحميل عند فتح الصفحة للمرة الأولى فقط
 // يُستدعى من showPage المركزية
 // =====================================================
+  function vr_printTable() {
+  var dateText = 'جميع البيانات';
+  var total = document.getElementById('vr_statTotal').textContent;
+  var vacc  = document.getElementById('vr_statVacc').textContent;
+  var notV  = document.getElementById('vr_statNot').textContent;
+
+  var tbody = document.getElementById('vr_searchResultsBody');
+  if (!tbody || !tbody.innerHTML.trim()) {
+    showToast('لا توجد بيانات للطباعة', 'warning');
+    return;
+  }
+
+  var w = window.open('', '_blank', 'width=1100,height=800');
+  w.document.write(`<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>طباعة متابعة طلبات التحصين</title>
+<style>
+  body { font-family: Tahoma, Arial, sans-serif; direction: rtl; padding: 20px; font-size: 13px; color: #000; }
+  h2  { text-align: center; color: #00b8d9; margin-bottom: 6px; }
+  .stats { display: flex; gap: 20px; justify-content: center; margin-bottom: 14px; }
+  .stat  { padding: 6px 18px; border-radius: 20px; font-weight: bold; color: #fff; font-size: 13px; }
+  .s-total { background: #3498db; }
+  .s-vacc  { background: #27ae60; }
+  .s-not   { background: #e74c3c; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th { background: #00b8d9; color: #fff; padding: 7px 8px; border: 1px solid #ccc; text-align: center; }
+  td { border: 1px solid #ccc; padding: 6px 8px; text-align: center; }
+  .row-vacc td { background: #d4f8d4; color: #1b5e20; }
+  .row-not  td { background: #fdd6d6; color: #7a0000; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; color: #fff; }
+  .badge-vacc { background: #27ae60; }
+  .badge-not  { background: #e74c3c; }
+  @media print {
+    @page { size: A4 landscape; margin: 10mm; }
+    button { display: none !important; }
+  }
+</style>
+</head>
+<body>
+<h2>متابعة طلبات التحصين</h2>
+<div class="stats">
+  <span class="stat s-total">الإجمالي: ${total}</span>
+  <span class="stat s-vacc">المحصنون: ${vacc}</span>
+  <span class="stat s-not">غير المحصنين: ${notV}</span>
+</div>
+<table>
+  <thead>
+    <tr>
+      <th>م</th>
+      <th>رقم الهاتف</th>
+      <th>اسم المربي</th>
+      <th>المنطقة</th>
+      <th>تاريخ الإدخال</th>
+      <th>الحالة</th>
+      <th>اللقاحات والحيوانات المحصنة</th>
+    </tr>
+  </thead>
+  <tbody>${tbody.innerHTML}</tbody>
+</table>
+<div style="text-align:center;margin-top:16px;">
+  <button onclick="window.print()" style="padding:9px 30px;background:#00b8d9;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer;">🖨️ طباعة</button>
+</div>
+</body>
+</html>`);
+  w.document.close();
+  setTimeout(function() { w.focus(); }, 300);
+}
 </script>
 
 </div>
