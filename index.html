@@ -5719,11 +5719,23 @@ async function vaccInit() {
       <label>بحث:</label>
       <input type="text" id="vr_searchInput" placeholder="رقم الهاتف أو الاسم " style="width:260px" oninput="if(vr_dataLoaded) vr_render()">
       <label>الحالة:</label>
-      <select id="vr_statusFilter" onchange="if(vr_dataLoaded) vr_render()">
-        <option value="all">الكل</option>
-        <option value="vacc">المحصنون فقط</option>
-        <option value="not">غير المحصنين فقط</option>
-      </select>
+<select id="vr_statusFilter" onchange="vr_onStatusChange()">
+  <option value="all">الكل</option>
+  <option value="vacc">المحصنون فقط</option>
+  <option value="not">غير المحصنين فقط</option>
+</select>
+<div id="vr_vaccineFilterWrap" style="display:none;align-items:center;gap:6px;">
+  <label style="font-size:13px;font-weight:bold;color:#006080;">نوع اللقاح:</label>
+  <select id="vr_vaccineTypeFilter" onchange="if(vr_dataLoaded) vr_render()"
+    style="padding:6px 10px;border:2px solid #00b8d9;border-radius:4px;font-size:13px;">
+    <option value="">— كل اللقاحات —</option>
+    <option value="intox">التسمم المعوي</option>
+    <option value="pock">طاعون / جدري (مركب)</option>
+    <option value="fmd">الحمى القلاعية</option>
+    <option value="lsd">التهاب الجلد العقدي</option>
+    <option value="rabies">السعار</option>
+  </select>
+</div>
       <label>الفرز:</label>
       <select id="vr_sortBy">
         <option value="name">حسب الاسم</option>
@@ -5886,6 +5898,17 @@ function vr_parseDate(val) {
   if (!isNaN(d.getTime())) return d.getTime();
   return 0;
 }
+  function vr_onStatusChange() {
+  var status = document.getElementById("vr_statusFilter").value;
+  var wrap = document.getElementById("vr_vaccineFilterWrap");
+  if (status === "vacc") {
+    wrap.style.display = "flex";
+  } else {
+    wrap.style.display = "none";
+    document.getElementById("vr_vaccineTypeFilter").value = "";
+  }
+  if (vr_dataLoaded) vr_render();
+}
 function vr_render() {
   var q      = (document.getElementById("vr_searchInput").value || '').trim();
   var status = document.getElementById("vr_statusFilter").value;
@@ -5906,8 +5929,34 @@ function vr_render() {
     });
   }
   // فلتر الحالة
-  if (status === "vacc") rows = rows.filter(function(r) { return r.vaccinated; });
-  else if (status === "not") rows = rows.filter(function(r) { return !r.vaccinated; });
+  var vaccineType = document.getElementById("vr_vaccineTypeFilter")
+    ? document.getElementById("vr_vaccineTypeFilter").value : "";
+
+  if (status === "vacc") {
+    if (vaccineType) {
+      // أظهر المحصنين بنوع اللقاح المحدد، لكن اعرض فقط من لم يُحصَّن بهذا اللقاح
+      rows = rows.filter(function(r) {
+        if (!r.vaccinated) return false;
+        var summary = (r.summary || "").toLowerCase();
+        var vaccineLabels = {
+          intox:  ["التسمم المعوي","intox"],
+          pock:   ["طاعون","جدري","pock"],
+          fmd:    ["الحمى القلاعية","fmd"],
+          lsd:    ["التهاب الجلد العقدي","lsd"],
+          rabies: ["السعار","rabies"]
+        };
+        var labels = vaccineLabels[vaccineType] || [];
+        var hasVaccine = labels.some(function(lbl) {
+          return summary.indexOf(lbl) !== -1;
+        });
+        return !hasVaccine;
+      });
+    } else {
+      rows = rows.filter(function(r) { return r.vaccinated; });
+    }
+  } else if (status === "not") {
+    rows = rows.filter(function(r) { return !r.vaccinated; });
+  }
 
   // الترتيب
   rows.sort(function(a, b) {
@@ -5926,6 +5975,24 @@ if (sortBy === "date") {
   // الإحصائيات
   var total = rows.length;
   var vacc  = rows.filter(function(r) { return r.vaccinated; }).length;
+  // تحديث عنوان الفلترة
+  var vaccSel = document.getElementById("vr_vaccineTypeFilter");
+  var vaccLabel = vaccSel && vaccSel.value
+    ? vaccSel.options[vaccSel.selectedIndex].text : "";
+  var filterNote = document.getElementById("vr_filterNote");
+  if (!filterNote) {
+    filterNote = document.createElement("div");
+    filterNote.id = "vr_filterNote";
+    filterNote.style.cssText = "text-align:center;font-size:13px;font-weight:bold;color:#8e44ad;margin:6px 0;min-height:20px;";
+    var statsEl = document.querySelector("#vaccinationRequests .stats");
+    if (statsEl) statsEl.parentNode.insertBefore(filterNote, statsEl);
+  }
+  if (status === "vacc" && vaccLabel) {
+    filterNote.textContent = "⚠️ يعرض المحصنين الذين لم يتلقوا لقاح: " + vaccLabel;
+    filterNote.style.display = "block";
+  } else {
+    filterNote.style.display = "none";
+  }
   document.getElementById("vr_statTotal").textContent = total;
   document.getElementById("vr_statVacc").textContent  = vacc;
   document.getElementById("vr_statNot").textContent   = total - vacc;
