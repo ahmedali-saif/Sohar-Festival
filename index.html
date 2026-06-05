@@ -4449,6 +4449,73 @@ async function trSelectIncompleteCase(caseNumber) {
     trunblockButtons();
   }
 }
+  // ============================================================
+//  زيادة رقم الإيصال تلقائياً بعد كل حفظ ناجح
+// ============================================================
+
+(function () {
+  "use strict";
+
+  var _nextReceipt = 0;
+
+  /* عند الضغط على حفظ أو حفظ مؤقت: احفظ الرقم الحالي + 1 */
+  function captureReceiptBeforeSave() {
+    var el = document.getElementById("tr_receipt");
+    if (!el) return;
+    var v = parseInt(el.value, 10);
+    _nextReceipt = (!isNaN(v) && v > 0) ? v + 1 : 0;
+  }
+
+  /* بعد مسح النموذج: ضع الرقم التالي في حقل الإيصال */
+  function restoreNextReceipt() {
+    if (_nextReceipt <= 0) return;
+    var el = document.getElementById("tr_receipt");
+    if (el) el.value = _nextReceipt;
+  }
+
+  /* Patch trsaveData */
+  function patchSave() {
+    if (!window.trsaveData || window.trsaveData._recPatch) return;
+    var _orig = window.trsaveData;
+    window.trsaveData = async function () {
+      captureReceiptBeforeSave();
+      var result = await _orig.apply(this, arguments);
+      /* بعد انتهاء الحفظ ومسح النموذج: ضع الرقم التالي */
+      setTimeout(restoreNextReceipt, 100);
+      return result;
+    };
+    window.trsaveData._recPatch = true;
+  }
+
+  /* Patch trtempSave */
+  function patchTempSave() {
+    if (!window.trtempSave || window.trtempSave._recPatch) return;
+    var _orig = window.trtempSave;
+    window.trtempSave = async function () {
+      captureReceiptBeforeSave();
+      var result = await _orig.apply(this, arguments);
+      setTimeout(restoreNextReceipt, 100);
+      return result;
+    };
+    window.trtempSave._recPatch = true;
+  }
+
+  /* انتظر حتى تتوفر الدوال */
+  function tryPatch() {
+    patchSave();
+    patchTempSave();
+    if (!window.trsaveData || !window.trtempSave) {
+      setTimeout(tryPatch, 500);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", tryPatch);
+  } else {
+    tryPatch();
+  }
+
+})();
 </script>
 </div>
 
