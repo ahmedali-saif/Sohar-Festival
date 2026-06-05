@@ -8651,7 +8651,7 @@ async function dp_loadAll() {
 
     /* معالجة بيانات العلاج */
     if (tr && tr.success && Array.isArray(tr.data) && tr.data.length > 1) {
-      var trHeaders = tr.data[0];
+      var trHeaders = (tr.data && tr.data[0]) ? tr.data[0] : [];
       dp_log('رؤوس العلاج[0]: ' + JSON.stringify(trHeaders).substring(0, 200));
       dp_log('قيمة index 45 في الرؤوس: "' + (trHeaders[45] || '') + '"');
 
@@ -8678,7 +8678,7 @@ async function dp_loadAll() {
       };
 
       /* البيانات تبدأ من slice(1) — تخطي صف الرؤوس */
-      tr.data.slice(1).forEach(function(row) {
+      (tr.data || []).slice(1).forEach(function(row) {
         if (!Array.isArray(row) || !row.length) return;
         var doc = dp_v(row, docIdx);
         if (!doc) return; /* تخطي الصفوف بدون مدخل بيانات */
@@ -8759,7 +8759,7 @@ var vaccStart = 0;
         dp_log('صف واحد فقط — vaccStart=' + vaccStart);
       }
 
-      vaccRows.slice(vaccStart).forEach(function(row) {
+      (vaccRows || []).slice(vaccStart).forEach(function(row) {
         if (!Array.isArray(row) || !row.length) return;
         /* تخطي الصفوف التي يكون فيها [0] نصاً (رؤوس إضافية) */
         if (isNaN(parseInt(row[0]))) return;
@@ -8816,7 +8816,7 @@ var vaccStart = 0;
     if (sr && sr.success && Array.isArray(sr.data)) {
       dp_log('عينات: ' + sr.data.length + ' سجل');
 
-      sr.data.forEach(function(r) {
+      (sr.data || []).forEach(function(r) {
         var tests = [], results = [];
         for (var k = 1; k <= 5; k++) {
           var t  = String(r['test'+k]   || '').trim();
