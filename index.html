@@ -7494,11 +7494,20 @@ function dtr_renderChart(monthly, byAnimal, disease) {
   // ============================================================
 
   var sortedKeys = Object.keys(monthly).sort();
-  var labels = sortedKeys.map(function(k) {
+var labels = sortedKeys.filter(function(k){
+    return k && k.indexOf('-') !== -1;
+}).map(function(k) {
     var p = k.split('-');
     return dtr_ARABIC_MONTHS[parseInt(p[1]) - 1] + ' ' + p[0];
-  });
-  
+});
+var values = sortedKeys.filter(function(k){
+    return k && k.indexOf('-') !== -1;
+}).map(function(k) {
+    var v = monthly[k];
+    if (v === undefined || v === null || v === '') return 0;
+    var n = Number(v);
+    return isNaN(n) ? 0 : n;
+});
   // ← إصلاح 1: تنظيف القيم — تحويل النصوص إلى أرقام ومعالجة undefined/NaN
   var values = sortedKeys.map(function(k) {
     var v = monthly[k];
@@ -7642,7 +7651,9 @@ function dtr_renderTable(monthly, byAnimal, disease) {
 
   // الجدول الشهري (الافتراضي)
   thead.innerHTML = '<th>م</th><th>الشهر</th><th>عدد الإصابات</th>';
-  var sortedKeys = Object.keys(monthly).sort();
+  var sortedKeys = Object.keys(monthly).filter(function(k){
+    return k && k !== 'undefined' && k.indexOf('-') !== -1;
+}).sort();
   var grandTotal = 0;
 
   sortedKeys.forEach(function(k, i) {
