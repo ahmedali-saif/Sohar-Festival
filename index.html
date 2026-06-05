@@ -8316,7 +8316,8 @@ function dp_monthlyMap(rows) {
 /* ════════════════════════════════════════════════════════
    ٦. رندر التبويبات
    ════════════════════════════════════════════════════════ */
-
+function dp_safe(v) { return (v == null ? '' : String(v)); }
+function dp_trunc(v, n) { var s = dp_safe(v); return s.length > n ? s.substring(0, n) : s; }
 /* ── العلاج ── */
 function dp_renderTreat() {
   var rows = dp_filter(dp_RAW.treat);
@@ -8352,7 +8353,7 @@ function dp_renderTreat() {
   /* جدول */
   var kw = String((document.getElementById('t_kw')||{}).value||'').toLowerCase();
   var filtered = kw ? rows.filter(function(r){
-    return (r.doc+' '+r.name+' '+r.phone+' '+r.region+' '+r.disease+' '+r.status).toLowerCase().indexOf(kw)>-1;
+  return (dp_safe(r.doc)+' '+dp_safe(r.name)+' '+dp_safe(r.phone)+' '+dp_safe(r.region)+' '+dp_safe(r.disease)+' '+dp_safe(r.status)).toLowerCase().indexOf(kw)>-1;
   }) : rows;
   filtered = filtered.slice().sort(function(a,b){ return (dp_date(b.date)||0)-(dp_date(a.date)||0); });
 
@@ -8360,16 +8361,16 @@ function dp_renderTreat() {
   var html = filtered.length ? filtered.map(function(r){
     var st = String(r.status||'');
     var sc = st.indexOf('غير')>-1?'ng':(st.indexOf('مكتمل')>-1?'ok':'pn');
-    return '<tr>' +
-      '<td>'+dp_esc(dp_fmt(dp_date(r.date)))+'</td>' +
-      '<td style="font-weight:bold;color:#00b8d9">'+dp_esc(r.doc)+'</td>' +
-      '<td>'+dp_esc(r.name)+'</td>' +
-      '<td>'+dp_esc(r.phone)+'</td>' +
-      '<td>'+dp_esc(r.region)+'</td>' +
-      '<td>'+dp_esc(r.disease)+'</td>' +
-      '<td>'+(r.amount?parseFloat(r.amount).toLocaleString('ar-SA'):'—')+'</td>' +
-      '<td><span class="dp_badge '+sc+'">'+dp_esc(st||'—')+'</span></td>' +
-      '</tr>';
+  return '<tr>' +
+  '<td>'+dp_esc(dp_fmt(dp_date(dp_safe(r.date))))+'</td>' +
+  '<td style="font-weight:bold;color:#00b8d9">'+dp_esc(dp_safe(r.doc))+'</td>' +
+  '<td>'+dp_esc(dp_safe(r.name))+'</td>' +
+  '<td>'+dp_esc(dp_safe(r.phone))+'</td>' +
+  '<td>'+dp_esc(dp_safe(r.region))+'</td>' +
+  '<td>'+dp_esc(dp_safe(r.disease))+'</td>' +
+  '<td>'+(dp_safe(r.amount) && !isNaN(parseFloat(r.amount)) ? parseFloat(r.amount).toLocaleString('ar-SA') : '—')+'</td>' +
+  '<td><span class="dp_badge '+sc+'">'+dp_esc(dp_safe(r.status)||'—')+'</span></td>' +
+  '</tr>';
   }).join('') : '<tr><td colspan="8" class="dp_empty">لا توجد بيانات</td></tr>';
   document.getElementById('t_tb').innerHTML = html;
 }
@@ -8405,8 +8406,8 @@ function dp_renderVacc() {
       '<td style="font-weight:bold;color:#00b8d9">'+dp_esc(r.doc)+'</td>'+
       '<td>'+dp_esc(r.name)+'</td><td>'+dp_esc(r.phone)+'</td>'+
       '<td>'+dp_esc(r.region)+'</td>'+
-      '<td>'+dp_esc((r.vaccines||[]).join('، ').substring(0,40))+'</td>'+
-      '<td>'+dp_esc(String(r.doses||'—'))+'</td></tr>';
+      '<td>'+dp_esc(dp_trunc((r.vaccines||[]).join('، '), 40))+'</td>'+
+      '<td>'+dp_esc(dp_safe(String(r.doses||'—')))+'</td></tr>';
   }).join(''):'<tr><td colspan="7" class="dp_empty">لا توجد بيانات</td></tr>';
 }
 
@@ -8464,8 +8465,8 @@ function dp_renderSample() {
       '<td style="font-weight:bold;color:#00b8d9">'+dp_esc(r.doc)+'</td>'+
       '<td>'+dp_esc(r.name)+'</td>'+
       '<td>'+dp_esc(r.sampleType)+'</td>'+
-      '<td>'+dp_esc((r.tests||[]).join('، ').substring(0,30))+'</td>'+
-      '<td><span class="dp_badge '+rc+'">'+dp_esc(res.substring(0,20))+'</span></td>'+
+      '<td>'+dp_esc(dp_trunc((r.tests||[]).join('، '), 30))+'</td>'+
+      '<td><span class="dp_badge '+rc+'">'+dp_esc(dp_trunc((r.results||[]).filter(Boolean).join('، '), 20))+'</span></td>'+
       '<td>'+dayCell+'</td></tr>';
   }).join(''):'<tr><td colspan="7" class="dp_empty">لا توجد بيانات</td></tr>';
 }
@@ -8683,21 +8684,21 @@ async function dp_loadAll() {
         if (!doc) return; /* تخطي الصفوف بدون مدخل بيانات */
 
 dp_RAW.treat.push({
-          doc:     doc,
-          name:    trCOL.name    >= 0 ? dp_v(row, trCOL.name)    : dp_v(row, 2),
-          phone:   trCOL.phone   >= 0 ? dp_v(row, trCOL.phone)   : dp_v(row, 1),
-          region:  trCOL.region  >= 0 ? dp_v(row, trCOL.region)  : dp_v(row, 4),
-          date:    dp_v(row, 46),
-          disease: [dp_v(row, 6), dp_v(row, 9), dp_v(row, 12), dp_v(row, 15), dp_v(row, 18)].filter(Boolean).join('، ') || '—',
-          amount:  trCOL.amount  >= 0 ? dp_v(row, trCOL.amount)  : dp_v(row, 42),
-          place:   trCOL.place   >= 0 ? dp_v(row, trCOL.place)   : dp_v(row, 31),
-          status:  (function() {
-            for (var ci = 21; ci <= 30; ci++) {
-              if (dp_v(row, ci) !== '') return 'مكتملة';
-            }
-            return 'غير مكتملة';
-          })()
-        });
+  doc:     dp_safe(doc),
+  name:    dp_safe(trCOL.name    >= 0 ? dp_v(row, trCOL.name)    : dp_v(row, 2)),
+  phone:   dp_safe(trCOL.phone   >= 0 ? dp_v(row, trCOL.phone)   : dp_v(row, 1)),
+  region:  dp_safe(trCOL.region  >= 0 ? dp_v(row, trCOL.region)  : dp_v(row, 4)),
+  date:    dp_safe(dp_v(row, 46)),
+  disease: [dp_v(row, 6), dp_v(row, 9), dp_v(row, 12), dp_v(row, 15), dp_v(row, 18)].filter(Boolean).join('، ') || '—',
+  amount:  dp_safe(trCOL.amount  >= 0 ? dp_v(row, trCOL.amount)  : dp_v(row, 42)),
+  place:   dp_safe(trCOL.place   >= 0 ? dp_v(row, trCOL.place)   : dp_v(row, 31)),
+  status:  (function() {
+    for (var ci = 21; ci <= 30; ci++) {
+      if (dp_v(row, ci) !== '') return 'مكتملة';
+    }
+    return 'غير مكتملة';
+  })()
+});
       });
 
       dp_log('✅ علاج: ' + dp_RAW.treat.length + ' سجل');
