@@ -8318,6 +8318,7 @@ function dp_renderTreat() {
         html += '<tr>' +
           '<td>' + dp_e(dp_fmt(dp_date(r.date))) + '</td>' +
           '<td style="font-weight:bold;color:#00b8d9">' + dp_e(r.doc) + '</td>' +
+          '<td style="font-weight:bold;color:#e67e22">' + dp_e(r.doc2) + '</td>' +
           '<td>' + dp_e(r.name) + '</td>' +
           '<td>' + dp_e(r.name) + '</td>' +
           '<td>' + dp_e(r.phone) + '</td>' +
@@ -8331,7 +8332,7 @@ function dp_renderTreat() {
     document.getElementById('t_tb').innerHTML = html;
   } catch(e) {
     console.warn('[DP] dp_renderTreat error:', e.message);
-    document.getElementById('t_tb').innerHTML = '<tr><td colspan="8" class="dp_empty">لا توجد بيانات</td></tr>'';
+    document.getElementById('t_tb').innerHTML = '<tr><td colspan="8" class="dp_empty">لا توجد بيانات</td></tr>';
   }
 }
 
