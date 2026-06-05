@@ -8684,8 +8684,8 @@ async function dp_loadAll() {
       tr.data.slice(1).forEach(function(row) {
         try {
           if (!Array.isArray(row) || !row.length) return;
-          var doc = dp_v(row, docIdx);
-          if (!doc) return;
+          var doc = dp_v(row, docIdx) || dp_v(row, 43);
+           if (!doc) return;
           /* بناء التشخيص من الأعمدة */
           var diseases = [dp_v(row,6),dp_v(row,9),dp_v(row,12),dp_v(row,15),dp_v(row,18)]
             .filter(function(d){ return d && d !== 'undefined'; });
