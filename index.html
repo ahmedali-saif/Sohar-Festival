@@ -8716,11 +8716,9 @@ async function dp_loadAll() {
       var vaccRows = Array.isArray(vr.rows) ? vr.rows : (Array.isArray(vr.data) ? vr.data : []);
       /* تحديد نقطة بداية البيانات */
       var vaccStart = 0;
-      if (vaccRows.length >= 2) {
-        var r0 = vaccRows[0], r1 = vaccRows[1];
-        if (r1 && (dp_s(r1[0]) === '0' || dp_s(r1[1]) === 'رقم هاتف المربي')) vaccStart = 2;
-        else if (r0 && (dp_s(r0[0]) === '0' || dp_s(r0[1]) === 'رقم هاتف المربي')) vaccStart = 1;
-      }
+     if (vaccRows.length >= 2) {
+     vaccStart = 2;
+       }
       vaccRows.slice(vaccStart).forEach(function(row) {
         try {
           if (!Array.isArray(row) || !row.length) return;
