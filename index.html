@@ -8243,7 +8243,11 @@ function dp_date(s) {
 
 function dp_fmt(d)  { if(!d) return '—'; return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); }
 function dp_mkey(d) { return d ? d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0') : null; }
-function dp_mlbl(k) { if(!k) return ''; var p=k.split('-'); return DP_MONTHS[+p[1]]+' '+p[0]; }
+function dp_mlbl(k) { if(!k || k === 'null' || k.indexOf('-') === -1) return ''; 
+  var p = k.split('-'); 
+  var month = DP_MONTHS[+p[1]];
+  return (month || '') + ' ' + (p[0] || ''); 
+}
 
 /* debounce */
 function dp_debounce(key, fn) {
@@ -8319,6 +8323,7 @@ function dp_monthlyMap(rows) {
     var d = dp_date(r.date);
     if (!d) return;
     var k = dp_mkey(d);
+    if (!k || k === 'null') return;
     m[k] = (m[k]||0) + 1;
   });
   return m;
