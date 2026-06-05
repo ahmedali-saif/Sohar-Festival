@@ -7959,7 +7959,7 @@ function ani_setDefaultDates() {
       <input class="dp_srch" type="text" placeholder="🔍 بحث..." id="t_kw" oninput="dp_debounce('t', dp_renderTreat)">
     </div>
     <div class="dp_scroll">
-      <table><thead><tr><th>التاريخ</th><th>مدخل البيانات</th><th>المربي</th><th>الهاتف</th><th>المنطقة</th><th>التشخيص</th><th>المبلغ</th><th>الحالة</th></tr></thead>
+      <table><thead><tr><th>التاريخ</th><th>مدخل البيانات</th><th>معدل البيانات</th><th>المربي</th><th>الهاتف</th><th>المنطقة</th><th>التشخيص</th><th>المبلغ</th><th>الحالة</th></tr></thead>
       <tbody id="t_tb"></tbody></table>
     </div>
   </div>
@@ -8317,6 +8317,8 @@ function dp_renderTreat() {
         html += '<tr>' +
           '<td>' + dp_e(dp_fmt(dp_date(r.date))) + '</td>' +
           '<td style="font-weight:bold;color:#00b8d9">' + dp_e(r.doc) + '</td>' +
+          '<td style="font-weight:bold;color:#e67e22">' + dp_e(r.doc2) + '</td>' +
+          '<td>' + dp_e(r.name) + '</td>' +
           '<td>' + dp_e(r.name) + '</td>' +
           '<td>' + dp_e(r.phone) + '</td>' +
           '<td>' + dp_e(r.region) + '</td>' +
@@ -8329,7 +8331,7 @@ function dp_renderTreat() {
     document.getElementById('t_tb').innerHTML = html;
   } catch(e) {
     console.warn('[DP] dp_renderTreat error:', e.message);
-    document.getElementById('t_tb').innerHTML = '<tr><td colspan="8" class="dp_empty">حدث خطأ في العرض</td></tr>';
+    document.getElementById('t_tb').innerHTML = '<tr><td colspan="8" class="dp_empty">لا توجد بيانات</td></tr>'';
   }
 }
 
