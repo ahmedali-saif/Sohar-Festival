@@ -8739,11 +8739,10 @@ dp_RAW.treat.push({
       /* تحديد نقطة بداية البيانات:
          إذا كان صف[0][0] = 'م' أو رقم → بيانات مباشرة
          إذا كان صف[1][0] = '0' أو رؤوس → ابدأ من صف[2]  */
-      var vaccStart = 0;
-      if (vaccRows.length > 1) {
+var vaccStart = 0;
+      if (vaccRows.length >= 2) {
         var r0 = vaccRows[0];
         var r1 = vaccRows[1];
-        /* صف[0] فيه نصوص تصنيفية (التسمم المعوي...) → صفان للرؤوس */
         if (r1 && (String(r1[0]) === '0' || String(r1[1]) === 'رقم هاتف المربي')) {
           vaccStart = 2;
           dp_log('البيانات تبدأ من صف[2] (صفان للرؤوس)');
@@ -8754,6 +8753,10 @@ dp_RAW.treat.push({
           vaccStart = 0;
           dp_log('البيانات تبدأ من صف[0] (بدون رؤوس)');
         }
+      } else if (vaccRows.length === 1) {
+        var r0 = vaccRows[0];
+        vaccStart = (!isNaN(parseInt(r0[0]))) ? 0 : 1;
+        dp_log('صف واحد فقط — vaccStart=' + vaccStart);
       }
 
       vaccRows.slice(vaccStart).forEach(function(row) {
