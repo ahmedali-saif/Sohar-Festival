@@ -8179,7 +8179,7 @@ function dp_filter(rows) {
     var dt  = dp_s((document.getElementById('dp_dt') || {}).value);
     return rows.filter(function(r) {
       try {
-        if (doc && dp_s(r.doc) !== doc) return false;
+       if (doc && dp_s(r.doc) !== doc && dp_s(r.doc2) !== doc) return false;
         var d = dp_date(r.date);
         if (d && df) {
           var fmt = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
@@ -8684,17 +8684,19 @@ async function dp_loadAll() {
       tr.data.slice(1).forEach(function(row) {
         try {
           if (!Array.isArray(row) || !row.length) return;
-          var doc = dp_v(row, docIdx) || dp_v(row, 43);
-          if (!doc) return;
+           var doc = dp_v(row, docIdx);
+            if (!doc) return;
           /* بناء التشخيص من الأعمدة */
           var diseases = [dp_v(row,6),dp_v(row,9),dp_v(row,12),dp_v(row,15),dp_v(row,18)]
             .filter(function(d){ return d && d !== 'undefined'; });
           /* حالة الاكتمال */
           var status = 'غير مكتملة';
           for (var ci2 = 21; ci2 <= 30; ci2++) { if (dp_v(row, ci2)) { status = 'مكتملة'; break; } }
-          dp_RAW.treat.push({
+          
+            var doc2 = dp_v(row, 43);
+            dp_RAW.treat.push({
             doc:     doc,
-            doc2:    dp_v(row, 43),
+            doc2:    doc2,
             name:    dp_v(row, trCOL.name   >= 0 ? trCOL.name   : 2),
             phone:   dp_v(row, trCOL.phone  >= 0 ? trCOL.phone  : 1),
             region:  dp_v(row, trCOL.region >= 0 ? trCOL.region : 4),
