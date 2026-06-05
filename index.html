@@ -4449,6 +4449,53 @@ async function trSelectIncompleteCase(caseNumber) {
     trunblockButtons();
   }
 }
+  // ============================================================
+//  فحص تكرار الإيصال من الجدول اليومي — بدون API
+// ============================================================
+
+(function (global) {
+  "use strict";
+
+  function getReceiptsFromTable() {
+    var receipts = new Set();
+    var rows = document.querySelectorAll("#tr_dataTable tbody tr");
+    rows.forEach(function (row) {
+      var cell = row.cells[3];
+      if (cell) {
+        var v = cell.textContent.trim();
+        if (v && v !== " ") receipts.add(v);
+      }
+    });
+    return receipts;
+  }
+
+  function bindReceiptCheck() {
+    var el = document.getElementById("tr_receipt");
+    if (!el || el._quickCheck) return;
+    el._quickCheck = true;
+
+    el.addEventListener("input", function () {
+      var val = this.value.trim();
+      if (!val) {
+        this.style.cssText = "";
+        return;
+      }
+      var isDup = getReceiptsFromTable().has(val);
+      this.style.backgroundColor = isDup ? "#ffcccc" : "#ccffcc";
+      this.style.border           = isDup ? "2px solid #e65050" : "2px solid #2bb673";
+      this.style.color            = isDup ? "#7a0000" : "#1b5e20";
+      this.style.fontWeight       = "bold";
+      if (isDup) showToast("❌ رقم الإيصال مكرر", "error");
+    });
+
+    el.addEventListener("blur", function () {
+      this.style.cssText = "";
+    });
+  }
+
+  setTimeout(bindReceiptCheck, 1000);
+
+})(window);
 // ============================================================
 //  حماية حقل الإيصال من المسح + زيادة تلقائية بعد الحفظ
 // ============================================================
@@ -4538,6 +4585,7 @@ async function trSelectIncompleteCase(caseNumber) {
   }
 
 })();
+  
 </script>
 </div>
 
