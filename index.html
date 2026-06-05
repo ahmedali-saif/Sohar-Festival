@@ -8684,18 +8684,8 @@ async function dp_loadAll() {
       tr.data.slice(1).forEach(function(row) {
         try {
           if (!Array.isArray(row) || !row.length) return;
-var doc  = dp_v(row, docIdx);
-var doc2 = dp_v(row, 43);
-if (!doc && !doc2) return;
-
-// أضف صفاً باسم مدخل البيانات
-if (doc) {
-  dp_RAW.treat.push({ doc: doc, ... });
-}
-// أضف صفاً باسم القائم بالتعديل إن كان مختلفاً
-if (doc2 && doc2 !== doc) {
-  dp_RAW.treat.push({ doc: doc2, ... });
-}
+          var doc = dp_v(row, docIdx);
+          if (!doc) return;
           /* بناء التشخيص من الأعمدة */
           var diseases = [dp_v(row,6),dp_v(row,9),dp_v(row,12),dp_v(row,15),dp_v(row,18)]
             .filter(function(d){ return d && d !== 'undefined'; });
@@ -8704,6 +8694,7 @@ if (doc2 && doc2 !== doc) {
           for (var ci2 = 21; ci2 <= 30; ci2++) { if (dp_v(row, ci2)) { status = 'مكتملة'; break; } }
           dp_RAW.treat.push({
             doc:     doc,
+            doc2:    dp_v(row, 43),
             name:    dp_v(row, trCOL.name   >= 0 ? trCOL.name   : 2),
             phone:   dp_v(row, trCOL.phone  >= 0 ? trCOL.phone  : 1),
             region:  dp_v(row, trCOL.region >= 0 ? trCOL.region : 4),
@@ -8799,9 +8790,14 @@ if (doc2 && doc2 !== doc) {
     if (docsList.length > 0) {
       docsList.forEach(function(d) { var n=dp_s(d); if(n&&!seen[n]){seen[n]=true;finalDocs.push(n);} });
     } else {
-      ['treat','vacc','sample'].forEach(function(key) {
-        dp_RAW[key].forEach(function(r) { var d=dp_s(r.doc); if(d&&!seen[d]){seen[d]=true;finalDocs.push(d);} });
-      });
+  ['treat','vacc','sample'].forEach(function(key) {
+   dp_RAW[key].forEach(function(r) { 
+    var d=dp_s(r.doc); 
+    if(d&&!seen[d]){seen[d]=true;finalDocs.push(d);} 
+    var d2=dp_s(r.doc2); 
+    if(d2&&!seen[d2]){seen[d2]=true;finalDocs.push(d2);} 
+  });
+});
     }
     finalDocs.sort();
     var sel = document.getElementById('dp_docSel');
