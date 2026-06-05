@@ -3833,28 +3833,6 @@ async function trsearchCase() {
     trunblockButtons();
   }
 }
-
-/** التحقق من رقم الإيصال */
-async function trcheckReceipt() {
-  const rn = trgetValue("tr_receipt");
-  if (!rn) return;
-
-  try {
-    const res = await trcallApi("trcheckReceiptNumber", { receiptNumber: rn });
-    if (res.exists) {
-      trshowMessage("❌ رقم الإيصال موجود مسبقاً", true);
-      const el = document.getElementById("tr_receipt");
-      el.style.backgroundColor = "#ffcccc";
-      el.style.border           = "2px solid red";
-      setTimeout(() => {
-        el.style.backgroundColor = "";
-        el.style.border           = "";
-      }, 5000);
-    }
-  } catch (_) { /* تجاهل الأخطاء الصامتة */ }
-}
-
-
 // ============================================================
 //  الحفظ المؤقت (Temp Save / Update)
 // ============================================================
@@ -4168,10 +4146,6 @@ function trbindEvents() {
   // --- أزرار الحفظ المؤقت ---
   document.getElementById("tr_tempSaveBtn").onclick   = trtempSave;
   document.getElementById("tr_tempUpdateBtn").onclick = trtempUpdate;
-
-  // --- التحقق من الإيصال ---
-  document.getElementById("tr_receipt").addEventListener("blur", trcheckReceipt);
-
   // --- رقم الهاتف: جلب بيانات المربي ---
   document.getElementById("tr_phoneInput").addEventListener("change", function () {
     const phoneValue = this.value.trim();
