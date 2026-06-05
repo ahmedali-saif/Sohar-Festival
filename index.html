@@ -8347,8 +8347,8 @@ function dp_renderTreat() {
   /* مخطط الأمراض */
   var dc = {};
   rows.forEach(function(r){ var d=String(r.disease||'').trim(); if(d&&d!=='—'&&d!=='undefined') dc[d]=(dc[d]||0)+1; });
-  var top = Object.keys(dc).sort(function(a,b){return dc[b]-dc[a];}).slice(0,8);
-  if (top.length) dp_bar('t_dc', top.map(function(e){return (e || '').substring(0,16);}), top.map(function(e){return dc[e];}), '#f39c12');
+  var top = Object.keys(dc).filter(function(e){return e && e !== 'undefined';}).sort(function(a,b){return dc[b]-dc[a];}).slice(0,8);
+  if (top.length) dp_bar('t_dc', top.map(function(e){return (e||'').substring(0,16);}), top.map(function(e){return dc[e];}), '#f39c12');
 
   /* جدول */
   var kw = String((document.getElementById('t_kw')||{}).value||'').toLowerCase();
