@@ -7984,7 +7984,7 @@ function ani_setDefaultDates() {
       <input class="dp_srch" type="text" placeholder="🔍 بحث..." id="v_kw" oninput="dp_debounce('v', dp_renderVacc)">
     </div>
     <div class="dp_scroll">
-      <table><thead><tr><th>التاريخ</th><th>مدخل البيانات</th><th>المربي</th><th>الهاتف</th><th>المنطقة</th><th>اللقاحات</th><th>الجرعات</th></tr></thead>
+     <table><thead><tr><th>التاريخ</th><th>مدخل البيانات</th><th>معدّل البيانات</th><th>المربي</th><th>الهاتف</th><th>المنطقة</th><th>اللقاحات</th><th>الجرعات</th></tr></thead>
       <tbody id="v_tb"></tbody></table>
     </div>
   </div>
@@ -8370,7 +8370,7 @@ function dp_renderVacc() {
 
     document.getElementById('v_rc').textContent = filtered.length + ' سجل';
     if (!filtered.length) {
-      document.getElementById('v_tb').innerHTML = '<tr><td colspan="7" class="dp_empty">لا توجد بيانات</td></tr>';
+      document.getElementById('v_tb').innerHTML = '<tr><td colspan="8" class="dp_empty">لا توجد بيانات</td></tr>';
       return;
     }
     var html = '';
@@ -8380,6 +8380,7 @@ function dp_renderVacc() {
         html += '<tr>' +
           '<td>' + dp_e(dp_fmt(dp_date(r.date))) + '</td>' +
           '<td style="font-weight:bold;color:#00b8d9">' + dp_e(r.doc) + '</td>' +
+          '<td style="font-weight:bold;color:#e67e22">' + dp_e(r.doc2) + '</td>' +
           '<td>' + dp_e(r.name) + '</td>' +
           '<td>' + dp_e(r.phone) + '</td>' +
           '<td>' + dp_e(r.region) + '</td>' +
@@ -8391,7 +8392,7 @@ function dp_renderVacc() {
     document.getElementById('v_tb').innerHTML = html;
   } catch(e) {
     console.warn('[DP] dp_renderVacc error:', e.message);
-    document.getElementById('v_tb').innerHTML = '<tr><td colspan="7" class="dp_empty">حدث خطأ في العرض</td></tr>';
+    document.getElementById('v_tb').innerHTML = '<tr><td colspan="8" class="dp_empty">حدث خطأ في العرض</td></tr>';
   }
 }
 
@@ -8768,38 +8769,47 @@ async function dp_loadAll() {
   } catch(e) { console.warn('[DP] علاج خطأ:', e.message); }
 
   /* ── ٣. سجل التحصين ── */
+/* ── ٣. سجل التحصين ── */
   try {
     var vr = null;
- try { vr = await apiCall('searchVaccinationRecords', { filters: {} }); } catch(e) {}
-   if (vr && vr.success) {
- var vaccRows = Array.isArray(vr.rows) ? vr.rows : (Array.isArray(vr.data) ? vr.data : []);
+    try { vr = await apiCall('searchVaccinationRecords', { filters: {} }); } catch(e) {}
+    if (vr && vr.success) {
+      var vaccRows = Array.isArray(vr.rows) ? vr.rows : (Array.isArray(vr.data) ? vr.data : []);
+
       /* تحديد نقطة بداية البيانات */
       var vaccStart = 0;
-  if (vaccRows.length >= 2) {
-  var r0 = vaccRows[0], r1 = vaccRows[1];
-  if (r1 && (dp_s(r1[0]) === '0' || dp_s(r1[1]) === 'رقم هاتف المربي')) vaccStart = 2;
-  else if (r0 && (dp_s(r0[0]) === '0' || dp_s(r0[1]) === 'رقم هاتف المربي')) vaccStart = 1;
-       }cRows.slice(vaccStart).forEach(function(row) {
+      if (vaccRows.length >= 2) {
+        var r0 = vaccRows[0], r1 = vaccRows[1];
+        if (r1 && (dp_s(r1[0]) === '0' || dp_s(r1[1]) === 'رقم هاتف المربي')) vaccStart = 2;
+        else if (r0 && (dp_s(r0[0]) === '0' || dp_s(r0[1]) === 'رقم هاتف المربي')) vaccStart = 1;
+      }
+
+      vaccRows.slice(vaccStart).forEach(function(row) {
         try {
           if (!Array.isArray(row) || !row.length) return;
           var rowNum = parseInt(dp_v(row, 0));
           if (isNaN(rowNum) || rowNum === 0) return;
-          var doc = dp_v(row, 25);
+
+          var doc  = dp_v(row, 25); /* العمود Z — مدخل البيانات */
+          var doc2 = dp_v(row, 23); /* العمود X — معدّل البيانات */
+
           var vaccines = [], dosesTotal = 0;
           var vaccDef = [
-            {name:'التسمم المعوي',       cols:[6,7]},
-            {name:'طاعون / جدري',        cols:[8,9]},
-            {name:'الحمى القلاعية',       cols:[10,11,12]},
-            {name:'السعار',              cols:[13,14,15,16,17]},
-            {name:'التهاب الجلد العقدي',  cols:[18,19,20,21]}
+            {name:'التسمم المعوي',        cols:[6,7]},
+            {name:'طاعون / جدري',         cols:[8,9]},
+            {name:'الحمى القلاعية',        cols:[10,11,12]},
+            {name:'السعار',               cols:[13,14,15,16,17]},
+            {name:'التهاب الجلد العقدي',   cols:[18,19,20,21]}
           ];
           vaccDef.forEach(function(vd) {
             var tot = 0;
             vd.cols.forEach(function(ci3){ tot += parseInt(dp_v(row, ci3)) || 0; });
             if (tot > 0) { vaccines.push(vd.name); dosesTotal += tot; }
           });
+
           dp_RAW.vacc.push({
             doc:      doc,
+            doc2:     doc2,
             name:     dp_v(row, 2),
             phone:    dp_v(row, 1),
             region:   dp_v(row, 4),
@@ -8812,7 +8822,6 @@ async function dp_loadAll() {
       });
     }
   } catch(e) { console.warn('[DP] تحصين خطأ:', e.message); }
-
   /* ── ٤. سجل العينات ── */
   try {
     var sr = null;
