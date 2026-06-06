@@ -8362,9 +8362,9 @@ function dp_renderVacc() {
     var vt = Object.keys(vc).filter(function(e){ return e && e !== 'undefined'; }).sort(function(a,b){ return (vc[b]||0)-(vc[a]||0); }).slice(0,6);
     if (vt.length) dp_doughnut('v_dc', vt, vt.map(function(e){ return vc[e]||0; }));
 
-    var kw = dp_s((document.getElementById('v_kw')||{}).value).toLowerCase();
-    var filtered = kw ? rows.filter(function(r){
-      try { return (dp_s(r.doc)+' '+dp_s(r.name)+' '+dp_s(r.phone)+' '+dp_s(r.region)).toLowerCase().indexOf(kw) > -1; } catch(e){return false;}
+   var kw = dp_s((document.getElementById('v_kw')||{}).value).toLowerCase();
+   var filtered = kw ? rows.filter(function(r){
+   try { return (dp_s(r.doc)+' '+dp_s(r.doc2)+' '+dp_s(r.name)+' '+dp_s(r.phone)+' '+dp_s(r.region)).toLowerCase().indexOf(kw) > -1; } catch(e){return false;}
     }) : rows;
     filtered = filtered.slice().sort(function(a,b){ try{return (dp_date(b.date)||0)-(dp_date(a.date)||0);}catch(e){return 0;} });
 
@@ -8525,10 +8525,29 @@ tf.forEach(function(r) {
     // جمع من التحصين
     vf.forEach(function(r) {
       try {
-        var d = dp_s(r.doc);
-        if (!d) return;
-        if (!allDocs[d]) allDocs[d] = {treat:0, vacc:0, sample:0};
-        allDocs[d].vacc++;
+        var d  = dp_s(r.doc);
+        var d2 = dp_s(r.doc2);
+
+        if (selectedDoc) {
+          // عند تحديد مدخل معين — أضف فقط الاسم المختار
+          if (d === selectedDoc) {
+            if (!allDocs[d]) allDocs[d] = {treat:0, vacc:0, sample:0};
+            allDocs[d].vacc++;
+          } else if (d2 === selectedDoc) {
+            if (!allDocs[d2]) allDocs[d2] = {treat:0, vacc:0, sample:0};
+            allDocs[d2].vacc++;
+          }
+        } else {
+          // عند عرض الكل — أضف كلا الاسمين
+          if (d) {
+            if (!allDocs[d]) allDocs[d] = {treat:0, vacc:0, sample:0};
+            allDocs[d].vacc++;
+          }
+          if (d2 && d2 !== d) {
+            if (!allDocs[d2]) allDocs[d2] = {treat:0, vacc:0, sample:0};
+            allDocs[d2].vacc++;
+          }
+        }
       } catch(e) {}
     });
 
@@ -8536,9 +8555,17 @@ tf.forEach(function(r) {
     sf.forEach(function(r) {
       try {
         var d = dp_s(r.doc);
-        if (!d) return;
-        if (!allDocs[d]) allDocs[d] = {treat:0, vacc:0, sample:0};
-        allDocs[d].sample++;
+        if (selectedDoc) {
+          if (d === selectedDoc) {
+            if (!allDocs[d]) allDocs[d] = {treat:0, vacc:0, sample:0};
+            allDocs[d].sample++;
+          }
+        } else {
+          if (d) {
+            if (!allDocs[d]) allDocs[d] = {treat:0, vacc:0, sample:0};
+            allDocs[d].sample++;
+          }
+        }
       } catch(e) {}
     });
 
