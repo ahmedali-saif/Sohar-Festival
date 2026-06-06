@@ -8488,36 +8488,70 @@ function dp_renderOverview() {
     document.getElementById('o_total').textContent  = tf.length + vf.length + sf.length;
 
     var allDocs = {};
-    function addDoc(rows, key) {
-      rows.forEach(function(r) {
-        try {
-          var d = dp_s(r.doc);
-          if (!d) return;
-          if (!allDocs[d]) allDocs[d] = {treat:0,vacc:0,sample:0};
-          allDocs[d][key]++;
-        } catch(e) {}
-      });
-    }
-    addDoc(tf,'treat'); addDoc(vf,'vacc'); addDoc(sf,'sample');
 
-    var docs = Object.keys(allDocs).sort(function(a,b){
-      return (allDocs[b].treat+allDocs[b].vacc+allDocs[b].sample) - (allDocs[a].treat+allDocs[a].vacc+allDocs[a].sample);
+    // جمع doc و doc2 من سجل العلاج
+    tf.forEach(function(r) {
+      try {
+        var d = dp_s(r.doc);
+        if (d) {
+          if (!allDocs[d]) allDocs[d] = {treat:0, vacc:0, sample:0};
+          allDocs[d].treat++;
+        }
+        var d2 = dp_s(r.doc2);
+        if (d2 && d2 !== d) {
+          if (!allDocs[d2]) allDocs[d2] = {treat:0, vacc:0, sample:0};
+          allDocs[d2].treat++;
+        }
+      } catch(e) {}
     });
-    var maxT = docs.reduce(function(m,d){ return Math.max(m, allDocs[d].treat+allDocs[d].vacc+allDocs[d].sample); }, 1);
+
+    // جمع من التحصين
+    vf.forEach(function(r) {
+      try {
+        var d = dp_s(r.doc);
+        if (!d) return;
+        if (!allDocs[d]) allDocs[d] = {treat:0, vacc:0, sample:0};
+        allDocs[d].vacc++;
+      } catch(e) {}
+    });
+
+    // جمع من العينات
+    sf.forEach(function(r) {
+      try {
+        var d = dp_s(r.doc);
+        if (!d) return;
+        if (!allDocs[d]) allDocs[d] = {treat:0, vacc:0, sample:0};
+        allDocs[d].sample++;
+      } catch(e) {}
+    });
+
+    var docs = Object.keys(allDocs).sort(function(a,b) {
+      return (allDocs[b].treat + allDocs[b].vacc + allDocs[b].sample) -
+             (allDocs[a].treat + allDocs[a].vacc + allDocs[a].sample);
+    });
+
+    var maxT = docs.reduce(function(m,d) {
+      return Math.max(m, allDocs[d].treat + allDocs[d].vacc + allDocs[d].sample);
+    }, 1);
 
     document.getElementById('o_docs').innerHTML = docs.length ? docs.map(function(d) {
       try {
-        var c = allDocs[d], tot = c.treat+c.vacc+c.sample;
-        var ini = d.split(' ').slice(0,2).map(function(w){ return (w && w[0]) ? w[0] : ''; }).join('');
-        var pct = Math.round(tot/maxT*100);
+        var c = allDocs[d];
+        var tot = c.treat + c.vacc + c.sample;
+        var ini = d.split(' ').slice(0,2).map(function(w){
+          return (w && w[0]) ? w[0] : '';
+        }).join('');
+        var pct = Math.round(tot / maxT * 100);
         return '<div class="dp_doc_item">' +
           '<div class="dp_doc_ava">' + dp_e(ini) + '</div>' +
           '<div style="flex:1">' +
           '<div class="dp_doc_name">' + dp_e(d) + '</div>' +
-          '<div class="dp_doc_meta">🩺 '+c.treat+' &nbsp;|&nbsp; 💉 '+c.vacc+' &nbsp;|&nbsp; 🧪 '+c.sample+'</div>' +
-          '<div class="dp_prog"><div class="dp_prog_fill" style="width:'+pct+'%"></div></div>' +
+          '<div class="dp_doc_meta">🩺 ' + c.treat +
+          ' &nbsp;|&nbsp; 💉 ' + c.vacc +
+          ' &nbsp;|&nbsp; 🧪 ' + c.sample + '</div>' +
+          '<div class="dp_prog"><div class="dp_prog_fill" style="width:' + pct + '%"></div></div>' +
           '</div>' +
-          '<div class="dp_doc_total">'+tot+'</div>' +
+          '<div class="dp_doc_total">' + tot + '</div>' +
           '</div>';
       } catch(e) { return ''; }
     }).join('') : '<div class="dp_empty">لا توجد بيانات</div>';
@@ -8531,7 +8565,7 @@ function dp_renderOverview() {
           if (!d) return;
           var k = dp_mkey(d);
           if (!k) return;
-          if (!allM[k]) allM[k] = {treat:0,vacc:0,sample:0};
+          if (!allM[k]) allM[k] = {treat:0, vacc:0, sample:0};
           allM[k][key]++;
         } catch(e) {}
       });
@@ -8547,17 +8581,22 @@ function dp_renderOverview() {
         data: {
           labels: mkeys.map(dp_mlbl),
           datasets: [
-            {label:'علاج',  data:mkeys.map(function(k){return allM[k].treat||0;}),  backgroundColor:'#00b8d9', borderRadius:3},
-            {label:'تحصين', data:mkeys.map(function(k){return allM[k].vacc||0;}),   backgroundColor:'#2bb673', borderRadius:3},
-            {label:'عينات', data:mkeys.map(function(k){return allM[k].sample||0;}), backgroundColor:'#9b59b6', borderRadius:3}
+            {label:'علاج',  data:mkeys.map(function(k){return allM[k].treat||0;}),
+             backgroundColor:'#00b8d9', borderRadius:3},
+            {label:'تحصين', data:mkeys.map(function(k){return allM[k].vacc||0;}),
+             backgroundColor:'#2bb673', borderRadius:3},
+            {label:'عينات', data:mkeys.map(function(k){return allM[k].sample||0;}),
+             backgroundColor:'#9b59b6', borderRadius:3}
           ]
         },
         options: {
           responsive:true, maintainAspectRatio:false,
-          plugins:{legend:{display:true,position:'top',labels:{font:{size:10},padding:8,boxWidth:10}}},
+          plugins:{legend:{display:true, position:'top',
+            labels:{font:{size:10}, padding:8, boxWidth:10}}},
           scales:{
-            x:{stacked:true,ticks:{font:{size:9},maxRotation:45,autoSkip:true},grid:{display:false}},
-            y:{stacked:true,beginAtZero:true,ticks:{font:{size:10}}}
+            x:{stacked:true, ticks:{font:{size:9}, maxRotation:45, autoSkip:true},
+               grid:{display:false}},
+            y:{stacked:true, beginAtZero:true, ticks:{font:{size:10}}}
           }
         }
       });
@@ -8566,7 +8605,6 @@ function dp_renderOverview() {
     console.warn('[DP] dp_renderOverview error:', e.message);
   }
 }
-
 /* ══════════════════════════════════════════════
    التنقل بين التبويبات
    ══════════════════════════════════════════════ */
