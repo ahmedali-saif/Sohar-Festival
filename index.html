@@ -8490,20 +8490,36 @@ function dp_renderOverview() {
     var allDocs = {};
 
     // جمع doc و doc2 من سجل العلاج
-    tf.forEach(function(r) {
-      try {
-        var d = dp_s(r.doc);
-        if (d) {
-          if (!allDocs[d]) allDocs[d] = {treat:0, vacc:0, sample:0};
-          allDocs[d].treat++;
-        }
-        var d2 = dp_s(r.doc2);
-        if (d2 && d2 !== d) {
-          if (!allDocs[d2]) allDocs[d2] = {treat:0, vacc:0, sample:0};
-          allDocs[d2].treat++;
-        }
-      } catch(e) {}
-    });
+// بعد التعديل
+var selectedDoc = dp_s((document.getElementById('dp_docSel') || {}).value);
+
+tf.forEach(function(r) {
+  try {
+    var d  = dp_s(r.doc);
+    var d2 = dp_s(r.doc2);
+
+    if (selectedDoc) {
+      // عند تحديد مدخل معين — أضف فقط الاسم المختار
+      if (d === selectedDoc) {
+        if (!allDocs[d]) allDocs[d] = {treat:0, vacc:0, sample:0};
+        allDocs[d].treat++;
+      } else if (d2 === selectedDoc) {
+        if (!allDocs[d2]) allDocs[d2] = {treat:0, vacc:0, sample:0};
+        allDocs[d2].treat++;
+      }
+    } else {
+      // عند عرض الكل — أضف كلا الاسمين
+      if (d) {
+        if (!allDocs[d]) allDocs[d] = {treat:0, vacc:0, sample:0};
+        allDocs[d].treat++;
+      }
+      if (d2 && d2 !== d) {
+        if (!allDocs[d2]) allDocs[d2] = {treat:0, vacc:0, sample:0};
+        allDocs[d2].treat++;
+      }
+    }
+  } catch(e) {}
+});
 
     // جمع من التحصين
     vf.forEach(function(r) {
