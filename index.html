@@ -4527,30 +4527,15 @@ window.trclearForm = function () {
 function patchSave() {
     if (!window.trsaveData || window.trsaveData._recPatch) return;
     var _orig = window.trsaveData;
-    window.trsaveData = async function () {
+       window.trsaveData = async function () {
       captureReceiptBeforeSave();
-      var saveSucceeded = false;
-
-      // اعترض trcallApi مؤقتاً لمعرفة نتيجة الحفظ
-      var _origCall = window.trcallApi;
-      window.trcallApi = async function (action, payload) {
-        var res = await _origCall.apply(this, arguments);
-        if (action === 'trsaveData' && res && res.success) {
-          saveSucceeded = true;
-        }
-        return res;
-      };
-
-      await _orig.apply(this, arguments);
-
-      // أعد trcallApi لحالتها الأصلية
-      window.trcallApi = _origCall;
-
-      if (saveSucceeded) {
+      var result = await _orig.apply(this, arguments);
+      if (result && result.success) {
         setTimeout(restoreNextReceipt, 150);
       } else {
-        _nextReceipt = 0;
+        _nextReceipt = 0; // ← عند الفشل: أصفّر _nextReceipt حتى يعود للرقم الأصلي
       }
+      return result;
     };
     window.trsaveData._recPatch = true;
   }
