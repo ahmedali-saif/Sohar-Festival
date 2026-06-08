@@ -4497,8 +4497,6 @@ async function trSelectIncompleteCase(caseNumber) {
     if (!window.trclearForm || window.trclearForm._recPatch) return;
     var _orig = window.trclearForm;
     window.trclearForm = function () {
-      var receipt = document.getElementById("tr_receipt");
-      var savedReceipt = receipt ? receipt.value : "";
       _orig.apply(this, arguments);
     };
     window.trclearForm._recPatch = true;
@@ -4508,11 +4506,7 @@ async function trSelectIncompleteCase(caseNumber) {
     if (!window.trclearFormExcept || window.trclearFormExcept._recPatch) return;
     var _orig = window.trclearFormExcept;
     window.trclearFormExcept = function (exceptId) {
-      var receipt = document.getElementById("tr_receipt");
-      var savedReceipt = receipt ? receipt.value : "";
       _orig.apply(this, arguments);
-      /* أعد قيمة الإيصال دائماً بعد المسح */
-      if (receipt && savedReceipt) receipt.value = savedReceipt;
     };
     window.trclearFormExcept._recPatch = true;
   }
