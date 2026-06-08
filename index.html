@@ -4478,12 +4478,19 @@ async function trSelectIncompleteCase(caseNumber) {
   "use strict";
 
   var _nextReceipt = 0;
+  var _currentReceipt = 0; // الرقم الحالي قبل الحفظ
 
   function captureReceiptBeforeSave() {
     var el = document.getElementById("tr_receipt");
     if (!el) return;
     var v = parseInt(el.value, 10);
-    _nextReceipt = (!isNaN(v) && v > 0) ? v + 1 : 0;
+    if (!isNaN(v) && v > 0) {
+      _currentReceipt = v;
+      _nextReceipt = v + 1;
+    } else {
+      _currentReceipt = 0;
+      _nextReceipt = 0;
+    }
   }
 
   function restoreNextReceipt() {
@@ -4492,7 +4499,13 @@ async function trSelectIncompleteCase(caseNumber) {
     if (el) el.value = _nextReceipt;
   }
 
-  /* ── trclearForm: أعد الرقم بعد المسح إذا كان _nextReceipt محدداً ── */
+  function restoreCurrentReceipt() {
+    if (_currentReceipt <= 0) return;
+    var el = document.getElementById("tr_receipt");
+    if (el) el.value = _currentReceipt;
+  }
+
+  /* ── trclearForm: أعد الرقم المناسب بعد المسح ── */
   function patchClearForm() {
     if (!window.trclearForm || window.trclearForm._recPatch) return;
     var _orig = window.trclearForm;
@@ -4518,7 +4531,7 @@ async function trSelectIncompleteCase(caseNumber) {
     window.trclearFormExcept._recPatch = true;
   }
 
-  /* ── زر الحفظ الرسمي: trclearForm تتولى إعادة الرقم تلقائياً ── */
+  /* ── زر الحفظ الرسمي ── */
   function patchSave() {
     if (!window.trsaveData || window.trsaveData._recPatch) return;
     var _orig = window.trsaveData;
@@ -4542,18 +4555,19 @@ async function trSelectIncompleteCase(caseNumber) {
         return result;
       } finally {
         window.trcallApi = _origCallApi;
-        /* فشل الحفظ: أفرغ _nextReceipt حتى لا تعيد trclearForm رقماً خاطئاً */
         if (!saveSucceeded) {
+          /* فشل: أعد الرقم الأصلي بدون زيادة وأفرغ _nextReceipt */
           _nextReceipt = 0;
+          restoreCurrentReceipt();
         }
-        /* نجاح الحفظ: trclearForm ستُستدعى وتعيد الرقم تلقائياً عبر patchClearForm */
+        /* نجاح: trclearForm ستعيد _nextReceipt تلقائياً */
       }
     };
 
     window.trsaveData._recPatch = true;
   }
 
-  /* ── زر الحفظ المؤقت: لا يستدعي trclearForm، نعيد الرقم بـ setTimeout ── */
+  /* ── زر الحفظ المؤقت ── */
   function patchTempSave() {
     if (!window.trtempSave || window.trtempSave._recPatch) return;
     var _orig = window.trtempSave;
@@ -4580,7 +4594,9 @@ async function trSelectIncompleteCase(caseNumber) {
         if (saveSucceeded) {
           setTimeout(restoreNextReceipt, 150);
         } else {
+          /* فشل: أعد الرقم الأصلي بدون زيادة */
           _nextReceipt = 0;
+          restoreCurrentReceipt();
         }
       }
     };
