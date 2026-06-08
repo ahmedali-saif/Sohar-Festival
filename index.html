@@ -4478,7 +4478,7 @@ async function trSelectIncompleteCase(caseNumber) {
   "use strict";
 
   var _nextReceipt = 0;
-  var _currentReceipt = 0; // الرقم الحالي قبل الحفظ
+  var _currentReceipt = 0;
 
   function captureReceiptBeforeSave() {
     var el = document.getElementById("tr_receipt");
@@ -4493,6 +4493,14 @@ async function trSelectIncompleteCase(caseNumber) {
     }
   }
 
+  /* قراءة قيمة الإيصال الحالية من الحقل مباشرة */
+  function getReceiptValue() {
+    var el = document.getElementById("tr_receipt");
+    if (!el) return 0;
+    var v = parseInt(el.value, 10);
+    return (!isNaN(v) && v > 0) ? v : 0;
+  }
+
   function restoreNextReceipt() {
     if (_nextReceipt <= 0) return;
     var el = document.getElementById("tr_receipt");
@@ -4505,14 +4513,20 @@ async function trSelectIncompleteCase(caseNumber) {
     if (el) el.value = _currentReceipt;
   }
 
-  /* ── trclearForm: أعد الرقم المناسب بعد المسح ── */
+  /* ── trclearForm: احفظ قيمة الإيصال قبل المسح وأعد المناسب بعده ── */
   function patchClearForm() {
     if (!window.trclearForm || window.trclearForm._recPatch) return;
     var _orig = window.trclearForm;
     window.trclearForm = function () {
+      /* احفظ قيمة الإيصال الحالية قبل المسح */
+      var savedValue = getReceiptValue();
       _orig.apply(this, arguments);
+      /* إذا كان هناك رقم تالٍ محدد (بعد نجاح حفظ) أعده، وإلا أعد القيمة المحفوظة */
       if (_nextReceipt > 0) {
         restoreNextReceipt();
+      } else if (savedValue > 0) {
+        var el = document.getElementById("tr_receipt");
+        if (el) el.value = savedValue;
       }
     };
     window.trclearForm._recPatch = true;
@@ -4523,9 +4537,15 @@ async function trSelectIncompleteCase(caseNumber) {
     if (!window.trclearFormExcept || window.trclearFormExcept._recPatch) return;
     var _orig = window.trclearFormExcept;
     window.trclearFormExcept = function (exceptId) {
+      /* احفظ قيمة الإيصال الحالية قبل المسح */
+      var savedValue = getReceiptValue();
       _orig.apply(this, arguments);
+      /* إذا كان هناك رقم تالٍ محدد (بعد نجاح حفظ) أعده، وإلا أعد القيمة المحفوظة */
       if (_nextReceipt > 0) {
         restoreNextReceipt();
+      } else if (savedValue > 0) {
+        var el = document.getElementById("tr_receipt");
+        if (el) el.value = savedValue;
       }
     };
     window.trclearFormExcept._recPatch = true;
@@ -4556,11 +4576,12 @@ async function trSelectIncompleteCase(caseNumber) {
       } finally {
         window.trcallApi = _origCallApi;
         if (!saveSucceeded) {
-          /* فشل: أعد الرقم الأصلي بدون زيادة وأفرغ _nextReceipt */
+          /* فشل: أفرغ _nextReceipt حتى لا تتدخل trclearForm،
+             وأعد الرقم الأصلي عبر _currentReceipt */
           _nextReceipt = 0;
           restoreCurrentReceipt();
         }
-        /* نجاح: trclearForm ستعيد _nextReceipt تلقائياً */
+        /* نجاح: trclearForm ستجد _nextReceipt > 0 وتعيده تلقائياً */
       }
     };
 
@@ -4594,7 +4615,6 @@ async function trSelectIncompleteCase(caseNumber) {
         if (saveSucceeded) {
           setTimeout(restoreNextReceipt, 150);
         } else {
-          /* فشل: أعد الرقم الأصلي بدون زيادة */
           _nextReceipt = 0;
           restoreCurrentReceipt();
         }
