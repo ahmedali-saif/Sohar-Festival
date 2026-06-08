@@ -4479,8 +4479,11 @@ async function trSelectIncompleteCase(caseNumber) {
 
   var _nextReceipt = 0;
   var _currentReceipt = 0;
+  var _isSaveInProgress = false; // منع تحديث _currentReceipt أثناء محاولات فاشلة
 
   function captureReceiptBeforeSave() {
+    /* احفظ الرقم الحالي فقط إذا لم تكن هناك محاولة فاشلة سابقة */
+    if (_currentReceipt > 0) return;
     var el = document.getElementById("tr_receipt");
     if (!el) return;
     var v = parseInt(el.value, 10);
@@ -4493,7 +4496,6 @@ async function trSelectIncompleteCase(caseNumber) {
     }
   }
 
-  /* قراءة قيمة الإيصال الحالية من الحقل مباشرة */
   function getReceiptValue() {
     var el = document.getElementById("tr_receipt");
     if (!el) return 0;
@@ -4513,15 +4515,19 @@ async function trSelectIncompleteCase(caseNumber) {
     if (el) el.value = _currentReceipt;
   }
 
-  /* ── trclearForm: احفظ قيمة الإيصال قبل المسح وأعد المناسب بعده ── */
+  /* مسح الحالة بعد نجاح الحفظ فقط */
+  function resetReceiptState() {
+    _currentReceipt = 0;
+    _nextReceipt = 0;
+  }
+
+  /* ── trclearForm ── */
   function patchClearForm() {
     if (!window.trclearForm || window.trclearForm._recPatch) return;
     var _orig = window.trclearForm;
     window.trclearForm = function () {
-      /* احفظ قيمة الإيصال الحالية قبل المسح */
       var savedValue = getReceiptValue();
       _orig.apply(this, arguments);
-      /* إذا كان هناك رقم تالٍ محدد (بعد نجاح حفظ) أعده، وإلا أعد القيمة المحفوظة */
       if (_nextReceipt > 0) {
         restoreNextReceipt();
       } else if (savedValue > 0) {
@@ -4532,15 +4538,13 @@ async function trSelectIncompleteCase(caseNumber) {
     window.trclearForm._recPatch = true;
   }
 
-  /* ── trclearFormExcept: نفس المنطق ── */
+  /* ── trclearFormExcept ── */
   function patchClearFormExcept() {
     if (!window.trclearFormExcept || window.trclearFormExcept._recPatch) return;
     var _orig = window.trclearFormExcept;
     window.trclearFormExcept = function (exceptId) {
-      /* احفظ قيمة الإيصال الحالية قبل المسح */
       var savedValue = getReceiptValue();
       _orig.apply(this, arguments);
-      /* إذا كان هناك رقم تالٍ محدد (بعد نجاح حفظ) أعده، وإلا أعد القيمة المحفوظة */
       if (_nextReceipt > 0) {
         restoreNextReceipt();
       } else if (savedValue > 0) {
@@ -4557,6 +4561,7 @@ async function trSelectIncompleteCase(caseNumber) {
     var _orig = window.trsaveData;
 
     window.trsaveData = async function () {
+      /* سجّل الرقم فقط إذا لم يكن هناك رقم محفوظ من محاولة فاشلة سابقة */
       captureReceiptBeforeSave();
 
       var _origCallApi = window.trcallApi;
@@ -4576,12 +4581,17 @@ async function trSelectIncompleteCase(caseNumber) {
       } finally {
         window.trcallApi = _origCallApi;
         if (!saveSucceeded) {
-          /* فشل: أفرغ _nextReceipt حتى لا تتدخل trclearForm،
-             وأعد الرقم الأصلي عبر _currentReceipt */
+          /* فشل: أفرغ _nextReceipt فقط وأعد الرقم الأصلي
+             ولا تمسح _currentReceipt حتى تبقى المحاولة التالية بنفس الرقم */
           _nextReceipt = 0;
           restoreCurrentReceipt();
+        } else {
+          /* نجاح: امسح الحالة بالكامل، trclearForm ستعيد _nextReceipt */
+          /* ملاحظة: _nextReceipt يُعاد ضبطه هنا قبل أن تستدعيه trclearForm */
+          var nextVal = _currentReceipt + 1;
+          resetReceiptState();
+          _nextReceipt = nextVal;
         }
-        /* نجاح: trclearForm ستجد _nextReceipt > 0 وتعيده تلقائياً */
       }
     };
 
@@ -4613,8 +4623,12 @@ async function trSelectIncompleteCase(caseNumber) {
       } finally {
         window.trcallApi = _origCallApi;
         if (saveSucceeded) {
+          var nextVal = _currentReceipt + 1;
+          resetReceiptState();
+          _nextReceipt = nextVal;
           setTimeout(restoreNextReceipt, 150);
         } else {
+          /* فشل: أفرغ _nextReceipt فقط وأعد الرقم الأصلي */
           _nextReceipt = 0;
           restoreCurrentReceipt();
         }
