@@ -4493,7 +4493,7 @@ async function trSelectIncompleteCase(caseNumber) {
   }
 
   /* ── حفظ قيمة الإيصال قبل أي مسح وإعادتها بعده ── */
-function patchClearForm() {
+  function patchClearForm() {
     if (!window.trclearForm || window.trclearForm._recPatch) return;
     var _orig = window.trclearForm;
     window.trclearForm = function () {
@@ -4511,36 +4511,86 @@ function patchClearForm() {
       var receipt = document.getElementById("tr_receipt");
       var savedReceipt = receipt ? receipt.value : "";
       _orig.apply(this, arguments);
-      /* أعد قيمة الإيصال دائماً بعد المسح */
       if (receipt && savedReceipt) receipt.value = savedReceipt;
     };
     window.trclearFormExcept._recPatch = true;
   }
 
-  /* ── زيادة الرقم بعد الحفظ الناجح ── */
-function patchSave() {
+  /* ── الاعتراض الصحيح: زيادة الرقم فقط بعد نجاح الحفظ الفعلي ── */
+  function patchSave() {
     if (!window.trsaveData || window.trsaveData._recPatch) return;
     var _orig = window.trsaveData;
+
     window.trsaveData = async function () {
+      /* احفظ الرقم الحالي قبل الحفظ */
       captureReceiptBeforeSave();
-      var result = await _orig.apply(this, arguments);
-      setTimeout(restoreNextReceipt, 150);
-      return result;
+
+      /* اعترض trcallApi مؤقتاً لمعرفة نتيجة الحفظ الفعلية */
+      var _origCallApi = window.trcallApi;
+      var saveSucceeded = false;
+
+      window.trcallApi = async function (action, payload) {
+        var res = await _origCallApi.apply(this, arguments);
+        /* رصد نجاح trsaveData فقط */
+        if (action === "trsaveData" && res && res.success) {
+          saveSucceeded = true;
+        }
+        return res;
+      };
+
+      try {
+        var result = await _orig.apply(this, arguments);
+        return result;
+      } finally {
+        /* إعادة trcallApi الأصلية */
+        window.trcallApi = _origCallApi;
+        /* ترحيل الرقم فقط إذا نجح الحفظ فعلاً */
+        if (saveSucceeded) {
+          setTimeout(restoreNextReceipt, 150);
+        } else {
+          /* فشل الحفظ — نعيد الرقم الأصلي بدون زيادة */
+          _nextReceipt = 0;
+        }
+      }
     };
+
     window.trsaveData._recPatch = true;
   }
 
   function patchTempSave() {
     if (!window.trtempSave || window.trtempSave._recPatch) return;
     var _orig = window.trtempSave;
+
     window.trtempSave = async function () {
       captureReceiptBeforeSave();
-      var result = await _orig.apply(this, arguments);
-      setTimeout(restoreNextReceipt, 150);
-      return result;
+
+      var _origCallApi = window.trcallApi;
+      var saveSucceeded = false;
+
+      window.trcallApi = async function (action, payload) {
+        var res = await _origCallApi.apply(this, arguments);
+        if (action === "trsaveTempData" && res && res.success) {
+          saveSucceeded = true;
+        }
+        return res;
+      };
+
+      try {
+        var result = await _orig.apply(this, arguments);
+        return result;
+      } finally {
+        window.trcallApi = _origCallApi;
+        if (saveSucceeded) {
+          setTimeout(restoreNextReceipt, 150);
+        } else {
+          _nextReceipt = 0;
+        }
+      }
     };
+
     window.trtempSave._recPatch = true;
   }
+
   function tryPatch() {
     patchClearForm();
     patchClearFormExcept();
@@ -4558,7 +4608,6 @@ function patchSave() {
   }
 
 })();
-  
 </script>
 </div>
 
