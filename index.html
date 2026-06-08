@@ -4518,13 +4518,15 @@ async function trSelectIncompleteCase(caseNumber) {
   }
 
   /* ── زيادة الرقم بعد الحفظ الناجح ── */
-  function patchSave() {
+function patchSave() {
     if (!window.trsaveData || window.trsaveData._recPatch) return;
     var _orig = window.trsaveData;
     window.trsaveData = async function () {
       captureReceiptBeforeSave();
       var result = await _orig.apply(this, arguments);
-      setTimeout(restoreNextReceipt, 150);
+      if (result && result.success) {
+        setTimeout(restoreNextReceipt, 150);
+      }
       return result;
     };
     window.trsaveData._recPatch = true;
@@ -4536,7 +4538,9 @@ async function trSelectIncompleteCase(caseNumber) {
     window.trtempSave = async function () {
       captureReceiptBeforeSave();
       var result = await _orig.apply(this, arguments);
-      setTimeout(restoreNextReceipt, 150);
+      if (result && result.success) {
+        setTimeout(restoreNextReceipt, 150);
+      }
       return result;
     };
     window.trtempSave._recPatch = true;
