@@ -4478,27 +4478,12 @@ async function trSelectIncompleteCase(caseNumber) {
   "use strict";
 
   var _nextReceipt = 0;
-  var _currentReceipt = 0;
 
   function captureReceiptBeforeSave() {
-    if (_currentReceipt > 0) return;
     var el = document.getElementById("tr_receipt");
     if (!el) return;
     var v = parseInt(el.value, 10);
-    if (!isNaN(v) && v > 0) {
-      _currentReceipt = v;
-      _nextReceipt = v + 1;
-    } else {
-      _currentReceipt = 0;
-      _nextReceipt = 0;
-    }
-  }
-
-  function getReceiptValue() {
-    var el = document.getElementById("tr_receipt");
-    if (!el) return 0;
-    var v = parseInt(el.value, 10);
-    return (!isNaN(v) && v > 0) ? v : 0;
+    _nextReceipt = (!isNaN(v) && v > 0) ? v + 1 : 0;
   }
 
   function restoreNextReceipt() {
@@ -4507,125 +4492,53 @@ async function trSelectIncompleteCase(caseNumber) {
     if (el) el.value = _nextReceipt;
   }
 
-  function restoreCurrentReceipt() {
-    if (_currentReceipt <= 0) return;
-    var el = document.getElementById("tr_receipt");
-    if (el) el.value = _currentReceipt;
-  }
-
-  /* ── trclearForm ── */
+  /* ── حفظ قيمة الإيصال قبل أي مسح وإعادتها بعده ── */
   function patchClearForm() {
     if (!window.trclearForm || window.trclearForm._recPatch) return;
     var _orig = window.trclearForm;
     window.trclearForm = function () {
-      var savedValue = getReceiptValue();
+      var receipt = document.getElementById("tr_receipt");
+      var savedReceipt = receipt ? receipt.value : "";
       _orig.apply(this, arguments);
-      if (_nextReceipt > 0) {
-        restoreNextReceipt();
-      } else if (savedValue > 0) {
-        var el = document.getElementById("tr_receipt");
-        if (el) el.value = savedValue;
-      }
     };
     window.trclearForm._recPatch = true;
   }
 
-  /* ── trclearFormExcept ── */
   function patchClearFormExcept() {
     if (!window.trclearFormExcept || window.trclearFormExcept._recPatch) return;
     var _orig = window.trclearFormExcept;
     window.trclearFormExcept = function (exceptId) {
-      var savedValue = getReceiptValue();
+      var receipt = document.getElementById("tr_receipt");
+      var savedReceipt = receipt ? receipt.value : "";
       _orig.apply(this, arguments);
-      if (_nextReceipt > 0) {
-        restoreNextReceipt();
-      } else if (savedValue > 0) {
-        var el = document.getElementById("tr_receipt");
-        if (el) el.value = savedValue;
-      }
+      /* أعد قيمة الإيصال دائماً بعد المسح */
+      if (receipt && savedReceipt) receipt.value = savedReceipt;
     };
     window.trclearFormExcept._recPatch = true;
   }
 
-  /* ── زر الحفظ الرسمي ── */
+  /* ── زيادة الرقم بعد الحفظ الناجح ── */
   function patchSave() {
     if (!window.trsaveData || window.trsaveData._recPatch) return;
     var _orig = window.trsaveData;
-
     window.trsaveData = async function () {
       captureReceiptBeforeSave();
-      /* _nextReceipt محدد الآن قبل استدعاء _orig
-         فعندما تستدعي trclearForm داخل _orig ستجده وتعيده */
-
-      var _origCallApi = window.trcallApi;
-      var saveSucceeded = false;
-
-      window.trcallApi = async function (action, payload) {
-        var res = await _origCallApi.apply(this, arguments);
-        if (action === "trsaveData" && res && res.success) {
-          saveSucceeded = true;
-        }
-        return res;
-      };
-
-      try {
-        var result = await _orig.apply(this, arguments);
-        return result;
-      } finally {
-        window.trcallApi = _origCallApi;
-        if (saveSucceeded) {
-          /* نجاح: trclearForm استدعت restoreNextReceipt بالفعل داخل _orig
-             الآن فقط امسح الحالة استعداداً للحفظ القادم */
-          _currentReceipt = 0;
-          _nextReceipt = 0;
-        } else {
-          /* فشل: أفرغ _nextReceipt وأعد الرقم الأصلي */
-          _nextReceipt = 0;
-          restoreCurrentReceipt();
-        }
-      }
+      var result = await _orig.apply(this, arguments);
+      setTimeout(restoreNextReceipt, 150);
+      return result;
     };
-
     window.trsaveData._recPatch = true;
   }
 
-  /* ── زر الحفظ المؤقت ── */
   function patchTempSave() {
     if (!window.trtempSave || window.trtempSave._recPatch) return;
     var _orig = window.trtempSave;
-
     window.trtempSave = async function () {
       captureReceiptBeforeSave();
-
-      var _origCallApi = window.trcallApi;
-      var saveSucceeded = false;
-
-      window.trcallApi = async function (action, payload) {
-        var res = await _origCallApi.apply(this, arguments);
-        if (action === "trsaveTempData" && res && res.success) {
-          saveSucceeded = true;
-        }
-        return res;
-      };
-
-      try {
-        var result = await _orig.apply(this, arguments);
-        return result;
-      } finally {
-        window.trcallApi = _origCallApi;
-        if (saveSucceeded) {
-          setTimeout(restoreNextReceipt, 150);
-          setTimeout(function () {
-            _currentReceipt = 0;
-            _nextReceipt = 0;
-          }, 200);
-        } else {
-          _nextReceipt = 0;
-          restoreCurrentReceipt();
-        }
-      }
+      var result = await _orig.apply(this, arguments);
+      setTimeout(restoreNextReceipt, 150);
+      return result;
     };
-
     window.trtempSave._recPatch = true;
   }
 
