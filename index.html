@@ -4518,13 +4518,17 @@ async function trSelectIncompleteCase(caseNumber) {
   }
 
   /* ── زيادة الرقم بعد الحفظ الناجح ── */
-  function patchSave() {
+function patchSave() {
     if (!window.trsaveData || window.trsaveData._recPatch) return;
     var _orig = window.trsaveData;
     window.trsaveData = async function () {
-      captureReceiptBeforeSave();
+      var el = document.getElementById('tr_receipt');
+      var savedVal = el ? parseInt(el.value, 10) : 0;
       var result = await _orig.apply(this, arguments);
-      setTimeout(restoreNextReceipt, 150);
+      if (result && result.success) {
+        _nextReceipt = (!isNaN(savedVal) && savedVal > 0) ? savedVal + 1 : 0;
+        setTimeout(restoreNextReceipt, 150);
+      }
       return result;
     };
     window.trsaveData._recPatch = true;
@@ -4534,9 +4538,13 @@ async function trSelectIncompleteCase(caseNumber) {
     if (!window.trtempSave || window.trtempSave._recPatch) return;
     var _orig = window.trtempSave;
     window.trtempSave = async function () {
-      captureReceiptBeforeSave();
+      var el = document.getElementById('tr_receipt');
+      var savedVal = el ? parseInt(el.value, 10) : 0;
       var result = await _orig.apply(this, arguments);
-      setTimeout(restoreNextReceipt, 150);
+      if (result && result.success) {
+        _nextReceipt = (!isNaN(savedVal) && savedVal > 0) ? savedVal + 1 : 0;
+        setTimeout(restoreNextReceipt, 150);
+      }
       return result;
     };
     window.trtempSave._recPatch = true;
