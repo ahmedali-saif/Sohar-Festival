@@ -4521,7 +4521,7 @@ function patchSave() {
     if (!window.trsaveData || window.trsaveData._recPatch) return;
     var _orig = window.trsaveData;
     window.trsaveData = async function () {
-      if (result && result.success) captureReceiptBeforeSave();
+      captureReceiptBeforeSave();
       var result = await _orig.apply(this, arguments);
       return result;
     };
@@ -4532,8 +4532,8 @@ function patchSave() {
     if (!window.trtempSave || window.trtempSave._recPatch) return;
     var _orig = window.trtempSave;
     window.trtempSave = async function () {
+      captureReceiptBeforeSave();
       var result = await _orig.apply(this, arguments);
-      if (result && result.success) captureReceiptBeforeSave();
       return result;
     };
     window.trtempSave._recPatch = true;
