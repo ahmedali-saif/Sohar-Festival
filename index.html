@@ -4507,9 +4507,12 @@ async function trSelectIncompleteCase(caseNumber) {
   function patchClearFormExcept() {
     if (!window.trclearFormExcept || window.trclearFormExcept._recPatch) return;
     var _orig = window.trclearFormExcept;
-    window.trclearFormExcept = function (exceptId) {
+ window.trclearFormExcept = function (exceptId) {
+      var receipt = document.getElementById("tr_receipt");
+      var savedReceipt = receipt ? receipt.value : "";
       _nextReceipt = 0;
       _orig.apply(this, arguments);
+      if (receipt && savedReceipt) receipt.value = savedReceipt;
     };
     window.trclearFormExcept._recPatch = true;
   }
