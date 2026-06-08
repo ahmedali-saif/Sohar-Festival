@@ -4620,7 +4620,8 @@ async function trSelectIncompleteCase(caseNumber) {
       <h3>البحث في بيانات المربين</h3>
       <div style="display:flex;gap:8px;justify-content:center;margin:12px 0">
         <input type="text" id="bd_globalSearchInput" placeholder="اكتب للبحث..." style="width:250px;padding:5px">
-        <button onclick="bd_fetchAll()" style="background:#00b8d9;color:#fff;padding:5px 14px;border:none;border-radius:5px;font-weight:bold;cursor:pointer;font-family:inherit;">⬇️ جلب الكل</button>
+<button onclick="bd_fetchAll()" style="background:#00b8d9;color:#fff;padding:5px 14px;border:none;border-radius:5px;font-weight:bold;cursor:pointer;font-family:inherit;">⬇️ جلب الكل</button>
+<span id="bd_fetchAllCount" style="display:none;background:#2bb673;color:#fff;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:bold;margin-right:6px;"></span>
       </div>
       <div id="bd_searchResultsContainer" style="display:none;max-height:300px;overflow:auto">
         <table id="bd_searchResultsTable" style="width:100%;border-collapse:collapse">
@@ -4991,6 +4992,8 @@ async function bd_fetchAll() {
         }).join("") + "</tr>";
     }).join("");
     bd_showMessage("✅ تم جلب " + res.data.length + " مربي", false);
+    var countBadge = document.getElementById("bd_fetchAllCount");
+    if (countBadge) { countBadge.textContent = res.data.length + " مربي"; countBadge.style.display = "inline"; }
   } catch(err) {
     tbody.innerHTML = "<tr><td colspan='100' style='text-align:center;color:red'>خطأ: "+err.message+"</td></tr>";
   }
