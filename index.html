@@ -4473,7 +4473,6 @@ async function trSelectIncompleteCase(caseNumber) {
 // ============================================================
 //  حماية حقل الإيصال من المسح + زيادة تلقائية بعد الحفظ
 // ============================================================
-
 (function () {
   "use strict";
 
@@ -4490,16 +4489,17 @@ async function trSelectIncompleteCase(caseNumber) {
     if (_nextReceipt <= 0) return;
     var el = document.getElementById("tr_receipt");
     if (el) el.value = _nextReceipt;
+    _nextReceipt = 0;
   }
 
-  /* ── حفظ قيمة الإيصال قبل أي مسح وإعادتها بعده ── */
   function patchClearForm() {
     if (!window.trclearForm || window.trclearForm._recPatch) return;
     var _orig = window.trclearForm;
     window.trclearForm = function () {
-      var receipt = document.getElementById("tr_receipt");
-      var savedReceipt = receipt ? receipt.value : "";
       _orig.apply(this, arguments);
+      if (_nextReceipt > 0) {
+        document.getElementById("tr_receipt").value = _nextReceipt;
+      }
     };
     window.trclearForm._recPatch = true;
   }
@@ -4508,25 +4508,21 @@ async function trSelectIncompleteCase(caseNumber) {
     if (!window.trclearFormExcept || window.trclearFormExcept._recPatch) return;
     var _orig = window.trclearFormExcept;
     window.trclearFormExcept = function (exceptId) {
-      var receipt = document.getElementById("tr_receipt");
-      var savedReceipt = receipt ? receipt.value : "";
       _orig.apply(this, arguments);
-      /* أعد قيمة الإيصال دائماً بعد المسح */
-      if (receipt && savedReceipt) receipt.value = savedReceipt;
+      if (_nextReceipt > 0) {
+        var receipt = document.getElementById("tr_receipt");
+        if (receipt) receipt.value = _nextReceipt;
+      }
     };
     window.trclearFormExcept._recPatch = true;
   }
 
-  /* ── زيادة الرقم بعد الحفظ الناجح ── */
-async function patchSave() {
+  function patchSave() {
     if (!window.trsaveData || window.trsaveData._recPatch) return;
     var _orig = window.trsaveData;
     window.trsaveData = async function () {
       captureReceiptBeforeSave();
       var result = await _orig.apply(this, arguments);
-      if (result && result.success) {
-        setTimeout(restoreNextReceipt, 4200);
-      }
       return result;
     };
     window.trsaveData._recPatch = true;
@@ -4538,9 +4534,6 @@ async function patchSave() {
     window.trtempSave = async function () {
       captureReceiptBeforeSave();
       var result = await _orig.apply(this, arguments);
-      if (result && result.success) {
-        setTimeout(restoreNextReceipt, 4200);
-      }
       return result;
     };
     window.trtempSave._recPatch = true;
@@ -4563,6 +4556,7 @@ async function patchSave() {
   }
 
 })();
+
 </script>
 </div>
 
