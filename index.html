@@ -4479,10 +4479,8 @@ async function trSelectIncompleteCase(caseNumber) {
 
   var _nextReceipt = 0;
   var _currentReceipt = 0;
-  var _isSaveInProgress = false; // منع تحديث _currentReceipt أثناء محاولات فاشلة
 
   function captureReceiptBeforeSave() {
-    /* احفظ الرقم الحالي فقط إذا لم تكن هناك محاولة فاشلة سابقة */
     if (_currentReceipt > 0) return;
     var el = document.getElementById("tr_receipt");
     if (!el) return;
@@ -4513,12 +4511,6 @@ async function trSelectIncompleteCase(caseNumber) {
     if (_currentReceipt <= 0) return;
     var el = document.getElementById("tr_receipt");
     if (el) el.value = _currentReceipt;
-  }
-
-  /* مسح الحالة بعد نجاح الحفظ فقط */
-  function resetReceiptState() {
-    _currentReceipt = 0;
-    _nextReceipt = 0;
   }
 
   /* ── trclearForm ── */
@@ -4561,8 +4553,9 @@ async function trSelectIncompleteCase(caseNumber) {
     var _orig = window.trsaveData;
 
     window.trsaveData = async function () {
-      /* سجّل الرقم فقط إذا لم يكن هناك رقم محفوظ من محاولة فاشلة سابقة */
       captureReceiptBeforeSave();
+      /* _nextReceipt محدد الآن قبل استدعاء _orig
+         فعندما تستدعي trclearForm داخل _orig ستجده وتعيده */
 
       var _origCallApi = window.trcallApi;
       var saveSucceeded = false;
@@ -4580,17 +4573,15 @@ async function trSelectIncompleteCase(caseNumber) {
         return result;
       } finally {
         window.trcallApi = _origCallApi;
-        if (!saveSucceeded) {
-          /* فشل: أفرغ _nextReceipt فقط وأعد الرقم الأصلي
-             ولا تمسح _currentReceipt حتى تبقى المحاولة التالية بنفس الرقم */
+        if (saveSucceeded) {
+          /* نجاح: trclearForm استدعت restoreNextReceipt بالفعل داخل _orig
+             الآن فقط امسح الحالة استعداداً للحفظ القادم */
+          _currentReceipt = 0;
+          _nextReceipt = 0;
+        } else {
+          /* فشل: أفرغ _nextReceipt وأعد الرقم الأصلي */
           _nextReceipt = 0;
           restoreCurrentReceipt();
-        } else {
-          /* نجاح: امسح الحالة بالكامل، trclearForm ستعيد _nextReceipt */
-          /* ملاحظة: _nextReceipt يُعاد ضبطه هنا قبل أن تستدعيه trclearForm */
-          var nextVal = _currentReceipt + 1;
-          resetReceiptState();
-          _nextReceipt = nextVal;
         }
       }
     };
@@ -4623,12 +4614,12 @@ async function trSelectIncompleteCase(caseNumber) {
       } finally {
         window.trcallApi = _origCallApi;
         if (saveSucceeded) {
-          var nextVal = _currentReceipt + 1;
-          resetReceiptState();
-          _nextReceipt = nextVal;
           setTimeout(restoreNextReceipt, 150);
+          setTimeout(function () {
+            _currentReceipt = 0;
+            _nextReceipt = 0;
+          }, 200);
         } else {
-          /* فشل: أفرغ _nextReceipt فقط وأعد الرقم الأصلي */
           _nextReceipt = 0;
           restoreCurrentReceipt();
         }
