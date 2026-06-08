@@ -4508,11 +4508,8 @@ async function trSelectIncompleteCase(caseNumber) {
     if (!window.trclearFormExcept || window.trclearFormExcept._recPatch) return;
     var _orig = window.trclearFormExcept;
     window.trclearFormExcept = function (exceptId) {
+      _nextReceipt = 0;
       _orig.apply(this, arguments);
-      if (_nextReceipt > 0) {
-        var receipt = document.getElementById("tr_receipt");
-        if (receipt) receipt.value = _nextReceipt;
-      }
     };
     window.trclearFormExcept._recPatch = true;
   }
