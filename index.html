@@ -4493,10 +4493,12 @@ async function trSelectIncompleteCase(caseNumber) {
   }
 
   /* ── حفظ قيمة الإيصال قبل أي مسح وإعادتها بعده ── */
-  function patchClearForm() {
+function patchClearForm() {
     if (!window.trclearForm || window.trclearForm._recPatch) return;
     var _orig = window.trclearForm;
     window.trclearForm = function () {
+      var receipt = document.getElementById("tr_receipt");
+      var savedReceipt = receipt ? receipt.value : "";
       _orig.apply(this, arguments);
     };
     window.trclearForm._recPatch = true;
@@ -4506,7 +4508,11 @@ async function trSelectIncompleteCase(caseNumber) {
     if (!window.trclearFormExcept || window.trclearFormExcept._recPatch) return;
     var _orig = window.trclearFormExcept;
     window.trclearFormExcept = function (exceptId) {
+      var receipt = document.getElementById("tr_receipt");
+      var savedReceipt = receipt ? receipt.value : "";
       _orig.apply(this, arguments);
+      /* أعد قيمة الإيصال دائماً بعد المسح */
+      if (receipt && savedReceipt) receipt.value = savedReceipt;
     };
     window.trclearFormExcept._recPatch = true;
   }
@@ -4516,13 +4522,9 @@ function patchSave() {
     if (!window.trsaveData || window.trsaveData._recPatch) return;
     var _orig = window.trsaveData;
     window.trsaveData = async function () {
-      var el = document.getElementById('tr_receipt');
-      var savedVal = el ? parseInt(el.value, 10) : 0;
+      captureReceiptBeforeSave();
       var result = await _orig.apply(this, arguments);
-      if (result && result.success) {
-        _nextReceipt = (!isNaN(savedVal) && savedVal > 0) ? savedVal + 1 : 0;
-        setTimeout(restoreNextReceipt, 150);
-      }
+      setTimeout(restoreNextReceipt, 150);
       return result;
     };
     window.trsaveData._recPatch = true;
@@ -4532,18 +4534,13 @@ function patchSave() {
     if (!window.trtempSave || window.trtempSave._recPatch) return;
     var _orig = window.trtempSave;
     window.trtempSave = async function () {
-      var el = document.getElementById('tr_receipt');
-      var savedVal = el ? parseInt(el.value, 10) : 0;
+      captureReceiptBeforeSave();
       var result = await _orig.apply(this, arguments);
-      if (result && result.success) {
-        _nextReceipt = (!isNaN(savedVal) && savedVal > 0) ? savedVal + 1 : 0;
-        setTimeout(restoreNextReceipt, 150);
-      }
+      setTimeout(restoreNextReceipt, 150);
       return result;
     };
     window.trtempSave._recPatch = true;
   }
-
   function tryPatch() {
     patchClearForm();
     patchClearFormExcept();
