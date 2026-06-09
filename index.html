@@ -11982,7 +11982,33 @@ function sendTelegram(text) {
   }
  
 })(window);
-  
+  (function(){
+  function patchLogin(){
+    if(!window.unlockNav||window.unlockNav._loginNotify)return;
+    var _orig=window.unlockNav;
+    window.unlockNav=function(){
+      _orig.apply(this,arguments);
+      var user=window._currentUser||'غير معروف';
+      var now=new Date();
+      var msg='🔐 دخول جديد للنظام\n'
+        +'👤 المستخدم: '+user+'\n'
+        +'📅 التاريخ: '+now.toLocaleDateString('ar-SA')+'\n'
+        +'🕐 الوقت: '+now.toLocaleTimeString('ar-SA')+'\n'
+        +'🌐 المتصفح: '+navigator.userAgent.split(' ').slice(-1)[0];
+      fetch('https://ntfy.sh/oman_lab_2026_alerts_x92',{
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:msg
+      }).catch(function(){});
+    };
+    window.unlockNav._loginNotify=true;
+  }
+  function tryPatch(){
+    if(window.unlockNav)patchLogin();
+    else setTimeout(tryPatch,300);
+  }
+  tryPatch();
+})();
 </script>
 </body>
 </html>
