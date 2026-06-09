@@ -6357,7 +6357,29 @@ async function vr_saveToBreeder(r) {
         <div class="row"><label>النوع</label><select id="animalType"><option value=""></option><option>ماعز</option><option>أغنام</option><option>أبقار</option><option>جمال</option><option>خيول</option></select></div>
         <div class="row"><label>الجنس</label><select id="gender"><option value=""></option><option>ذكر</option><option>أنثى</option></select></div>
         <div class="row"><label>العمر</label><input id="age"></div>
-        <div class="row"><label>نوع العينة</label><input list="sampleTypeList" id="sampleType" placeholder="اختر"><datalist id="sampleTypeList"></datalist></div>
+<div class="row"><label>نوع العينة</label>
+<div style="flex:1;position:relative;">
+<div id="fo_stDisplay" onclick="fo_stToggle()" style="cursor:pointer;border:2px solid #ddd;border-radius:3px;padding:4px 28px 4px 6px;min-height:30px;background:#fff;font-size:13px;font-family:inherit;"></div>
+<span style="position:absolute;left:8px;top:7px;font-size:11px;color:#999;pointer-events:none;">▼</span>
+<div id="fo_stDrop" style="display:none;position:absolute;top:100%;right:0;left:0;background:#fff;border:2px solid #00b8d9;border-radius:3px;max-height:180px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15);">
+<input type="text" placeholder="بحث..." oninput="fo_stFilter(this.value)" onclick="event.stopPropagation()" style="width:100%;padding:5px 8px;border:none;border-bottom:1px solid #eee;font-size:12px;font-family:inherit;outline:none;">
+<div id="fo_stOpts"></div>
+</div>
+<input type="hidden" id="sampleType">
+<datalist id="sampleTypeList"></datalist>
+</div></div>
+<script>
+var fo_stSel=[];
+function fo_stToggle(){var d=document.getElementById('fo_stDrop');if(d.style.display==='none'){d.style.display='block';fo_stBuild('');setTimeout(function(){document.addEventListener('click',fo_stClose);},50);}else fo_stClose();}
+function fo_stClose(e){var w=document.querySelector('#fo_stDrop');if(e&&w&&w.contains(e.target))return;var d=document.getElementById('fo_stDrop');if(d)d.style.display='none';document.removeEventListener('click',fo_stClose);}
+function fo_stFilter(v){fo_stBuild(v);}
+function fo_stBuild(f){var dl=document.getElementById('sampleTypeList');var c=document.getElementById('fo_stOpts');if(!dl||!c)return;var opts=Array.from(dl.querySelectorAll('option')).map(function(o){return o.value;}).filter(function(v){return !f||v.indexOf(f)!==-1;});c.innerHTML=opts.map(function(v){var s=fo_stSel.indexOf(v)!==-1;return'<div onclick="fo_stPick(\''+v.replace(/'/g,"\\'")+'\')" style="padding:7px 10px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;font-family:inherit;'+(s?'background:#e0f7fc;':'')+'">'+'<span style="width:15px;height:15px;border:2px solid #00b8d9;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;background:'+(s?'#00b8d9':'#fff')+';color:#fff;font-size:10px;">'+(s?'✓':'')+'</span>'+v+'</div>';}).join('')||'<div style="padding:8px;color:#999;font-size:12px;">لا نتائج</div>';}
+function fo_stPick(v){var i=fo_stSel.indexOf(v);if(i===-1)fo_stSel.push(v);else fo_stSel.splice(i,1);fo_stRefresh();fo_stBuild(document.querySelector('#fo_stDrop input').value);}
+function fo_stRefresh(){var h=document.getElementById('sampleType');var d=document.getElementById('fo_stDisplay');h.value=fo_stSel.join('، ');if(!fo_stSel.length){d.innerHTML='<span style="color:#999">اختر نوع العينة</span>';d.style.borderColor='#ddd';}else{d.innerHTML=fo_stSel.map(function(v){return'<span style="background:#e0f7fc;color:#004e66;border-radius:12px;padding:2px 8px;margin:2px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">'+v+'<span onclick="event.stopPropagation();fo_stRemove(\''+v.replace(/'/g,"\\'")+'\');" style="cursor:pointer;color:#00b8d9;font-weight:bold;">×</span></span>';}).join('');d.style.borderColor='#00b8d9';}}
+function fo_stRemove(v){fo_stSel.splice(fo_stSel.indexOf(v),1);fo_stRefresh();}
+function fo_stClear(){fo_stSel=[];fo_stRefresh();}
+function fo_stLoad(v){fo_stSel=v?v.split(/[،,]/).map(function(s){return s.trim();}).filter(Boolean):[];fo_stRefresh();}
+</script>        
         <div class="row"><label>تاريخ المرض</label><input id="diseaseDate"></div>
         <div class="row"><label>الصفة التشريحية</label><input id="anatomicalFeature"></div>
         <div class="row"><label>توصيف الحالة</label><input id="pathologyDesc"></div>
@@ -6489,17 +6511,18 @@ function fogetValue(id){var el=document.getElementById(id);return el?el.value.tr
 function fofillFormWithData(data) {
   fosafeSet('caseNumberrt',data.caseNumberrt);
   if(data.caseNumberrt&&data.caseNumberrt.toString().trim()!==''){lastSampleNumber=data.caseNumberrt.toString().trim();fosafeSet('specialsample',lastSampleNumber);}
-  var fields = ['phoneInput:phone','nameInput:name','possessionInput:possession','regionInput:region','civilInput:civil','financialDate:financialDate','animalType:animalType','gender:gender','age:age','sampleType:sampleType','diseaseDate:diseaseDate','anatomicalFeature:anatomicalFeature','pathologyDesc:pathologyDesc','sickCount:sickCount','contactCount:contactCount','deathCount:deathCount','sampleTakenDate:sampleTakenDate','sampleSentDate:sampleSentDate','suspectedDisease:suspectedDisease','dataEntryInput:dataEntry','dataUpdaterInput:dataUpdater','notes:notes'];
+  var fields = ['phoneInput:phone','nameInput:name','possessionInput:possession','regionInput:region','civilInput:civil','financialDate:financialDate','animalType:animalType','gender:gender','age:age','diseaseDate:diseaseDate','anatomicalFeature:anatomicalFeature','pathologyDesc:pathologyDesc','sickCount:sickCount','contactCount:contactCount','deathCount:deathCount','sampleTakenDate:sampleTakenDate','sampleSentDate:sampleSentDate','suspectedDisease:suspectedDisease','dataEntryInput:dataEntry','dataUpdaterInput:dataUpdater','notes:notes'];
   fields.forEach(function(f){var p=f.split(':');fosafeSet(p[0],data[p[1]]);});
+  fo_stLoad(data.sampleType);
   for(var k=1;k<=5;k++){fosafeSet('test'+k,data['test'+k]);fosafeSet('result'+k,data['result'+k]);}
   foshowMessage('تم تحميل بيانات العينة '+data.caseNumberrt+' بنجاح',false);
 }
-
 function fochearForm() {
   var today = new Date().toLocaleDateString('en-CA');
   fosafeSet('financialDate',today); lastSampleNumber=''; fosafeSet('specialsample','');
-  var ids = ['caseNumberrt','phoneInput','nameInput','possessionInput','regionInput','civilInput','animalType','gender','age','sampleType','diseaseDate','anatomicalFeature','pathologyDesc','sickCount','contactCount','deathCount','sampleTakenDate','sampleSentDate','suspectedDisease','dataEntryInput','dataUpdaterInput','notes','test1','test2','test3','test4','test5','result1','result2','result3','result4','result5'];
+  var ids = ['caseNumberrt','phoneInput','nameInput','possessionInput','regionInput','civilInput','animalType','gender','age','diseaseDate','anatomicalFeature','pathologyDesc','sickCount','contactCount','deathCount','sampleTakenDate','sampleSentDate','suspectedDisease','dataEntryInput','dataUpdaterInput','notes','test1','test2','test3','test4','test5','result1','result2','result3','result4','result5'];
   ids.forEach(function(id){fosafeSet(id,'');});
+  fo_stClear();
 }
 
 function focollectFormData() {
