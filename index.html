@@ -2228,16 +2228,26 @@ PERM.init(u, m);
   document.getElementById('l_password').addEventListener('keydown', e=>{ if(e.key==='Enter') lDoLogin(); });
 
 document.getElementById('l_logoutBtn').addEventListener('click', ()=>{
-  PERM.revoke();  // ← هذا السطر فقط
+  PERM.revoke();
   
   window._currentUser = null;
   window._userAllowedPages = null;
+  window._activeApiUrl = null;
   lCU=null;
   document.getElementById('l_username').value='';
   document.getElementById('l_password').value='';
   document.getElementById('l_loginErr').style.display='none';
   lShow(lViews.login);
   lockNav();
+
+  // إعادة ضبط اختيار الولاية
+  var sel = document.getElementById('wilayatSelect');
+  if (sel) sel.value = '';
+  var status = document.getElementById('wilayatStatus');
+  if (status) { status.style.display = 'none'; status.textContent = ''; }
+  localStorage.removeItem('selected_wilayat_url');
+  localStorage.removeItem('selected_wilayat_name');
+
   showPage('login');
 });
   document.getElementById('l_goCP').addEventListener('click', ()=>{
