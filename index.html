@@ -12052,6 +12052,11 @@ function sendTelegram(text) {
   }
   tryPatch();
 })();
+  // مسح الولاية عند تحديث الصفحة
+window.addEventListener('beforeunload', function() {
+  localStorage.removeItem('selected_wilayat_url');
+  localStorage.removeItem('selected_wilayat_name');
+});
 </script>
 </body>
 </html>
