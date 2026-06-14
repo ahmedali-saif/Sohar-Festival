@@ -1555,7 +1555,11 @@ showToast('✅ تم تحميل ولاية ' + name + ' بنجاح', 'success');
   if (typeof rpt_loadReport      === 'function') rpt_loadReport();
   if (typeof dtr_loadData        === 'function') dtr_loadData();
  if (typeof fin_loadFinancialData === 'function') fin_loadFinancialData();
-  if (typeof bd_init === 'function') bd_init();
+window._breederInitialized = false;
+if (typeof bd_init === 'function') {
+  window._breederInitialized = true;
+  bd_init();
+}
 }
 </script>
   <!-- زر المظهر مستقل عن نظام التبويبات -->
