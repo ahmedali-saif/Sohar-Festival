@@ -1534,7 +1534,27 @@ async function wilayatApply() {
   status.style.color = '#2bb673';
   status.textContent = '✅ الولاية الحالية: ' + name;
 
-  showToast('✅ تم تحميل ولاية ' + name + ' بنجاح', 'success');
+showToast('✅ تم تحميل ولاية ' + name + ' بنجاح', 'success');
+
+  // إعادة تهيئة جميع الصفحات بالرابط الجديد
+  window._treatmentInitialized    = false;
+  window._vaccinationInitialized  = false;
+  window._vrInitialized           = false;
+  window._breederInitialized      = false;
+  window._samplesInitialized      = false;
+
+  // إعادة تحميل الصفحات التي لا تحتاج init
+  vr_allData    = [];
+  vr_dataLoaded = false;
+
+  if (typeof trloadData          === 'function') trloadData();
+  if (typeof trloadIncompleteCount === 'function') trloadIncompleteCount();
+  if (typeof vr_loadData         === 'function') vr_loadData();
+  if (typeof ani_loadData        === 'function') ani_loadData();
+  if (typeof dim_loadData        === 'function') dim_loadData();
+  if (typeof rpt_loadReport      === 'function') rpt_loadReport();
+  if (typeof dtr_loadData        === 'function') dtr_loadData();
+  if (typeof fin_loadFinancialData === 'function') fin_loadFinancialData();
 }
 </script>
   <!-- زر المظهر مستقل عن نظام التبويبات -->
