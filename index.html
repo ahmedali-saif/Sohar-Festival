@@ -2433,10 +2433,11 @@ document.getElementById('l_logoutBtn').addEventListener('click', ()=>{
       </div>
 
       <!-- أزرار التحكم -->
-      <div class="top-bar" style="justify-content:center;gap:12px;background:#eef7ff">
+        <div class="top-bar" style="justify-content:center;gap:12px;background:#eef7ff">
         <button class="clear" id="db_clearBtn">مسح</button>
         <button class="search" id="db_searchBtn">بحث</button>
-<button onclick="DB__URL=window._activeApiUrl||DB__URL; document.getElementById('db_clearBtn').click(); showToast('✅ تم تحديث الصفحة','success');" style="background:#607d8b;color:#fff">🔄 تحديث</button>        <button class="print" id="db_printBtn">🖨️ طباعة</button>
+        <button onclick="showPage('dashboard');" style="background:#607d8b;color:#fff">🔄 تحديث</button>
+        <button class="print" id="db_printBtn">🖨️ طباعة</button>
       </div>
     </div>
   </div>
@@ -2722,7 +2723,8 @@ var DB__URL = window._activeApiUrl || "https://script.google.com/macros/s/AKfycb
       <label>🔍 البحث برقم الهاتف :</label>
       <input type="text" id="searchPhone" placeholder="أدخل رقم الهاتف">
       <button class="search-btn" onclick="searchData()">بحث</button>
-<button class="clear-btn" onclick="SETTINGS__URL=window._activeApiUrl||SETTINGS__URL; clearAllData(); showToast('✅ تم تحديث الصفحة','success');">🔄 تحديث</button>      <button class="clear-btn" onclick="clearAllData()">🗑️ تفريغ</button>
+      <button class="clear-btn" onclick="showPage('settings');">🔄 تحديث</button>
+      <button class="clear-btn" onclick="clearAllData()">🗑️ تفريغ</button>
     </div>
     <div class="search-status" id="searchStatus"></div>
 
@@ -4770,7 +4772,8 @@ function updateReceiptFromTable() {
         <button class="update" id="bd_updateBtn">تحديث</button>
         <button class="clear" id="bd_clearBtn">مسح</button>
         <button class="delete" id="bd_deleteBtn">حذف البيانات</button>
-<button onclick="window._breederInitialized=false; window.bd_API_URL=window._activeApiUrl||bd_API_URL; bd_clearForm(); bd_refreshDropdowns().then(function(){showToast('✅ تم تحديث سجل المربي','success');});" style="background:#607d8b;color:#fff">🔄 تحديث الصفحة</button>        <button id="bd_updatePossessionBtn" style="background:#8e44ad;color:#fff">تحديث الحيازة في العلاج</button>
+        <button onclick="window._breederInitialized=false; showPage('breeder');" style="background:#607d8b;color:#fff">🔄 تحديث الصفحة</button>
+        <button id="bd_updatePossessionBtn" style="background:#8e44ad;color:#fff">تحديث الحيازة في العلاج</button>
         <button id="bd_saveVaccinationBtn" style="background:#27ae60;color:#fff">💉 حفظ طلبات التحصين</button>
         <button id="bd_updateVaccinationBtn" style="background:#e67e22;color:#fff">✏️ تحديث طلبات التحصين</button>
         <button id="bd_deleteVaccinationBtn" style="background:#c0392b;color:#fff">🗑️ حذف تحصين</button>
@@ -5418,7 +5421,8 @@ function bd_filterInactiveTable(val) {
       <button class="clear" id="vacc_clearBtn">مسح</button>
       <button class="delete" id="vacc_deleteBtn">حذف البيانات</button>
       <button class="search" id="vacc_searchBtn">بحث</button>
-<button onclick="vaccClearForm(); VACC_API_URL=window._activeApiUrl||VACC_API_URL; vaccLoadDropdowns().then(function(){showToast('✅ تم تحديث سجل التحصين','success');});" style="background:#607d8b;color:#fff">🔄 تحديث الصفحة</button>      <button class="search-record" id="vacc_searchRecordBtn">البحث في سجل التحصين</button>
+      <button onclick="window._vaccinationInitialized=false; showPage('vaccination');" style="background:#607d8b;color:#fff">🔄 تحديث الصفحة</button>
+      <button class="search-record" id="vacc_searchRecordBtn">البحث في سجل التحصين</button>
       <button class="all-total-btn" id="vacc_allTotalBtn">إجمالي عدد الجرعات</button>
       <button class="all-total-btn" id="vacc_maxAnimalsBtn">إجمالي عدد الحيوانات المحصنة</button>
     </div>
@@ -6752,9 +6756,9 @@ function fo_stLoad(v){fo_stSel=v?v.split(/[،,]/).map(function(s){return s.trim(
       <button class="clear" id="clearBtn">مسح</button>
       <button class="delete" id="deleteBtn">حذف</button>
       <button class="search" id="searchBtn">بحث</button>
-<button onclick="SAMPLES_API_URL=window._activeApiUrl||SAMPLES_API_URL; fochearForm(); Promise.all([foloadDropdowns(),foloadUniqueCount()]).then(function(){showToast('✅ تم تحديث نموذج العينات','success');});" style="background:#607d8b;color:#fff">🔄 تحديث الصفحة</button>      <button class="samples-search" id="toggleSearchCardBtn">البحث في العينات</button>
-<!-- أضف هذا الزر بعد زر toggleSearchCardBtn في قسم أزرار التحكم -->
-<button class="samples-search" id="toggleTestsCardBtn" style="background:#e67e22;">📊 نتائج الفحوصات</button>
+      <button onclick="window._samplesInitialized=false; showPage('samples');" style="background:#607d8b;color:#fff">🔄 تحديث الصفحة</button>
+      <button class="samples-search" id="toggleSearchCardBtn">البحث في العينات</button>
+      <button class="samples-search" id="toggleTestsCardBtn" style="background:#e67e22;">📊 نتائج الفحوصات</button>
     </div>
     <input type="hidden" id="specialsample">
   </div>
