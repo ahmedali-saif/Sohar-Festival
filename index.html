@@ -4754,6 +4754,7 @@ function updateReceiptFromTable() {
         <input type="text" id="bd_globalSearchInput" placeholder="اكتب للبحث..." style="width:250px;padding:5px">
 <button onclick="bd_fetchAll()" style="background:#00b8d9;color:#fff;padding:5px 14px;border:none;border-radius:5px;font-weight:bold;cursor:pointer;font-family:inherit;">⬇️ جلب الكل</button>
 <span id="bd_fetchAllCount" style="display:none;background:#2bb673;color:#fff;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:bold;margin-right:6px;"></span>
+<button onclick="bd_analyzeInactive()" style="background:#e67e22;color:#fff;padding:5px 14px;border:none;border-radius:5px;font-weight:bold;cursor:pointer;font-family:inherit;margin-right:6px;">🔍 غير نشطين (6 أشهر)</button>        
       </div>
       <div id="bd_searchResultsContainer" style="display:none;max-height:300px;overflow:auto">
         <table id="bd_searchResultsTable" style="width:100%;border-collapse:collapse">
@@ -5129,6 +5130,212 @@ async function bd_fetchAll() {
   } catch(err) {
     tbody.innerHTML = "<tr><td colspan='100' style='text-align:center;color:red'>خطأ: "+err.message+"</td></tr>";
   }
+}
+  /* ══════════════════════════════════════════════════════════
+   bd_analyzeInactive — تحليل المربين غير النشطين (6 أشهر)
+   ══════════════════════════════════════════════════════════ */
+async function bd_analyzeInactive() {
+  var SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+  var cutoff = new Date(Date.now() - SIX_MONTHS_MS);
+
+  /* ── شاشة تحميل ── */
+  var existingModal = document.getElementById('bd_inactiveModal');
+  if (existingModal) existingModal.remove();
+
+  var modal = document.createElement('div');
+  modal.id = 'bd_inactiveModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  modal.innerHTML = '<div style="background:#fff;border:4px solid #e67e22;border-radius:12px;padding:30px 40px;width:92%;max-width:900px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.4);">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+      '<h3 style="color:#e67e22;font-size:1.2rem;margin:0;">⏳ جاري التحليل...</h3>' +
+      '<button onclick="document.getElementById(\'bd_inactiveModal\').remove()" style="background:#e65050;color:#fff;border:none;border-radius:5px;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:13px;">✕ إغلاق</button>' +
+    '</div>' +
+    '<div id="bd_inactiveContent" style="text-align:center;padding:20px;color:#888;">⏳ جاري جلب البيانات من جميع السجلات...</div>' +
+  '</div>';
+  document.body.appendChild(modal);
+
+  try {
+    var url = window._activeApiUrl || bd_API_URL;
+    if (!url) throw new Error('رابط الخدمة غير مُعدّ');
+
+    async function _callUrl(action, payload) {
+      var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
+      var r = await fetch(url, { method:'POST', mode:'cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:body, redirect:'follow' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.json();
+    }
+
+    /* ── ١. جلب كل المربين ── */
+    var bdRes = await bd_callApi('bd_getAllBreeders');
+    if (!bdRes || !bdRes.success || !bdRes.data || !bdRes.data.length)
+      throw new Error('تعذّر جلب سجل المربين');
+    var breeders = bdRes.data; /* [{phone, name, ...}] */
+
+    /* ── ٢. جلب سجلات العلاج ── */
+    var lastActivity = {}; /* phone → Date أحدث نشاط */
+
+    function _registerDate(phone, dateStr) {
+      if (!phone || !dateStr) return;
+      var ph = String(phone).trim();
+      if (!ph) return;
+      /* دعم صيغ: DD/MM/YYYY أو YYYY-MM-DD أو MM/DD/YYYY */
+      var d;
+      if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+        d = new Date(dateStr.substring(0, 10));
+      } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
+        var pts = dateStr.split('/');
+        /* نحاول DD/MM/YYYY أولاً */
+        d = new Date(pts[2] + '-' + pts[1].padStart(2,'0') + '-' + pts[0].padStart(2,'0'));
+        if (isNaN(d)) d = new Date(pts[2] + '-' + pts[0].padStart(2,'0') + '-' + pts[1].padStart(2,'0'));
+      } else {
+        d = new Date(dateStr);
+      }
+      if (isNaN(d)) return;
+      if (!lastActivity[ph] || d > lastActivity[ph]) lastActivity[ph] = d;
+    }
+
+    /* علاج */
+    try {
+      var tr = null;
+      try { tr = await _callUrl('trsearchInTreatmentSheet', { keyword:'', startDate:'2020-01-01', endDate:'2099-12-31' }); } catch(e) {}
+      if (!tr || !tr.success || !Array.isArray(tr.data) || tr.data.length <= 1) {
+        try { tr = await _callUrl('trgetAAAData', {}); } catch(e) {}
+      }
+      if (tr && tr.success && Array.isArray(tr.data) && tr.data.length > 1) {
+        var trHeaders = Array.isArray(tr.data[0]) ? tr.data[0] : [];
+        var phoneIdx = 1, dateIdx = 46;
+        for (var ci = 0; ci < trHeaders.length; ci++) {
+          var h = String(trHeaders[ci] || '');
+          if (h.indexOf('هاتف') >= 0) phoneIdx = ci;
+          if (h.indexOf('التاريخ') >= 0 || h === 'date') dateIdx = ci;
+        }
+        tr.data.slice(1).forEach(function(row) {
+          if (!Array.isArray(row)) return;
+          _registerDate(row[phoneIdx], row[dateIdx]);
+        });
+      }
+    } catch(e) { console.warn('[inactive] علاج:', e.message); }
+
+    /* تحصين */
+    try {
+      var vr = await _callUrl('searchVaccinationRecords', { filters:{} });
+      if (vr && vr.success) {
+        var rows = Array.isArray(vr.rows) ? vr.rows : (Array.isArray(vr.data) ? vr.data : []);
+        var vStart = 0;
+        if (rows.length >= 2) {
+          var r0 = rows[0], r1 = rows[1];
+          if (r1 && (String(r1[0]) === '0' || String(r1[1] || '') === 'رقم هاتف المربي')) vStart = 2;
+          else if (r0 && (String(r0[0]) === '0' || String(r0[1] || '') === 'رقم هاتف المربي')) vStart = 1;
+        }
+        rows.slice(vStart).forEach(function(row) {
+          if (!Array.isArray(row)) return;
+          var rn = parseInt(row[0]);
+          if (isNaN(rn) || rn === 0) return;
+          _registerDate(row[1], row[26]); /* phone=1, date=26 */
+        });
+      }
+    } catch(e) { console.warn('[inactive] تحصين:', e.message); }
+
+    /* عينات */
+    try {
+      var sr = await _callUrl('fosearchSamplesData', { showAll: true });
+      if (sr && sr.success && Array.isArray(sr.data)) {
+        sr.data.forEach(function(r) {
+          var ph = String(r.phone || '').trim();
+          var dt = r.sampleSentDate || r.samplesentdate || r.diseaseDate || '';
+          _registerDate(ph, dt);
+        });
+      }
+    } catch(e) { console.warn('[inactive] عينات:', e.message); }
+
+    /* ── ٣. تصفية المربين غير النشطين ── */
+    var inactive = [];
+    breeders.forEach(function(b) {
+      var ph = String(b.phone || '').trim();
+      if (!ph) return;
+      var last = lastActivity[ph];
+      /* غير نشط إذا: لم يُسجَّل له أي نشاط، أو آخر نشاط قبل الحد */
+      if (!last || last < cutoff) {
+        inactive.push({
+          phone: ph,
+          name:  b.name || '',
+          lastDate: last ? last.toLocaleDateString('ar-SA') : 'لا يوجد سجل',
+          daysSince: last ? Math.floor((Date.now() - last) / 86400000) : null
+        });
+      }
+    });
+
+    /* ── ٤. عرض النتائج ── */
+    var cutoffStr = cutoff.toLocaleDateString('ar-SA');
+    var content = document.getElementById('bd_inactiveContent');
+    if (!inactive.length) {
+      content.innerHTML = '<div style="color:#27ae60;font-size:1.1rem;padding:20px;">✅ جميع المربين لديهم نشاط خلال الـ 6 أشهر الأخيرة</div>';
+      return;
+    }
+
+    /* ترتيب: الأطول غياباً أولاً */
+    inactive.sort(function(a,b){ return (b.daysSince || 99999) - (a.daysSince || 99999); });
+
+    var rows_html = inactive.map(function(r, i) {
+      var rowColor = (r.daysSince === null || r.daysSince > 365) ? '#fff5f5' : (r.daysSince > 180 ? '#fffbe6' : '#f8f8f8');
+      return '<tr style="background:' + rowColor + ';">' +
+        '<td style="border:1px solid #ccc;padding:6px;text-align:center;font-weight:bold;">' + (i+1) + '</td>' +
+        '<td style="border:1px solid #ccc;padding:6px;direction:ltr;text-align:center;">' + r.phone + '</td>' +
+        '<td style="border:1px solid #ccc;padding:6px;text-align:right;">' + r.name + '</td>' +
+        '<td style="border:1px solid #ccc;padding:6px;text-align:center;">' + r.lastDate + '</td>' +
+        '<td style="border:1px solid #ccc;padding:6px;text-align:center;">' + (r.daysSince !== null ? r.daysSince + ' يوم' : '—') + '</td>' +
+        '<td style="border:1px solid #ccc;padding:6px;text-align:center;">' +
+          '<button onclick="document.getElementById(\'bd_inactiveModal\').remove();document.getElementById(\'bd_phoneInput\').value=\'' + r.phone + '\';bd_loadCaseData(\'' + r.phone + '\');" ' +
+          'style="background:#00b8d9;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-family:inherit;font-size:12px;">📂 فتح</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+
+    content.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">' +
+        '<div>' +
+          '<span style="background:#e67e22;color:#fff;border-radius:20px;padding:4px 14px;font-weight:bold;font-size:13px;">⚠️ ' + inactive.length + ' مربي غير نشط</span>' +
+          '<span style="margin-right:10px;font-size:12px;color:#888;">من أصل ' + breeders.length + ' مربي | الحد: ' + cutoffStr + '</span>' +
+        '</div>' +
+        '<div>' +
+          '<input id="bd_inactiveFilter" type="text" placeholder="بحث بالاسم أو الهاتف..." ' +
+          'style="padding:5px 8px;border:2px solid #e67e22;border-radius:4px;font-size:13px;width:200px;font-family:inherit;" ' +
+          'oninput="bd_filterInactiveTable(this.value)">' +
+        '</div>' +
+      '</div>' +
+      '<div style="overflow-x:auto;">' +
+        '<table id="bd_inactiveTable" style="width:100%;border-collapse:collapse;font-size:12px;">' +
+          '<thead><tr>' +
+            '<th style="background:#e67e22;color:#fff;border:1px solid #ccc;padding:7px;">#</th>' +
+            '<th style="background:#e67e22;color:#fff;border:1px solid #ccc;padding:7px;">رقم الهاتف</th>' +
+            '<th style="background:#e67e22;color:#fff;border:1px solid #ccc;padding:7px;">اسم المربي</th>' +
+            '<th style="background:#e67e22;color:#fff;border:1px solid #ccc;padding:7px;">آخر نشاط</th>' +
+            '<th style="background:#e67e22;color:#fff;border:1px solid #ccc;padding:7px;">الأيام الماضية</th>' +
+            '<th style="background:#e67e22;color:#fff;border:1px solid #ccc;padding:7px;">إجراء</th>' +
+          '</tr></thead>' +
+          '<tbody id="bd_inactiveTbody">' + rows_html + '</tbody>' +
+        '</table>' +
+      '</div>';
+
+    /* ── تحديث عنوان الـ modal ── */
+    modal.querySelector('h3').textContent = '🔍 المربون غير النشطين خلال 6 أشهر';
+
+  } catch(err) {
+    var c = document.getElementById('bd_inactiveContent');
+    if (c) c.innerHTML = '<div style="color:red;padding:20px;">❌ خطأ: ' + (err.message || err) + '</div>';
+  }
+}
+
+function bd_filterInactiveTable(val) {
+  var q = val.trim().toLowerCase();
+  var rows = document.querySelectorAll('#bd_inactiveTbody tr');
+  rows.forEach(function(tr) {
+    var cells = tr.querySelectorAll('td');
+    if (!cells.length) return;
+    var phone = (cells[1] ? cells[1].textContent : '').toLowerCase();
+    var name  = (cells[2] ? cells[2].textContent : '').toLowerCase();
+    tr.style.display = (!q || phone.indexOf(q) >= 0 || name.indexOf(q) >= 0) ? '' : 'none';
+  });
 }
   // bd_init() تُستدعى من showPage فقط — لا تشغّل هنا
 </script>
