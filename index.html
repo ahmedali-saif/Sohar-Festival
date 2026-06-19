@@ -2436,7 +2436,7 @@ document.getElementById('l_logoutBtn').addEventListener('click', ()=>{
       <div class="top-bar" style="justify-content:center;gap:12px;background:#eef7ff">
         <button class="clear" id="db_clearBtn">مسح</button>
         <button class="search" id="db_searchBtn">بحث</button>
-        <button class="update" id="fo_refreshBtn" onclick="fochearForm();foloadDropdowns();foloadUniqueCount();">🔄 تحديث الصفحة</button>
+        <button class="update" id="db_refreshBtn" onclick="document.getElementById('db_clearBtn').click();document.getElementById('db_caseNumberis').focus();">🔄 تحديث</button>
         <button class="print" id="db_printBtn">🖨️ طباعة</button>
       </div>
     </div>
@@ -6756,6 +6756,7 @@ function fo_stLoad(v){fo_stSel=v?v.split(/[،,]/).map(function(s){return s.trim(
       <button class="clear" id="clearBtn">مسح</button>
       <button class="delete" id="deleteBtn">حذف</button>
       <button class="search" id="searchBtn">بحث</button>
+      <button class="update" id="fo_refreshBtn" onclick="fochearForm();foloadDropdowns();foloadUniqueCount();">🔄 تحديث الصفحة</button>
       <button class="samples-search" id="toggleSearchCardBtn">البحث في العينات</button>
 <!-- أضف هذا الزر بعد زر toggleSearchCardBtn في قسم أزرار التحكم -->
 <button class="samples-search" id="toggleTestsCardBtn" style="background:#e67e22;">📊 نتائج الفحوصات</button>
