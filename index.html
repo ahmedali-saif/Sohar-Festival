@@ -4545,48 +4545,47 @@ async function trSelectIncompleteCase(caseNumber) {
 (function () {
   "use strict";
 
+  // الرقم المحسوب من الجدول — يُحدَّث فقط من updateReceiptFromTable
+  var _tableReceipt = 0;
+  // الرقم المحفوظ قبل الحفظ — لزيادته بعد النجاح
   var _nextReceipt = 0;
+  // علامة: هل نحن في وضع تحميل حالة (من جدول أو بحث)؟
+  var _loadingCase = false;
 
-  function captureReceiptBeforeSave() {
-    var el = document.getElementById("tr_receipt");
-    if (!el) return;
-    var v = parseInt(el.value, 10);
-    _nextReceipt = (!isNaN(v) && v > 0) ? v + 1 : 0;
+  /* ─── تحديث الإيصال من آخر صف في الجدول اليومي ─── */
+  function updateReceiptFromTable() {
+    try {
+      var table = document.getElementById("tr_dataTable");
+      if (!table) return;
+      var tbody = table.querySelector("tbody");
+      if (!tbody) return;
+      var rows = tbody.querySelectorAll("tr");
+      if (!rows.length) return;
+
+      var lastRow = rows[rows.length - 1];
+      var cells = lastRow.cells;
+      if (!cells || cells.length < 4) return;
+
+      var receiptText = cells[3].textContent.trim();
+      var receiptNum = parseInt(receiptText, 10);
+
+      if (!isNaN(receiptNum) && receiptNum > 0) {
+        _tableReceipt = receiptNum + 1;
+      } else {
+        _tableReceipt = 1;
+      }
+
+      // لا تُغيّر الحقل إذا كنا نحمّل حالة حالياً
+      if (!_loadingCase) {
+        var receiptField = document.getElementById("tr_receipt");
+        if (receiptField) {
+          receiptField.value = _tableReceipt;
+        }
+      }
+    } catch (e) {}
   }
 
-  function restoreNextReceipt() {
-    if (_nextReceipt <= 0) return;
-    var el = document.getElementById("tr_receipt");
-    if (el) el.value = _nextReceipt;
-    _nextReceipt = 0;
-  }
-
-  // ─── الدالة الجديدة لتحديث رقم الإيصال من الجدول اليومي ───
-function updateReceiptFromTable() {
-  try {
-    var table = document.getElementById("tr_dataTable");
-    if (!table) return;
-    var tbody = table.querySelector("tbody");
-    if (!tbody) return;
-    var rows = tbody.querySelectorAll("tr");
-    if (!rows.length) return;
-
-    var lastRow = rows[rows.length - 1];
-    var cells = lastRow.cells;
-    if (!cells || cells.length < 4) return;
-
-    var receiptText = cells[3].textContent.trim();
-    var receiptNum = parseInt(receiptText, 10);
-
-    var receiptField = document.getElementById("tr_receipt");
-    if (receiptField) {
-      receiptField.value = (!isNaN(receiptNum) && receiptNum > 0) ? (receiptNum + 1) : 1;
-    }
-  } catch (e) {}
-}
-
-  // ─── ربط الدالة مع تحميل الجدول ───
-  // ─── ربط الدالة مع تحميل الجدول ───
+  /* ─── ربط مع trloadData ─── */
   if (window.trloadData) {
     var origTrloadData = window.trloadData;
     window.trloadData = function () {
@@ -4604,7 +4603,7 @@ function updateReceiptFromTable() {
     };
   }
 
-  // ─── ربط مع دالة التهيئة (لضمان التحديث بعد تحميل الصفحة) ───
+  /* ─── ربط مع trinit ─── */
   if (window.trinit) {
     var origTrinit = window.trinit;
     window.trinit = function () {
@@ -4613,7 +4612,7 @@ function updateReceiptFromTable() {
     };
   }
 
-  // ─── ربط مع نظام المزامنة بين الأجهزة ───
+  /* ─── ربط مع المزامنة بين الأجهزة ─── */
   if (window.remoteSyncApply) {
     var origSyncApply = window.remoteSyncApply;
     window.remoteSyncApply = function (topic, action) {
@@ -4624,55 +4623,92 @@ function updateReceiptFromTable() {
     };
   }
 
-  // ─── استدعاء أولي بعد فترة قصيرة (لحالة تسجيل الدخول المباشر) ───
   setTimeout(updateReceiptFromTable, 3000);
 
-  // ─── الدوال الأصلية الخاصة بالحفظ والمسح ───
+  /* ─── تعديل trclearForm: استعد الرقم المحفوظ دائماً ─── */
   function patchClearForm() {
     if (!window.trclearForm || window.trclearForm._recPatch) return;
     var _orig = window.trclearForm;
     window.trclearForm = function () {
       _orig.apply(this, arguments);
-      if (_nextReceipt > 0) {
-        document.getElementById("tr_receipt").value = _nextReceipt;
+      // استعد الرقم: إما الرقم بعد الحفظ، أو الرقم من الجدول
+      var restoreVal = (_nextReceipt > 0) ? _nextReceipt : _tableReceipt;
+      if (restoreVal > 0) {
+        var el = document.getElementById("tr_receipt");
+        if (el) el.value = restoreVal;
       }
+      _nextReceipt = 0;
+      _loadingCase = false;
     };
     window.trclearForm._recPatch = true;
   }
 
+  /* ─── تعديل trclearFormExcept: احفظ الرقم الحالي دائماً ─── */
   function patchClearFormExcept() {
     if (!window.trclearFormExcept || window.trclearFormExcept._recPatch) return;
     var _orig = window.trclearFormExcept;
     window.trclearFormExcept = function (exceptId) {
       var receipt = document.getElementById("tr_receipt");
       var savedReceipt = receipt ? receipt.value : "";
-      _nextReceipt = 0;
       _orig.apply(this, arguments);
-      if (receipt && savedReceipt) receipt.value = savedReceipt;
+      // أعد الرقم المحفوظ (قبل المسح)
+      if (receipt && savedReceipt) {
+        receipt.value = savedReceipt;
+      }
+      _loadingCase = false;
     };
     window.trclearFormExcept._recPatch = true;
   }
 
+  /* ─── تعديل trsaveData: احفظ الرقم+1 قبل الحفظ ─── */
   function patchSave() {
     if (!window.trsaveData || window.trsaveData._recPatch) return;
     var _orig = window.trsaveData;
     window.trsaveData = async function () {
-      captureReceiptBeforeSave();
+      var el = document.getElementById("tr_receipt");
+      if (el) {
+        var v = parseInt(el.value, 10);
+        _nextReceipt = (!isNaN(v) && v > 0) ? v + 1 : 0;
+      }
       var result = await _orig.apply(this, arguments);
       return result;
     };
     window.trsaveData._recPatch = true;
   }
 
+  /* ─── تعديل trtempSave ─── */
   function patchTempSave() {
     if (!window.trtempSave || window.trtempSave._recPatch) return;
     var _orig = window.trtempSave;
     window.trtempSave = async function () {
-      captureReceiptBeforeSave();
+      var el = document.getElementById("tr_receipt");
+      if (el) {
+        var v = parseInt(el.value, 10);
+        _nextReceipt = (!isNaN(v) && v > 0) ? v + 1 : 0;
+      }
       var result = await _orig.apply(this, arguments);
       return result;
     };
     window.trtempSave._recPatch = true;
+  }
+
+  /* ─── حماية الحقل من التغيير عند تحميل حالة ─── */
+  function patchFillForm() {
+    if (!window.trfillFormWithData || window.trfillFormWithData._recPatch) return;
+    var _orig = window.trfillFormWithData;
+    window.trfillFormWithData = function (data) {
+      _loadingCase = true;          // أخبر updateReceiptFromTable بعدم التدخل
+      var receipt = document.getElementById("tr_receipt");
+      var savedVal = receipt ? receipt.value : "";
+      _orig.apply(this, arguments);
+      // أعد رقم الإيصال الذي كان قبل التحميل
+      if (receipt && savedVal) {
+        receipt.value = savedVal;
+      }
+      // أعد العلامة بعد لحظة (بعد أي setTimeout داخلي)
+      setTimeout(function () { _loadingCase = false; }, 600);
+    };
+    window.trfillFormWithData._recPatch = true;
   }
 
   function tryPatch() {
@@ -4680,8 +4716,11 @@ function updateReceiptFromTable() {
     patchClearFormExcept();
     patchSave();
     patchTempSave();
-    var allDone = window.trclearForm && window.trclearFormExcept &&
-                  window.trsaveData && window.trtempSave;
+    patchFillForm();
+    var allDone =
+      window.trclearForm && window.trclearFormExcept &&
+      window.trsaveData  && window.trtempSave &&
+      window.trfillFormWithData;
     if (!allDone) setTimeout(tryPatch, 500);
   }
 
