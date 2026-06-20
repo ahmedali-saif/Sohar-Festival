@@ -4545,14 +4545,12 @@ async function trSelectIncompleteCase(caseNumber) {
 (function () {
   "use strict";
 
-  // الرقم المحسوب من الجدول — يُحدَّث فقط من updateReceiptFromTable
+  // الرقم المحسوب من آخر صف في الجدول اليومي
   var _tableReceipt = 0;
-  // الرقم المحفوظ قبل الحفظ — لزيادته بعد النجاح
+  // الرقم الذي يجب أن يظهر بعد الحفظ (الحالي + 1)
   var _nextReceipt = 0;
-  // علامة: هل نحن في وضع تحميل حالة (من جدول أو بحث)؟
-  var _loadingCase = false;
 
-  /* ─── تحديث الإيصال من آخر صف في الجدول اليومي ─── */
+  /* ─── تحديث _tableReceipt من الجدول اليومي ─── */
   function updateReceiptFromTable() {
     try {
       var table = document.getElementById("tr_dataTable");
@@ -4566,21 +4564,15 @@ async function trSelectIncompleteCase(caseNumber) {
       var cells = lastRow.cells;
       if (!cells || cells.length < 4) return;
 
-      var receiptText = cells[3].textContent.trim();
-      var receiptNum = parseInt(receiptText, 10);
+      var receiptNum = parseInt(cells[3].textContent.trim(), 10);
+      _tableReceipt = (!isNaN(receiptNum) && receiptNum > 0) ? receiptNum + 1 : 1;
 
-      if (!isNaN(receiptNum) && receiptNum > 0) {
-        _tableReceipt = receiptNum + 1;
-      } else {
-        _tableReceipt = 1;
-      }
-
-      // لا تُغيّر الحقل إذا كنا نحمّل حالة حالياً
-      if (!_loadingCase) {
-        var receiptField = document.getElementById("tr_receipt");
-        if (receiptField) {
-          receiptField.value = _tableReceipt;
-        }
+      // حدّث الحقل فقط إذا لم يكن هناك حالة محملة حالياً
+      // (أي الحقل لا يحتوي على رقم إيصال حالة مُحمَّلة)
+      var el = document.getElementById("tr_receipt");
+      var cn = (document.getElementById("tr_caseNumber") || {}).value || "";
+      if (el && !cn.trim()) {
+        el.value = _tableReceipt;
       }
     } catch (e) {}
   }
@@ -4591,11 +4583,8 @@ async function trSelectIncompleteCase(caseNumber) {
     window.trloadData = function () {
       var result = origTrloadData.apply(this, arguments);
       if (result && typeof result.then === "function") {
-        result.then(function () {
-          setTimeout(updateReceiptFromTable, 300);
-        }).catch(function () {
-          setTimeout(updateReceiptFromTable, 500);
-        });
+        result.then(function () { setTimeout(updateReceiptFromTable, 300); })
+              .catch(function () { setTimeout(updateReceiptFromTable, 500); });
       } else {
         setTimeout(updateReceiptFromTable, 300);
       }
@@ -4612,7 +4601,7 @@ async function trSelectIncompleteCase(caseNumber) {
     };
   }
 
-  /* ─── ربط مع المزامنة بين الأجهزة ─── */
+  /* ─── ربط مع المزامنة ─── */
   if (window.remoteSyncApply) {
     var origSyncApply = window.remoteSyncApply;
     window.remoteSyncApply = function (topic, action) {
@@ -4625,25 +4614,24 @@ async function trSelectIncompleteCase(caseNumber) {
 
   setTimeout(updateReceiptFromTable, 3000);
 
-  /* ─── تعديل trclearForm: استعد الرقم المحفوظ دائماً ─── */
+  /* ─── trclearForm: استعد الرقم الصحيح دائماً ─── */
   function patchClearForm() {
     if (!window.trclearForm || window.trclearForm._recPatch) return;
     var _orig = window.trclearForm;
     window.trclearForm = function () {
       _orig.apply(this, arguments);
-      // استعد الرقم: إما الرقم بعد الحفظ، أو الرقم من الجدول
+      // بعد الحفظ: استخدم _nextReceipt، وإلا استخدم _tableReceipt
       var restoreVal = (_nextReceipt > 0) ? _nextReceipt : _tableReceipt;
       if (restoreVal > 0) {
         var el = document.getElementById("tr_receipt");
         if (el) el.value = restoreVal;
       }
       _nextReceipt = 0;
-      _loadingCase = false;
     };
     window.trclearForm._recPatch = true;
   }
 
-  /* ─── تعديل trclearFormExcept: احفظ الرقم الحالي دائماً ─── */
+  /* ─── trclearFormExcept: احفظ رقم الإيصال قبل المسح وأعده بعده ─── */
   function patchClearFormExcept() {
     if (!window.trclearFormExcept || window.trclearFormExcept._recPatch) return;
     var _orig = window.trclearFormExcept;
@@ -4651,16 +4639,14 @@ async function trSelectIncompleteCase(caseNumber) {
       var receipt = document.getElementById("tr_receipt");
       var savedReceipt = receipt ? receipt.value : "";
       _orig.apply(this, arguments);
-      // أعد الرقم المحفوظ (قبل المسح)
       if (receipt && savedReceipt) {
         receipt.value = savedReceipt;
       }
-      _loadingCase = false;
     };
     window.trclearFormExcept._recPatch = true;
   }
 
-  /* ─── تعديل trsaveData: احفظ الرقم+1 قبل الحفظ ─── */
+  /* ─── trsaveData: احفظ الرقم+1 قبل الحفظ ─── */
   function patchSave() {
     if (!window.trsaveData || window.trsaveData._recPatch) return;
     var _orig = window.trsaveData;
@@ -4670,13 +4656,24 @@ async function trSelectIncompleteCase(caseNumber) {
         var v = parseInt(el.value, 10);
         _nextReceipt = (!isNaN(v) && v > 0) ? v + 1 : 0;
       }
-      var result = await _orig.apply(this, arguments);
-      return result;
+      return await _orig.apply(this, arguments);
     };
     window.trsaveData._recPatch = true;
   }
 
-  /* ─── تعديل trtempSave ─── */
+  /* ─── trupdateData: بعد التحديث أعد رقم الجدول ─── */
+  function patchUpdate() {
+    if (!window.trupdateData || window.trupdateData._recPatch) return;
+    var _orig = window.trupdateData;
+    window.trupdateData = async function () {
+      // عند التحديث: لا نزيد الرقم، نعود لرقم الجدول بعد المسح
+      _nextReceipt = 0;
+      return await _orig.apply(this, arguments);
+    };
+    window.trupdateData._recPatch = true;
+  }
+
+  /* ─── trtempSave ─── */
   function patchTempSave() {
     if (!window.trtempSave || window.trtempSave._recPatch) return;
     var _orig = window.trtempSave;
@@ -4686,41 +4683,21 @@ async function trSelectIncompleteCase(caseNumber) {
         var v = parseInt(el.value, 10);
         _nextReceipt = (!isNaN(v) && v > 0) ? v + 1 : 0;
       }
-      var result = await _orig.apply(this, arguments);
-      return result;
+      return await _orig.apply(this, arguments);
     };
     window.trtempSave._recPatch = true;
-  }
-
-  /* ─── حماية الحقل من التغيير عند تحميل حالة ─── */
-  function patchFillForm() {
-    if (!window.trfillFormWithData || window.trfillFormWithData._recPatch) return;
-    var _orig = window.trfillFormWithData;
-    window.trfillFormWithData = function (data) {
-      _loadingCase = true;          // أخبر updateReceiptFromTable بعدم التدخل
-      var receipt = document.getElementById("tr_receipt");
-      var savedVal = receipt ? receipt.value : "";
-      _orig.apply(this, arguments);
-      // أعد رقم الإيصال الذي كان قبل التحميل
-      if (receipt && savedVal) {
-        receipt.value = savedVal;
-      }
-      // أعد العلامة بعد لحظة (بعد أي setTimeout داخلي)
-      setTimeout(function () { _loadingCase = false; }, 600);
-    };
-    window.trfillFormWithData._recPatch = true;
   }
 
   function tryPatch() {
     patchClearForm();
     patchClearFormExcept();
     patchSave();
+    patchUpdate();
     patchTempSave();
-    patchFillForm();
     var allDone =
-      window.trclearForm && window.trclearFormExcept &&
-      window.trsaveData  && window.trtempSave &&
-      window.trfillFormWithData;
+      window.trclearForm    && window.trclearFormExcept &&
+      window.trsaveData     && window.trupdateData &&
+      window.trtempSave;
     if (!allDone) setTimeout(tryPatch, 500);
   }
 
