@@ -3781,6 +3781,25 @@ async function trfetchBreederData(phone) {
 
 /** حفظ حالة جديدة */
 async function trsaveData() {
+  // فحص تكرار الإيصال قبل الحفظ
+  var receiptEl = document.getElementById("tr_receipt");
+  if (receiptEl && receiptEl.value.trim()) {
+    var receiptVal = receiptEl.value.trim();
+    var table = document.getElementById("tr_dataTable");
+    var tbody = table ? table.querySelector("tbody") : null;
+    if (tbody) {
+      var isDup = false;
+      tbody.querySelectorAll("tr").forEach(function(row) {
+        var cells = row.querySelectorAll("td");
+        if (cells.length >= 4 && (cells[3].textContent || "").trim() === receiptVal) isDup = true;
+      });
+      if (isDup) {
+        trshowMessage("❌ رقم الإيصال مكرر — لا يمكن الحفظ", true);
+        receiptEl.focus();
+        return;
+      }
+    }
+  }
   trshowConfirm("هل تريد حفظ البيانات؟", async () => {
     trblockButtons();
     trshowMessage("⏳ جاري حفظ البيانات...", false);
@@ -3937,6 +3956,25 @@ function trvalidateTempData(data, requireCaseNumber, requireUpdater) {
 async function trtempSave() {
   const data = trcollectFormData();
   if (!trvalidateTempData(data, false, false)) return;
+  // فحص تكرار الإيصال
+  var receiptEl = document.getElementById("tr_receipt");
+  if (receiptEl && receiptEl.value.trim()) {
+    var receiptVal = receiptEl.value.trim();
+    var table = document.getElementById("tr_dataTable");
+    var tbody = table ? table.querySelector("tbody") : null;
+    if (tbody) {
+      var isDup = false;
+      tbody.querySelectorAll("tr").forEach(function(row) {
+        var cells = row.querySelectorAll("td");
+        if (cells.length >= 4 && (cells[3].textContent || "").trim() === receiptVal) isDup = true;
+      });
+      if (isDup) {
+        trshowMessage("❌ رقم الإيصال مكرر — لا يمكن الحفظ المؤقت", true);
+        receiptEl.focus();
+        return;
+      }
+    }
+  }
 
   trblockButtons();
   trshowMessage("⏳ جاري حفظ البيانات مؤقتاً...", false);
