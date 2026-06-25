@@ -1560,10 +1560,12 @@ showToast('✅ تم تحميل ولاية ' + name + ' بنجاح', 'success');
   if (typeof dtr_loadData        === 'function') dtr_loadData();
  if (typeof fin_loadFinancialData === 'function') fin_loadFinancialData();
 window._breederInitialized = false;
-if (typeof bd_init === 'function') {
-  window._breederInitialized = true;
-  bd_init();
-}
+setTimeout(function() {
+  if (typeof bd_init === 'function') {
+    window._breederInitialized = true;
+    bd_init();
+  }
+}, 2000);
 }
 </script>
   <!-- زر المظهر مستقل عن نظام التبويبات -->
