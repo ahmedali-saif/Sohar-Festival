@@ -1118,6 +1118,7 @@ function unlockNav() {
     { delay: 1000, fn: function () {
     if (!window._breederInitialized) {
       window._breederInitialized = true;
+      bd_API_URL = window._activeApiUrl || "";
       if (typeof bd_init === 'function') bd_init();
     }
 }},
@@ -5159,6 +5160,7 @@ function bd_hideLoading() {
 }
 
 function bd_init(){
+  bd_API_URL = window._activeApiUrl || ""; bd_API_URL = window._activeApiUrl || "";
   bd_bindEvents();
   var safeHide = setTimeout(function(){ bd_hideLoading(); }, 5000);
   bd_refreshDropdowns()
