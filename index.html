@@ -5128,7 +5128,11 @@ async function bd_deleteVaccination() {
 }
 
 function bd_bindEvents() {
-  document.getElementById("bd_saveBtn").onclick=bd_saveData;
+  var saveBtn = document.getElementById('bd_saveBtn');
+  if (!saveBtn || saveBtn._bound) return;
+  saveBtn._bound = true;
+
+  document.getElementById('bd_saveBtn').onclick=bd_saveData;
   document.getElementById("bd_updateBtn").onclick=bd_updateData;
   document.getElementById("bd_clearBtn").onclick=bd_clearForm;
   document.getElementById("bd_deleteBtn").onclick=bd_deleteData;
@@ -5160,8 +5164,21 @@ function bd_hideLoading() {
 }
 
 function bd_init(){
-  bd_API_URL = window._activeApiUrl || ""; bd_API_URL = window._activeApiUrl || "";
+  bd_API_URL = window._activeApiUrl || "";
+
+  var ov = document.getElementById("bd_pageLoadingOverlay");
+  if (ov) {
+    ov.style.display = "flex";
+    ov.style.opacity = "1";
+    ov.classList.remove("hidden");
+    ov.style.pointerEvents = "";
+  }
+
+  var saveBtn = document.getElementById('bd_saveBtn');
+  if (saveBtn) delete saveBtn._bound;
+
   bd_bindEvents();
+
   var safeHide = setTimeout(function(){ bd_hideLoading(); }, 5000);
   bd_refreshDropdowns()
     .then(function(){ clearTimeout(safeHide); bd_hideLoading(); })
