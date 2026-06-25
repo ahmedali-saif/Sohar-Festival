@@ -1077,6 +1077,11 @@ if (pageId === 'vaccination' && !window._vaccinationInitialized) {
 }
 function lockNav() {
   window._isLoggedIn = false;
+  window._treatmentInitialized   = false;
+  window._vaccinationInitialized = false;
+  window._vrInitialized          = false;
+  window._breederInitialized     = false;
+  window._samplesInitialized     = false;
   document.querySelectorAll("nav button").forEach(function(btn) {
     var onclick = btn.getAttribute('onclick') || '';
     if (onclick.indexOf("'login'") === -1) {
