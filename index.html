@@ -4844,9 +4844,7 @@ async function trSelectIncompleteCase(caseNumber) {
 <script>
 "use strict";
 
-var bd_API_URL = window._activeApiUrl || "https://script.google.com/macros/s/AKfycby...exec";
-var storedUrl = localStorage.getItem("breeders_api_url");
-if (storedUrl) bd_API_URL = storedUrl;
+var bd_API_URL = "";
 var bd_isClearing = false;
 async function bd_callApi(action, payload) {
   var url = window._activeApiUrl || bd_API_URL;
