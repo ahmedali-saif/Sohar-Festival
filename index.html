@@ -1115,6 +1115,12 @@ function unlockNav() {
 
   // تحميل الصفحات لجميع المستخدمين بعد تسجيل الدخول
   var initQueue = [
+    { delay: 1000, fn: function () {
+    if (!window._breederInitialized) {
+      window._breederInitialized = true;
+      if (typeof bd_init === 'function') bd_init();
+    }
+}},
     { delay: 1500, fn: function () {
         if (!window._treatmentInitialized) {
           window._treatmentInitialized = true;
@@ -1559,13 +1565,7 @@ showToast('✅ تم تحميل ولاية ' + name + ' بنجاح', 'success');
   if (typeof rpt_loadReport      === 'function') rpt_loadReport();
   if (typeof dtr_loadData        === 'function') dtr_loadData();
  if (typeof fin_loadFinancialData === 'function') fin_loadFinancialData();
-window._breederInitialized = false;
-setTimeout(function() {
-  if (typeof bd_init === 'function') {
-    window._breederInitialized = true;
-    bd_init();
-  }
-}, 2000);
+
 }
 </script>
   <!-- زر المظهر مستقل عن نظام التبويبات -->
