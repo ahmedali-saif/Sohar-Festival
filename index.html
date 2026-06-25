@@ -4852,7 +4852,7 @@ async function bd_callApi(action, payload) {
   var url = window._activeApiUrl || bd_API_URL;
   if (!url) throw new Error("رابط الخدمة غير مُعدّ");
   var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
-  var r = await fetch(url, {{ method:"POST", mode:"cors", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:body, redirect:"follow" });
+  var r = await fetch(url, { method:"POST", mode:"cors", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:body, redirect:"follow" });
   if (!r.ok) throw new Error("HTTP " + r.status);
   return await r.json();
 }
