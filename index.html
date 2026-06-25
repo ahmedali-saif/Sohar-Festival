@@ -5162,7 +5162,10 @@ function bd_hideLoading() {
 
 function bd_init(){
   bd_bindEvents();
-  bd_refreshDropdowns().then(function(){ bd_hideLoading(); }).catch(function(){ bd_hideLoading(); });
+  var safeHide = setTimeout(function(){ bd_hideLoading(); }, 5000);
+  bd_refreshDropdowns()
+    .then(function(){ clearTimeout(safeHide); bd_hideLoading(); })
+    .catch(function(){ clearTimeout(safeHide); bd_hideLoading(); });
 }
 
 async function bd_fetchAll() {
