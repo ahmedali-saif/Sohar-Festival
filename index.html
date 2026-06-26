@@ -4998,8 +4998,12 @@ function bd_fillFormWithData(data) {
 function bd_clearForm() {
   bd_isClearing = true;  // ← أضف هذا السطر
  // إخفاء شارة عدد المربين
-  var bdCountBadge = document.getElementById("bd_fetchAllCount");
-  if (bdCountBadge) { bdCountBadge.style.display = "none"; bdCountBadge.textContent = ""; }
+var bdCountBadge = document.getElementById("bd_fetchAllCount");
+  if (bdCountBadge) { 
+    bdCountBadge.style.display = "none"; 
+    bdCountBadge.textContent = ""; 
+    bdCountBadge.removeAttribute("data-visible");
+  }
   ["bd_caseNumber","bd_nameInput","bd_possessionInput","bd_regionInput","bd_civilInput","bd_newPhoneInput",
    "bd_notes","bd_dataEntryInput","bd_dataUpdaterInput","bd_financialDate","bd_phoneInput","bd_private","bd_globalSearchInput",
    "bd_animal_goat","bd_animal_sheep","bd_animal_cow","bd_animal_camel","bd_animal_horse","bd_animal_cat","bd_animal_dog","bd_animal_poultry"
@@ -5317,7 +5321,7 @@ async function bd_fetchAll() {
     }).join("");
     bd_showMessage("✅ تم جلب " + res.data.length + " مربي", false);
     var countBadge = document.getElementById("bd_fetchAllCount");
-    if (countBadge) { countBadge.textContent = res.data.length + " مربي"; countBadge.style.display = "inline"; }
+    if (countBadge) { countBadge.textContent = res.data.length + " مربي"; countBadge.style.display = "inline-block"; countBadge.setAttribute("data-visible","1"); }
   } catch(err) {
     tbody.innerHTML = "<tr><td colspan='100' style='text-align:center;color:red'>خطأ: "+err.message+"</td></tr>";
   }
