@@ -4997,6 +4997,9 @@ function bd_fillFormWithData(data) {
 
 function bd_clearForm() {
   bd_isClearing = true;  // ← أضف هذا السطر
+ // إخفاء شارة عدد المربين
+  var bdCountBadge = document.getElementById("bd_fetchAllCount");
+  if (bdCountBadge) { bdCountBadge.style.display = "none"; bdCountBadge.textContent = ""; }
   ["bd_caseNumber","bd_nameInput","bd_possessionInput","bd_regionInput","bd_civilInput","bd_newPhoneInput",
    "bd_notes","bd_dataEntryInput","bd_dataUpdaterInput","bd_financialDate","bd_phoneInput","bd_private","bd_globalSearchInput",
    "bd_animal_goat","bd_animal_sheep","bd_animal_cow","bd_animal_camel","bd_animal_horse","bd_animal_cat","bd_animal_dog","bd_animal_poultry"
