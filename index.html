@@ -1042,9 +1042,12 @@ function showPage(pageId) {
   var page = document.getElementById(pageId);
   if (page) page.classList.add("active");
 
-  document.querySelectorAll("nav button").forEach(function(btn) {
-    btn.classList.remove("nav-active");
-  });
+document.querySelectorAll("nav button").forEach(function(btn) {
+  var onclick = btn.getAttribute('onclick') || '';
+  if (onclick.indexOf("'login'") === -1) {
+    btn.style.display = 'none';
+  }
+});
   var activeBtn = document.querySelector('nav button[onclick="showPage(\'' + pageId + '\')"]');
   if (activeBtn) activeBtn.classList.add("nav-active");
 // تشغيل تنبيه العينات عند التنقل (ما عدا login و settings)
