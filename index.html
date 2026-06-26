@@ -16,6 +16,12 @@ href="data:image/svg+xml;utf8,
 <!-- Title -->
 <title>سجل العلاج في العيادة البيطرية</title>
 <style>
+  nav button {
+  display: none;
+}
+nav button[onclick*="'login'"] {
+  display: inline-block;
+}
 /* ============================================================
    ١. RESET & BOX MODEL
    ============================================================ */
@@ -1206,10 +1212,16 @@ function lockNav() {
 function unlockNav() {
   window._isLoggedIn = true;
 
+  // تعطيل خاصية !important من CSS بإزالة القاعدة أو تجاوزها
+  // يمكننا إزالة النمط المضمن أولاً
   document.querySelectorAll("nav button").forEach(function(btn) {
     btn.disabled = false;
     btn.style.opacity = '';
     btn.style.cursor = '';
+    // إزالة أي تأثير من CSS بإزالة الأنماط المسبقة
+    btn.style.display = ''; // سيُعيد القيمة الافتراضية (والتي قد تكون none من CSS)
+    // لذا نضبطها صراحةً إلى inline-block لكي تظهر
+    btn.style.display = 'inline-block';
     var originalText = btn.getAttribute('data-original-text');
     if (originalText) {
       btn.textContent = originalText;
@@ -1217,22 +1229,24 @@ function unlockNav() {
     }
   });
 
+  // ثم تطبيق الصلاحيات (إخفاء غير المسموح)
   window._userAllowedPages = null;
-
   var username = window._currentUser || '';
-if (username && typeof PERM !== 'undefined') {
+  if (username && typeof PERM !== 'undefined') {
     document.querySelectorAll("nav button").forEach(function(btn) {
       var onclick = btn.getAttribute('onclick') || '';
       var match = onclick.match(/showPage\(['"](\w+)['"]\)/);
       if (!match) return;
       var pageId = match[1];
-      if (pageId === 'login') { btn.style.display = ''; return; }
+      if (pageId === 'login') { 
+        btn.style.display = 'inline-block'; 
+        return; 
+      }
       var allowed = PERM.isPageAllowed(pageId);
-      btn.style.display = allowed ? '' : 'none';
+      btn.style.display = allowed ? 'inline-block' : 'none';
       btn.disabled = false;
       btn.style.opacity = '';
       btn.style.cursor = '';
-      // ← إزالة nav-active من الأزرار المخفية
       if (!allowed) btn.classList.remove('nav-active');
     });
   }
