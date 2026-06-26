@@ -1033,47 +1033,49 @@ function showPage(pageId) {
       return;
     }
   }
+  
+  // إظهار الصفحة المطلوبة وإخفاء الباقي
   document.querySelectorAll(".page").forEach(function(p) {
     p.classList.remove("active");
   });
   var page = document.getElementById(pageId);
   if (page) page.classList.add("active");
 
-document.querySelectorAll("nav button").forEach(function(btn) {
-  var onclick = btn.getAttribute('onclick') || '';
-  if (onclick.indexOf("'login'") === -1) {
-  }
-});
-// استبدله بـ
-var activeBtn = document.querySelector('nav button[onclick="showPage(\'' + pageId + '\')"]');
-if (activeBtn && activeBtn.style.display !== 'none') {
+  // 🔹 التعديل الأساسي: إزالة التأثير من جميع الأزرار أولاً
+  document.querySelectorAll("nav button").forEach(function(btn) {
+    btn.classList.remove("nav-active");
+  });
+
+  // ثم إضافة التأثير للزر النشط (إذا كان مرئياً)
+  var activeBtn = document.querySelector('nav button[onclick="showPage(\'' + pageId + '\')"]');
+  if (activeBtn && activeBtn.style.display !== 'none') {
     activeBtn.classList.add("nav-active");
-}
+  }
+
+  // باقي الكود كما هو (فحص العينات المتأخرة، تهيئة الصفحات)
   var excludedPages = ['login', 'settings', 'home'];
   if (excludedPages.indexOf(pageId) === -1 && typeof foCheckOverdueSamples === 'function') {
     setTimeout(foCheckOverdueSamples, 500);
   }
   
-if (pageId === 'treatment' && !window._treatmentInitialized) {
-  window._treatmentInitialized = true;
-  var trOverlay = document.getElementById('tr_loadingOverlay');
-  if (trOverlay) trOverlay.style.display = 'none';
-  if (typeof trinit === 'function') trinit();
-}
-if (pageId === 'breeder' && !window._breederInitialized) {
-  window._breederInitialized = true;
-  if (typeof bd_init === 'function') bd_init();
-}
-
-if (pageId === 'samples' && !window._samplesInitialized) {
-  window._samplesInitialized = true;
-  if (typeof foinit === 'function') foinit();
-}
-if (pageId === 'vaccination' && !window._vaccinationInitialized) {
+  if (pageId === 'treatment' && !window._treatmentInitialized) {
+    window._treatmentInitialized = true;
+    var trOverlay = document.getElementById('tr_loadingOverlay');
+    if (trOverlay) trOverlay.style.display = 'none';
+    if (typeof trinit === 'function') trinit();
+  }
+  if (pageId === 'breeder' && !window._breederInitialized) {
+    window._breederInitialized = true;
+    if (typeof bd_init === 'function') bd_init();
+  }
+  if (pageId === 'samples' && !window._samplesInitialized) {
+    window._samplesInitialized = true;
+    if (typeof foinit === 'function') foinit();
+  }
+  if (pageId === 'vaccination' && !window._vaccinationInitialized) {
     window._vaccinationInitialized = true;
     if (typeof vaccInit === 'function') vaccInit();
   }
-
   if (pageId === 'vaccinationRequests' && !window._vrInitialized) {
     window._vrInitialized = true;
     if (typeof vr_loadData === 'function') vr_loadData();
