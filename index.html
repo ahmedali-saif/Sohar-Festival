@@ -1660,6 +1660,7 @@ showToast('✅ تم تحميل ولاية ' + name + ' بنجاح', 'success');
   window._vrInitialized           = false;
   window._breederInitialized      = false;
   window._samplesInitialized      = false;
+  if (typeof bd_clearForm === 'function') bd_clearForm();
    resetAllPagesData();
   // إعادة تحميل الصفحات التي لا تحتاج init
   vr_allData    = [];
