@@ -1174,9 +1174,6 @@ if (pageId === 'vaccination' && !window._vaccinationInitialized) {
   if (lastSample) lastSample.textContent = '—';
   
   // إعادة تعيين الكاش
-  if (window.BreederCache && window.BreederCache._doClear) {
-    try { window.BreederCache._doClear(); } catch(e) {}
-  }
   
   console.log('[resetAllPagesData] ✅ تم مسح جميع بيانات الصفحات');
 }
