@@ -16,9 +16,6 @@ href="data:image/svg+xml;utf8,
 <!-- Title -->
 <title>سجل العلاج في العيادة البيطرية</title>
 <style>
-  nav button {
-  display: none;
-}
 /* ============================================================
    ١. RESET & BOX MODEL
    ============================================================ */
@@ -1045,7 +1042,6 @@ function showPage(pageId) {
 document.querySelectorAll("nav button").forEach(function(btn) {
   var onclick = btn.getAttribute('onclick') || '';
   if (onclick.indexOf("'login'") === -1) {
-    btn.style.display = 'none';
   }
 });
   var activeBtn = document.querySelector('nav button[onclick="showPage(\'' + pageId + '\')"]');
@@ -1205,9 +1201,6 @@ function lockNav() {
 
 function unlockNav() {
   window._isLoggedIn = true;
-document.querySelectorAll("nav button").forEach(function(btn) {
-  btn.style.display = '';
-});
     btn.disabled = false;
     btn.style.opacity = '';
     btn.style.display = '';
