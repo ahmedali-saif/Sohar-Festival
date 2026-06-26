@@ -1179,19 +1179,6 @@ if (pageId === 'vaccination' && !window._vaccinationInitialized) {
 }
 function lockNav() {
   window._isLoggedIn = false;
-  // إخفاء جميع الصفحات وإظهار صفحة الدخول فقط
-  document.querySelectorAll(".page").forEach(function(p) {
-    p.classList.remove("active");
-  });
-  var loginPage = document.getElementById("login");
-  if (loginPage) loginPage.classList.add("active");
-  
-  // تحديث الزر النشط في الشريط
-  document.querySelectorAll("nav button").forEach(function(btn) {
-    btn.classList.remove("nav-active");
-  });
-  var loginBtn = document.querySelector('nav button[onclick="showPage(\'login\')"]');
-  if (loginBtn) loginBtn.classList.add("nav-active");
   window._treatmentInitialized   = false;
   window._vaccinationInitialized = false;
   window._vrInitialized          = false;
@@ -1774,7 +1761,15 @@ showToast('✅ تم تحميل ولاية ' + name + ' بنجاح', 'success');
   </script>
 </div>
 
-<div id="login" class="page active">
+<div id="login" class="page">
+  <script>
+document.addEventListener("DOMContentLoaded", function() {
+  document.querySelectorAll(".page").forEach(function(p) {
+    p.classList.remove("active");
+  });
+  document.getElementById("login").classList.add("active");
+});
+</script>
 <style>
 #login { padding: 0 !important; }
 #login .login-wrap {
