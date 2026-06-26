@@ -1180,10 +1180,6 @@ if (pageId === 'vaccination' && !window._vaccinationInitialized) {
   
   console.log('[resetAllPagesData] ✅ تم مسح جميع بيانات الصفحات');
 }
-  var _badge = document.getElementById("bd_fetchAllCount");
-if (_badge) { _badge.style.cssText = "display:none !important"; _badge.textContent = ""; }
-var _cont = document.getElementById("bd_searchResultsContainer");
-if (_cont) { _cont.style.display = "none"; }
 function lockNav() {
   window._isLoggedIn = false;
   window._treatmentInitialized   = false;
