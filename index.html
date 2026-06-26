@@ -1201,10 +1201,10 @@ function lockNav() {
 
 function unlockNav() {
   window._isLoggedIn = true;
+
   document.querySelectorAll("nav button").forEach(function(btn) {
     btn.disabled = false;
     btn.style.opacity = '';
-    btn.style.display = '';
     btn.style.cursor = '';
     var originalText = btn.getAttribute('data-original-text');
     if (originalText) {
@@ -1216,8 +1216,17 @@ function unlockNav() {
   window._userAllowedPages = null;
 
   var username = window._currentUser || '';
-  if (username && typeof permApplyForUser === 'function') {
-    permApplyForUser(username);
+  if (username && typeof PERM !== 'undefined') {
+    document.querySelectorAll("nav button").forEach(function(btn) {
+      var onclick = btn.getAttribute('onclick') || '';
+      var match = onclick.match(/showPage\(['"](\w+)['"]\)/);
+      if (!match) return;
+      var pageId = match[1];
+      if (pageId === 'login') { btn.style.display = ''; return; }
+      var allowed = PERM.isPageAllowed(pageId);
+      btn.style.display = allowed ? '' : 'none';
+      btn.disabled = !allowed;
+    });
   }
 
   // تحميل الصفحات لجميع المستخدمين بعد تسجيل الدخول
