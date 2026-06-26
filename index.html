@@ -16,6 +16,9 @@ href="data:image/svg+xml;utf8,
 <!-- Title -->
 <title>سجل العلاج في العيادة البيطرية</title>
 <style>
+  nav button {
+  display: none;
+}
 /* ============================================================
    ١. RESET & BOX MODEL
    ============================================================ */
@@ -1202,7 +1205,6 @@ function unlockNav() {
 document.querySelectorAll("nav button").forEach(function(btn) {
   btn.style.display = '';
 });
-  document.querySelectorAll("nav button").forEach(function(btn) {
     btn.disabled = false;
     btn.style.opacity = '';
     btn.style.display = '';
