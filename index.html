@@ -1198,6 +1198,7 @@ function lockNav() {
   window._samplesInitialized     = false;
   if (typeof bd_clearForm === 'function') bd_clearForm();
   resetAllPagesData();
+  
   document.querySelectorAll("nav button").forEach(function(btn) {
     var onclick = btn.getAttribute('onclick') || '';
     if (onclick.indexOf("'login'") === -1) {
@@ -1205,6 +1206,12 @@ function lockNav() {
       btn.style.opacity = '0.4';
       btn.style.cursor = 'not-allowed';
       btn.style.display = 'none';
+    } else {
+      // تأكد من إظهار زر تسجيل الدخول
+      btn.disabled = false;
+      btn.style.opacity = '';
+      btn.style.cursor = '';
+      btn.style.display = 'inline-block';
     }
   });
 }
