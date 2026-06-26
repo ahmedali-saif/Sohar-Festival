@@ -1192,6 +1192,7 @@ function lockNav() {
       btn.disabled = true;
       btn.style.opacity = '0.4';
       btn.style.cursor = 'not-allowed';
+      btn.style.display = 'none';
     }
   });
 }
@@ -1202,6 +1203,7 @@ function unlockNav() {
   document.querySelectorAll("nav button").forEach(function(btn) {
     btn.disabled = false;
     btn.style.opacity = '';
+    btn.style.display = '';
     btn.style.cursor = '';
     var originalText = btn.getAttribute('data-original-text');
     if (originalText) {
