@@ -1075,6 +1075,111 @@ if (pageId === 'vaccination' && !window._vaccinationInitialized) {
     if (typeof vr_loadData === 'function') vr_loadData();
   }
 }
+  function resetAllPagesData() {
+  // مسح جدول العلاج اليومي
+  var trTable = document.getElementById('tr_dataTable');
+  if (trTable) trTable.innerHTML = '';
+  
+  // مسح حقول نموذج العلاج
+  var trInputs = document.querySelectorAll('#treatment input, #treatment select, #treatment textarea');
+  trInputs.forEach(function(el) {
+    if (el.type !== 'button' && el.type !== 'submit') el.value = '';
+  });
+  document.querySelectorAll('#treatment .diagnosis-row input').forEach(function(el){ el.value=''; });
+  document.querySelectorAll('#treatment .drug-row input').forEach(function(el){ el.value=''; });
+  
+  // مسح جداول المربي
+  var bdBody = document.getElementById('bd_searchResultsBody');
+  if (bdBody) bdBody.innerHTML = '';
+  var bdHeader = document.getElementById('bd_searchResultsHeader');
+  if (bdHeader) bdHeader.innerHTML = '';
+  var bdContainer = document.getElementById('bd_searchResultsContainer');
+  if (bdContainer) bdContainer.style.display = 'none';
+  document.querySelectorAll('#breeder input:not([type=button]), #breeder select, #breeder textarea').forEach(function(el){ el.value=''; });
+  
+  // مسح نموذج التحصين
+  document.querySelectorAll('#vaccination input:not([type=button]), #vaccination select, #vaccination textarea').forEach(function(el){ el.value=''; });
+  var vaccDisplay = document.getElementById('vacc_vaccinationDataDisplay');
+  if (vaccDisplay) vaccDisplay.innerHTML = '';
+  
+  // مسح جدول طلبات التحصين
+  var vrBody = document.getElementById('vr_searchResultsBody');
+  if (vrBody) vrBody.innerHTML = '';
+  var vrTable = document.getElementById('vr_searchResultsTable');
+  if (vrTable) vrTable.style.display = 'none';
+  vr_allData = [];
+  vr_dataLoaded = false;
+  
+  // مسح العينات
+  document.querySelectorAll('#samples input:not([type=button]), #samples select, #samples textarea').forEach(function(el){ el.value=''; });
+  var samplesContainer = document.getElementById('searchResultsContainer');
+  if (samplesContainer) samplesContainer.innerHTML = '<p style="text-align:center;color:#666;padding:20px">أدخل رقم الهاتف أو رقم العينة واضغط بحث</p>';
+  
+  // مسح الجرد المالي
+  var finBody = document.getElementById('fin_searchResultsBody');
+  if (finBody) finBody.innerHTML = '';
+  var finTotal = document.getElementById('fin_annualTotal');
+  if (finTotal) finTotal.value = '';
+  
+  // مسح تقرير الأدوية
+  var dimBody = document.getElementById('dim_searchResultsBody');
+  if (dimBody) dimBody.innerHTML = '';
+  
+  // مسح تتبع المرض
+  var dtrBody = document.getElementById('dtr_searchResultsBody');
+  if (dtrBody) dtrBody.innerHTML = '';
+  if (window.dtr_chartInstance) { 
+    try { window.dtr_chartInstance.destroy(); window.dtr_chartInstance = null; } catch(e) {}
+  }
+  
+  // مسح توزيع الحيوانات
+  var aniBody = document.getElementById('ani_searchResultsBody');
+  if (aniBody) aniBody.innerHTML = '';
+  var aniContainer = document.getElementById('ani_searchResultsContainer');
+  if (aniContainer) aniContainer.style.display = 'none';
+  
+  // مسح التقرير الشامل
+  ['rpt_tb1','rpt_tb2','rpt_tb3','rpt_tb4','rpt_tb5'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = '';
+  });
+  
+  // مسح أداء الأطباء
+  window.dp_RAW = { treat: [], vacc: [], sample: [] };
+  var dpTables = ['t_tb','v_tb','s_tb'];
+  dpTables.forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = '';
+  });
+  
+  // مسح datalists القوائم المنسدلة
+  ['tr_phoneList','tr_diseaseList','tr_drugList','tr_dataEntryList','tr_dataUpdaterList',
+   'bd_phoneList','bd_regionList','bd_dataEntryList','bd_dataUpdaterList',
+   'vacc_phoneList','vacc_dataEntryList','vacc_dataUpdaterList',
+   'phoneList','dataEntryList','dataUpdaterList','testList','sampleTypeList'].forEach(function(id){
+    var dl = document.getElementById(id);
+    if (dl) dl.innerHTML = '';
+  });
+  
+  // مسح شارة الحالات غير المكتملة
+  var incBadge = document.getElementById('tr_incompleteCountBadge');
+  if (incBadge) incBadge.style.display = 'none';
+  var incText = document.getElementById('tr_incompleteCountText');
+  if (incText) incText.textContent = '0 حالة غير مكتملة';
+  
+  // مسح إحصاءات العينات
+  var uniqueDisplay = document.getElementById('uniqueCountDisplay');
+  if (uniqueDisplay) uniqueDisplay.textContent = '0';
+  var lastSample = document.getElementById('lastSampleDisplay');
+  if (lastSample) lastSample.textContent = '—';
+  
+  // إعادة تعيين الكاش
+  if (window.BreederCache && window.BreederCache._doClear) {
+    try { window.BreederCache._doClear(); } catch(e) {}
+  }
+  
+  console.log('[resetAllPagesData] ✅ تم مسح جميع بيانات الصفحات');
+}
 function lockNav() {
   window._isLoggedIn = false;
   window._treatmentInitialized   = false;
@@ -1082,6 +1187,7 @@ function lockNav() {
   window._vrInitialized          = false;
   window._breederInitialized     = false;
   window._samplesInitialized     = false;
+  resetAllPagesData();
   document.querySelectorAll("nav button").forEach(function(btn) {
     var onclick = btn.getAttribute('onclick') || '';
     if (onclick.indexOf("'login'") === -1) {
