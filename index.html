@@ -1179,6 +1179,19 @@ if (pageId === 'vaccination' && !window._vaccinationInitialized) {
 }
 function lockNav() {
   window._isLoggedIn = false;
+  // إخفاء جميع الصفحات وإظهار صفحة الدخول فقط
+  document.querySelectorAll(".page").forEach(function(p) {
+    p.classList.remove("active");
+  });
+  var loginPage = document.getElementById("login");
+  if (loginPage) loginPage.classList.add("active");
+  
+  // تحديث الزر النشط في الشريط
+  document.querySelectorAll("nav button").forEach(function(btn) {
+    btn.classList.remove("nav-active");
+  });
+  var loginBtn = document.querySelector('nav button[onclick="showPage(\'login\')"]');
+  if (loginBtn) loginBtn.classList.add("nav-active");
   window._treatmentInitialized   = false;
   window._vaccinationInitialized = false;
   window._vrInitialized          = false;
