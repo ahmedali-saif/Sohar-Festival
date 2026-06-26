@@ -1201,6 +1201,7 @@ function lockNav() {
 
 function unlockNav() {
   window._isLoggedIn = true;
+  document.querySelectorAll("nav button").forEach(function(btn) {
     btn.disabled = false;
     btn.style.opacity = '';
     btn.style.display = '';
