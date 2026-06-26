@@ -1044,9 +1044,11 @@ document.querySelectorAll("nav button").forEach(function(btn) {
   if (onclick.indexOf("'login'") === -1) {
   }
 });
-  var activeBtn = document.querySelector('nav button[onclick="showPage(\'' + pageId + '\')"]');
-  if (activeBtn) activeBtn.classList.add("nav-active");
-// تشغيل تنبيه العينات عند التنقل (ما عدا login و settings)
+// استبدله بـ
+var activeBtn = document.querySelector('nav button[onclick="showPage(\'' + pageId + '\')"]');
+if (activeBtn && activeBtn.style.display !== 'none') {
+    activeBtn.classList.add("nav-active");
+}
   var excludedPages = ['login', 'settings', 'home'];
   if (excludedPages.indexOf(pageId) === -1 && typeof foCheckOverdueSamples === 'function') {
     setTimeout(foCheckOverdueSamples, 500);
@@ -9912,7 +9914,7 @@ function foDismissOverdueAlert() {
     { id: "dashboard",          label: "طباعة نماذج العينات",      icon: "🖨️" },
     { id: "settings",           label: "شهادة التحصين",            icon: "📜" },
     { id: "reports",            label: "الأدوية المصروفة",         icon: "📊" },
-    { id: "financialInventory", label: "الجرد المالي",             icon: "💰" },
+    { id: "financialInventory", label: "المتحصلات اليومية",             icon: "💰" },
     { id: "diseaseTracking",    label: "تتبع المرض",               icon: "🦠" },
     { id: "animalDistribution", label: "توزيع الحيوانات",          icon: "🐄" },
     { id: "comprehensiveReport",label: "التقرير الشامل",           icon: "📈" },
