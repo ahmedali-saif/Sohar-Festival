@@ -1225,9 +1225,11 @@ if (username && typeof PERM !== 'undefined') {
       if (pageId === 'login') { btn.style.display = ''; return; }
       var allowed = PERM.isPageAllowed(pageId);
       btn.style.display = allowed ? '' : 'none';
-      btn.disabled = false;  // ← لا تُعطّل الأزرار المرئية
+      btn.disabled = false;
       btn.style.opacity = '';
       btn.style.cursor = '';
+      // ← إزالة nav-active من الأزرار المخفية
+      if (!allowed) btn.classList.remove('nav-active');
     });
   }
 
