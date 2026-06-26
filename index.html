@@ -1224,6 +1224,35 @@ function lockNav() {
 // ============================================================
 //  unlockNav() – تُستدعى بعد نجاح تسجيل الدخول
 // ============================================================
+function lockNav() {
+  window._isLoggedIn = false;
+  window._treatmentInitialized = false;
+  window._vaccinationInitialized = false;
+  window._vrInitialized = false;
+  window._breederInitialized = false;
+  window._samplesInitialized = false;
+  if (typeof bd_clearForm === 'function') bd_clearForm();
+  resetAllPagesData();
+
+  // إخفاء جميع الأزرار باستثناء زر تسجيل الدخول
+  document.querySelectorAll("nav button").forEach(function(btn) {
+    var onclick = btn.getAttribute('onclick') || '';
+    if (onclick.indexOf("'login'") === -1) {
+      btn.disabled = true;
+      btn.style.opacity = '0.4';
+      btn.style.cursor = 'not-allowed';
+      // إخفاء باستخدام !important لتجاوز أي CSS
+      btn.style.setProperty('display', 'none', 'important');
+    } else {
+      // إظهار زر تسجيل الدخول
+      btn.disabled = false;
+      btn.style.opacity = '';
+      btn.style.cursor = '';
+      btn.style.setProperty('display', 'inline-block', 'important');
+    }
+  });
+}
+
 function unlockNav() {
   window._isLoggedIn = true;
 
@@ -1232,7 +1261,8 @@ function unlockNav() {
     btn.disabled = false;
     btn.style.opacity = '';
     btn.style.cursor = '';
-    btn.style.display = 'inline-block';   // إظهار الكل
+    // إزالة أي إخفاء سابق وإظهار الكل
+    btn.style.setProperty('display', 'inline-block', 'important');
     var originalText = btn.getAttribute('data-original-text');
     if (originalText) {
       btn.textContent = originalText;
@@ -1240,7 +1270,7 @@ function unlockNav() {
     }
   });
 
-  // 2. تطبيق صلاحيات المستخدم: إخفاء الصفحات غير المسموحة
+  // 2. تطبيق صلاحيات المستخدم
   window._userAllowedPages = null;
   var username = window._currentUser || '';
   if (username && typeof PERM !== 'undefined') {
@@ -1249,21 +1279,18 @@ function unlockNav() {
       var match = onclick.match(/showPage\(['"](\w+)['"]\)/);
       if (!match) return;
       var pageId = match[1];
-      // زر تسجيل الدخول يبقى ظاهراً دائماً
       if (pageId === 'login') {
-        btn.style.display = 'inline-block';
+        btn.style.setProperty('display', 'inline-block', 'important');
         return;
       }
-      // التحقق من الصلاحية وإخفاء غير المسموح
       var allowed = PERM.isPageAllowed(pageId);
-      btn.style.display = allowed ? 'inline-block' : 'none';
+      btn.style.setProperty('display', allowed ? 'inline-block' : 'none', 'important');
       btn.disabled = false;
       btn.style.opacity = '';
       btn.style.cursor = '';
       if (!allowed) btn.classList.remove('nav-active');
     });
   }
-
   // 3. تحميل الصفحات (المنطق الأصلي – لم يتغير)
   var initQueue = [
     { delay: 1000, fn: function () {
