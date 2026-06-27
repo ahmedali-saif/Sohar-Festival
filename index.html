@@ -790,7 +790,6 @@ tr.data-missing { background-color: #ff0000 !important; color: #000 !important; 
   body > .page      { display: none !important; }
   body > .page.active { display: block !important; }
   button, .back-button, .initial-loading-overlay { display: none !important; }
-#fin_dateRow { display: none !important; }
   /* #dashboard — طباعة نموذج العينة */
   body > #dashboard.active { display: block !important; }
   #dashboard .top-bar       { display: none !important; }
@@ -1323,7 +1322,6 @@ function unlockNav() {
       });
     }},
     { delay: 8000, fn: function () {
-      if (typeof ani_setDefaultDates === 'function') ani_setDefaultDates();
       if (typeof ani_loadData === 'function') ani_loadData();
       var af = document.getElementById('ani_dateFrom');
       var at = document.getElementById('ani_dateTo');
@@ -8327,14 +8325,7 @@ function dtr_printAll() {
   w.document.close();
 }
 
-// ===== تهيئة =====
-async function dtr_initLoad() {
-  await dtr_loadDiseaseList();
-  // تفريغ حقلي التاريخ لجلب كل البيانات
-  document.getElementById('dtr_dateFrom').value = '';
-  document.getElementById('dtr_dateTo').value   = '';
-  dtr_loadData();
-}
+
 </script>
 
 </div>
@@ -8453,11 +8444,6 @@ function ani_printTable() {
     + html + '</body></html>');
   w.document.close();
   w.print();
-}
-
-// تهيئة — تعيين التاريخ الافتراضي (بداية الشهر الحالي إلى اليوم)
-function ani_setDefaultDates() {
-  // تم إيقاف التعيين التلقائي للتواريخ
 }
 
 </script>
