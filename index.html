@@ -1189,37 +1189,6 @@ function showPage(pageId) {
   
   console.log('[resetAllPagesData] ✅ تم مسح جميع بيانات الصفحات');
 }
-// ============================================================
-//  lockNav() – تُستدعى عند تسجيل الخروج أو بدء التطبيق
-// ============================================================
-function lockNav() {
-  window._isLoggedIn = false;
-  window._treatmentInitialized   = false;
-  window._vaccinationInitialized = false;
-  window._vrInitialized          = false;
-  window._breederInitialized     = false;
-  window._samplesInitialized     = false;
-  
-  if (typeof bd_clearForm === 'function') bd_clearForm();
-  resetAllPagesData();
-  
-  // إخفاء جميع الأزرار باستثناء زر تسجيل الدخول
-  document.querySelectorAll("nav button").forEach(function(btn) {
-    var onclick = btn.getAttribute('onclick') || '';
-    if (onclick.indexOf("'login'") === -1) {
-      btn.disabled = true;
-      btn.style.opacity = '0.4';
-      btn.style.cursor = 'not-allowed';
-      btn.style.display = 'none';
-    } else {
-      // تأكيد ظهور زر تسجيل الدخول
-      btn.disabled = false;
-      btn.style.opacity = '';
-      btn.style.cursor = '';
-      btn.style.display = 'inline-block';
-    }
-  });
-}
 
 // ============================================================
 //  unlockNav() – تُستدعى بعد نجاح تسجيل الدخول
