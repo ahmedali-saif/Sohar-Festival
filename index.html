@@ -5405,8 +5405,8 @@ async function bd_fetchAll() {
    bd_analyzeInactive — تحليل المربين غير النشطين (6 أشهر)
    ══════════════════════════════════════════════════════════ */
 async function bd_analyzeInactive() {
-  var SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
-  var cutoff = new Date(Date.now() - SIX_MONTHS_MS);
+  var cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - 6);
 
   /* ── شاشة تحميل ── */
   var existingModal = document.getElementById('bd_inactiveModal');
