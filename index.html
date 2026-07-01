@@ -3949,13 +3949,12 @@ async function trsaveData() {
         var cells = row.querySelectorAll("td");
         if (cells.length >= 4 && (cells[3].textContent || "").trim() === receiptVal) isDup = true;
       });
-      if (isDup) {
-        trshowMessage("❌ رقم الإيصال مكرر — لا يمكن الحفظ", true);
-        receiptEl.focus();
-        return;
-      }
+ if (isDup) {
+  showWarningCenterLeft("⚠️ تنبيه: رقم الإيصال مكرر، يرجى التأكد");
+  // لا نمنع الحفظ، نستمر
     }
-  }
+    }
+    }
   trshowConfirm("هل تريد حفظ البيانات؟", async () => {
     trblockButtons();
     trshowMessage("⏳ جاري حفظ البيانات...", false);
@@ -4124,11 +4123,10 @@ async function trtempSave() {
         var cells = row.querySelectorAll("td");
         if (cells.length >= 4 && (cells[3].textContent || "").trim() === receiptVal) isDup = true;
       });
-      if (isDup) {
-        trshowMessage("❌ رقم الإيصال مكرر — لا يمكن الحفظ المؤقت", true);
-        receiptEl.focus();
-        return;
-      }
+  if (isDup) {
+  showWarningCenterLeft("⚠️ تنبيه: رقم الإيصال مكرر، يرجى التأكد");
+  // لا نمنع الحفظ المؤقت
+    }
     }
   }
 
@@ -4710,19 +4708,21 @@ async function trSelectIncompleteCase(caseNumber) {
     if (!el || el._quickCheck) return;
     el._quickCheck = true;
 
-    el.addEventListener("input", function () {
-      var val = this.value.trim();
-      if (!val) {
-        this.style.cssText = "";
-        return;
-      }
-      var isDup = getReceiptsFromTable().has(val);
-      this.style.backgroundColor = isDup ? "#ffcccc" : "#ccffcc";
-      this.style.border           = isDup ? "2px solid #e65050" : "2px solid #2bb673";
-      this.style.color            = isDup ? "#7a0000" : "#1b5e20";
-      this.style.fontWeight       = "bold";
-      if (isDup) showToast("❌ رقم الإيصال مكرر", "error");
-    });
+  el.addEventListener("input", function () {
+  var val = this.value.trim();
+  if (!val) {
+    this.style.cssText = "";
+    return;
+  }
+  var isDup = getReceiptsFromTable().has(val);
+  if (isDup) {
+    showWarningCenterLeft("⚠️ تنبيه: رقم الإيصال مكرر، يرجى التأكد");
+    // نعيد الحقل إلى حالته الطبيعية دون تلوين
+    this.style.cssText = "";
+  } else {
+    this.style.cssText = "";
+  }
+});
 
     el.addEventListener("blur", function () {
       this.style.cssText = "";
