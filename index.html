@@ -4124,6 +4124,7 @@ async function trtempSave() {
       });
 if (isDup) {
   trshowMessage("⚠️ تنبيه: رقم الإيصال مكرر", true);
+  await new Promise(r => setTimeout(r, 1500));
 }
     }
   }
