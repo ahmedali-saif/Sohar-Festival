@@ -3949,11 +3949,9 @@ async function trsaveData() {
         var cells = row.querySelectorAll("td");
         if (cells.length >= 4 && (cells[3].textContent || "").trim() === receiptVal) isDup = true;
       });
-      if (isDup) {
-        trshowMessage("❌ رقم الإيصال مكرر — لا يمكن الحفظ", true);
-        receiptEl.focus();
-        return;
-      }
+if (isDup) {
+  trshowMessage("⚠️ تنبيه: رقم الإيصال مكرر", true);
+}
     }
   }
   trshowConfirm("هل تريد حفظ البيانات؟", async () => {
