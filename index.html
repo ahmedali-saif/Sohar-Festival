@@ -11476,6 +11476,9 @@ fabImg.style.cssText =
 fabImg.innerHTML = '<img src="https://fastupload.live/do.php?img=11325" ' +
   'style="width:100%;height:100%;object-fit:cover;display:block;" alt="">';
 document.body.appendChild(fabImg);
+    var fabImgPrintStyle = document.createElement("style");
+fabImgPrintStyle.innerHTML = "@media print { #cache-fab-img { display: none !important; } }";
+document.head.appendChild(fabImgPrintStyle);
     var badge = document.createElement("div");
     badge.id = "cache-hit-badge";
     badge.textContent = "⚡ من الكاش";
