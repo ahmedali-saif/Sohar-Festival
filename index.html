@@ -6653,8 +6653,14 @@ function vr_render() {
   // الترتيب
   rows.sort(function(a, b) {
     if (sortBy === "phone")  return (a.phone  || "").localeCompare(b.phone  || "");
-    if (sortBy === "status") return (b.vaccinated ? 1 : 0) - (a.vaccinated ? 1 : 0);
-    // ✅ الجديد (مقارنة زمنية رقمية)
+    if (sortBy === "status") {
+      var rank = function(r) {
+    if (r.vaccinated) return 2;        // المحصنون أولاً
+    if (vr_isRefused(r)) return 0;     // رفض التحصين أخيراً
+        return 1;                          // غير المحصنين في الوسط
+      };
+      return rank(b) - rank(a);
+    }    // ✅ الجديد (مقارنة زمنية رقمية)
 if (sortBy === "date") {
   var da = vr_parseDate(a.entryDate);
   var db = vr_parseDate(b.entryDate);
