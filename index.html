@@ -6409,6 +6409,7 @@ async function vaccInit() {
   <option value="all">الكل</option>
   <option value="vacc">المحصنون فقط</option>
   <option value="not">غير المحصنين فقط</option>
+  <option value="refused">رفض التحصين فقط</option>
 </select>
 <div id="vr_vaccineFilterWrap" style="display:none;align-items:center;gap:6px;">
   <label style="font-size:13px;font-weight:bold;color:#006080;">نوع اللقاح:</label>
@@ -6438,7 +6439,7 @@ async function vaccInit() {
       <span class="stat-box stat-total">الإجمالي: <span id="vr_statTotal">0</span></span>
       <span class="stat-box stat-vacc">المحصنون: <span id="vr_statVacc">0</span></span>
       <span class="stat-box stat-not">غير المحصنين: <span id="vr_statNot">0</span></span>
-    </div>
+      <span class="stat-box" style="background:#8e44ad">رفض التحصين: <span id="vr_statRefused">0</span></span>    </div>
 
     <div id="vr_searchResultsContainer" style="max-height:70vh; overflow:auto; position:relative;">
       <div class="no-results" id="vr_loadingMsg" style="display:none;"></div>
@@ -6594,6 +6595,11 @@ function vr_parseDate(val) {
   }
   if (vr_dataLoaded) vr_render();
 }
+  function vr_isRefused(r) {
+  var notes = (r.notes || '').toString();
+  var keywords = ['رفض', 'لا يرغب', 'عدم رغبة', 'غير راغب', 'لا يريد', 'عدم الرغبة'];
+  return keywords.some(function(k) { return notes.indexOf(k) !== -1; });
+}
 function vr_render() {
   var q      = (document.getElementById("vr_searchInput").value || '').trim();
   var status = document.getElementById("vr_statusFilter").value;
@@ -6639,10 +6645,11 @@ function vr_render() {
     } else {
       rows = rows.filter(function(r) { return r.vaccinated; });
     }
-  } else if (status === "not") {
-    rows = rows.filter(function(r) { return !r.vaccinated; });
+} else if (status === "not") {
+    rows = rows.filter(function(r) { return !r.vaccinated && !vr_isRefused(r); });
+  } else if (status === "refused") {
+    rows = rows.filter(function(r) { return vr_isRefused(r); });
   }
-
   // الترتيب
   rows.sort(function(a, b) {
     if (sortBy === "phone")  return (a.phone  || "").localeCompare(b.phone  || "");
@@ -6678,9 +6685,11 @@ if (sortBy === "date") {
   } else {
     filterNote.style.display = "none";
   }
-  document.getElementById("vr_statTotal").textContent = total;
-  document.getElementById("vr_statVacc").textContent  = vacc;
-  document.getElementById("vr_statNot").textContent   = total - vacc;
+ var refused = rows.filter(function(r) { return vr_isRefused(r); }).length;
+  document.getElementById("vr_statTotal").textContent   = total;
+  document.getElementById("vr_statVacc").textContent    = vacc;
+  document.getElementById("vr_statNot").textContent     = total - vacc - refused;
+  document.getElementById("vr_statRefused").textContent = refused;
 
   // رسم الجدول
   var tbody = document.getElementById("vr_searchResultsBody");
@@ -6694,9 +6703,16 @@ if (sortBy === "date") {
   rows.forEach(function(r, i) {
     var tr = document.createElement("tr");
     tr.className = r.vaccinated ? "row-vacc" : "row-not";
-    var badge = r.vaccinated
-      ? '<span class="badge badge-vacc">محصن ✓</span>'
-      : '<span class="badge badge-not">غير محصن ✗</span>';
+var badge;
+    if (vr_isRefused(r)) {
+      badge = '<span class="badge" style="background:#8e44ad">رفض التحصين ⛔</span>';
+      tr.className = '';
+      tr.style.background = '#f3e5f5';
+    } else if (r.vaccinated) {
+      badge = '<span class="badge badge-vacc">محصن ✓</span>';
+    } else {
+      badge = '<span class="badge badge-not">غير محصن ✗</span>';
+    }
 var isRegistered = vr_registeredPhones.size === 0 || vr_registeredPhones.has(r.phone.toString().trim());
     var nameCellStyle = isRegistered
       ? 'border:1px solid #ccc;padding:6px 8px;text-align:center;'
