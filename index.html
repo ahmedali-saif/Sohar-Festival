@@ -6842,7 +6842,8 @@ async function vr_saveToBreeder(r) {
   var dateText = 'جميع البيانات';
   var total = document.getElementById('vr_statTotal').textContent;
   var vacc  = document.getElementById('vr_statVacc').textContent;
-  var notV  = document.getElementById('vr_statNot').textContent;
+  var notV    = document.getElementById('vr_statNot').textContent;
+  var refused = document.getElementById('vr_statRefused').textContent;
 
   var tbody = document.getElementById('vr_searchResultsBody');
   if (!tbody || !tbody.innerHTML.trim()) {
@@ -6884,6 +6885,7 @@ async function vr_saveToBreeder(r) {
   <span class="stat s-total">الإجمالي: ${total}</span>
   <span class="stat s-vacc">المحصنون: ${vacc}</span>
   <span class="stat s-not">غير المحصنين: ${notV}</span>
+  <span class="stat" style="background:#8e44ad">رفض التحصين: ${refused}</span>
 </div>
 <table>
   <thead>
