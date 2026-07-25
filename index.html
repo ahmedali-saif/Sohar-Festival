@@ -2909,9 +2909,15 @@ var DB__URL = window._activeApiUrl || "https://script.google.com/macros/s/AKfycb
     </table>
 
     <div class="bottom-section">
-      <div class="notes-section">
+         <div class="notes-section">
         <div><strong>ملاحظات :</strong></div>
         <input type="text" id="set_notes">
+        <div style="margin-top:8px;font-size:11pt;">
+          تاريخ الجرعة الأولى :
+          <input type="text" id="set_dose1Date" style="border:none;border-bottom:1px dotted #666;font-family:inherit;font-size:11pt;width:110px;text-align:center;background:transparent;">
+          &nbsp;&nbsp; تاريخ الجرعة الثانية :
+          <input type="text" id="set_dose2Date" style="border:none;border-bottom:1px dotted #666;font-family:inherit;font-size:11pt;width:110px;text-align:center;background:transparent;">
+        </div>
         <div class="footer-notes" style="margin-top:15px">
           <div>
             <div><strong>ملاحظة :</strong></div>
@@ -2989,6 +2995,12 @@ function fillFormDataMultiRows(rows, data) {
   document.getElementById('ownerPhone').value    = first.phone      || '';
   document.getElementById('village').value       = first.village    || '';
   document.getElementById('set_notes').value     = first.notes      || '';
+
+  // ── تواريخ الجرعات من العمود AA: الصف الأول = جرعة أولى، الثاني = جرعة ثانية ──
+  var dose1El = document.getElementById('set_dose1Date');
+  var dose2El = document.getElementById('set_dose2Date');
+  if (dose1El) dose1El.value = (rows[0] && rows[0].date) ? rows[0].date : '';
+  if (dose2El) dose2El.value = (rows[1] && rows[1].date) ? rows[1].date : '';
  
   // ---------------------------------------------------------------
   // مساعد: قراءة قيمة عددية بأمان
@@ -3154,10 +3166,11 @@ function clearAllData() {
   document.getElementById('set_clinicPhone').value=''; document.getElementById('serialNum').value='';
   document.getElementById('set_ownerName').value=''; document.getElementById('ownerPhone').value='';
   document.getElementById('village').value=''; document.getElementById('set_notes').value='';
+  document.getElementById('set_dose1Date').value=''; document.getElementById('set_dose2Date').value='';
   document.querySelectorAll('.data-table input').forEach(function(f){ f.value=''; });
 }
 function clearFormData() {
-  ['set_ownerName','ownerPhone','village','set_notes'].forEach(function(id){ document.getElementById(id).value=''; });
+  ['set_ownerName','ownerPhone','village','set_notes','set_dose1Date','set_dose2Date'].forEach(function(id){ document.getElementById(id).value=''; });
   document.querySelectorAll('.data-table input').forEach(function(f){ f.value=''; });
 }
 function printCertificateLandscape() {
