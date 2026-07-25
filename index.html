@@ -2996,12 +2996,22 @@ function fillFormDataMultiRows(rows, data) {
   document.getElementById('village').value       = first.village    || '';
   document.getElementById('set_notes').value     = first.notes      || '';
 
-  // ── تواريخ الجرعات من العمود AA: الصف الأول = جرعة أولى، الثاني = جرعة ثانية ──
+// ── تواريخ الجرعات من العمود AA: الصف الأول = جرعة أولى، الثاني = جرعة ثانية ──
+  var fmtDose = function(v) {
+    if (!v) return '';
+    var s = String(v).trim();
+    // إذا كانت أصلاً بصيغة dd/MM/yyyy اتركها كما هي
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s;
+    var d = new Date(s);
+    if (isNaN(d.getTime())) return s;
+    return String(d.getDate()).padStart(2,'0') + '/' +
+           String(d.getMonth()+1).padStart(2,'0') + '/' +
+           d.getFullYear();
+  };
   var dose1El = document.getElementById('set_dose1Date');
   var dose2El = document.getElementById('set_dose2Date');
-  if (dose1El) dose1El.value = (rows[0] && rows[0].date) ? rows[0].date : '';
-  if (dose2El) dose2El.value = (rows[1] && rows[1].date) ? rows[1].date : '';
- 
+  if (dose1El) dose1El.value = (rows[0] && rows[0].date) ? fmtDose(rows[0].date) : '';
+  if (dose2El) dose2El.value = (rows[1] && rows[1].date) ? fmtDose(rows[1].date) : '';
   // ---------------------------------------------------------------
   // مساعد: قراءة قيمة عددية بأمان
   var num = function(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; };
