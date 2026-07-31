@@ -6523,6 +6523,7 @@ async function vaccInit() {
       </select>
       <button onclick="vr_loadData()" style="background:#00b8d9;color:#fff;padding:6px 18px;border:none;border-radius:5px;font-weight:bold;cursor:pointer;">🔄 تحديث</button>
       <button onclick="vr_printTable()" style="background:#8e44ad;color:#fff;padding:6px 18px;border:none;border-radius:5px;font-weight:bold;cursor:pointer;">🖨️ طباعة</button>
+      <button onclick="vr_bulkUpdateBreeders()" style="background:#2bb673;color:#fff;padding:6px 18px;border:none;border-radius:5px;font-weight:bold;cursor:pointer;">🔃 تحديث بيانات المربين</button>
     </div>
 
     <div class="stats">
@@ -6922,6 +6923,287 @@ async function vr_saveToBreeder(r) {
     }
   } catch(err) {
     showToast('❌ خطأ: ' + err.message, 'error');
+  }
+}
+  /* ══════════════════════════════════════════════════════════
+   تحديث بيانات المربين المسجَّلين من أحدث بيانات التحصين
+   ══════════════════════════════════════════════════════════ */
+
+/* اتصال مباشر بالـ API — يتجاوز طبقة الكاش لتفادي تحديثها بعد كل عملية */
+async function vr__api(action, payload) {
+  var url  = window._activeApiUrl || VR_API_URL;
+  var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
+  var r = await fetch(url, { method:'POST', mode:'cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:body, redirect:'follow' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return await r.json();
+}
+
+function vr__txt(v) {
+  if (v === null || v === undefined) return '';
+  return String(v).trim().replace(/^'/, '').replace(/\s+/g, ' ');
+}
+
+function vr__num(v) {
+  var s = vr__txt(v);
+  if (s === '') return '';
+  var n = parseFloat(s.replace(/,/g, ''));
+  return isNaN(n) ? s : String(n);
+}
+
+function vr__date(v) {
+  var s = vr__txt(v);
+  if (!s) return '';
+  var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return m[1] + '-' + String(+m[2]).padStart(2,'0') + '-' + String(+m[3]).padStart(2,'0');
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return m[3] + '-' + String(+m[2]).padStart(2,'0') + '-' + String(+m[1]).padStart(2,'0');
+  var d = new Date(s);
+  if (!isNaN(d)) return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  return s;
+}
+
+function vr__confirm(title, html) {
+  return new Promise(function(resolve) {
+    var m = document.createElement('div');
+    m.className = 'custom-modal';
+    m.innerHTML =
+      '<div class="modal-box" style="max-width:520px;">' +
+        '<h3 style="color:#2bb673;margin-bottom:10px;">' + title + '</h3>' +
+        '<p style="font-size:13px;color:#444;line-height:1.9;text-align:right;direction:rtl;">' + html + '</p>' +
+        '<div class="modal-buttons">' +
+          '<button class="confirm-btn">✅ نعم، ابدأ التحديث</button>' +
+          '<button class="cancel-btn">إلغاء</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(m);
+    m.querySelector('.confirm-btn').onclick = function(){ m.remove(); resolve(true);  };
+    m.querySelector('.cancel-btn').onclick  = function(){ m.remove(); resolve(false); };
+    m.onclick = function(e){ if (e.target === m) { m.remove(); resolve(false); } };
+  });
+}
+
+function vr__progressBox(title) {
+  var el = document.createElement('div');
+  el.id = 'vr_bulkOverlay';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(255,255,255,.96);display:flex;align-items:center;justify-content:center;z-index:99999;direction:rtl;font-family:Tahoma,Arial,sans-serif;';
+  el.innerHTML =
+    '<div style="text-align:center;min-width:340px;">' +
+      '<div style="width:64px;height:64px;border:7px solid #e0e0e0;border-top:7px solid #2bb673;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 18px;"></div>' +
+      '<div style="font-size:18px;font-weight:bold;color:#2bb673;margin-bottom:10px;">' + title + '</div>' +
+      '<div id="vr_bulkStep" style="font-size:13px;color:#666;margin-bottom:16px;min-height:20px;">جاري التحضير...</div>' +
+      '<div style="width:320px;height:10px;background:#e0e0e0;border-radius:20px;overflow:hidden;margin:0 auto;">' +
+        '<div id="vr_bulkBar" style="height:100%;width:0%;background:#2bb673;border-radius:20px;transition:width .3s ease;"></div>' +
+      '</div>' +
+      '<div id="vr_bulkPct" style="font-size:13px;color:#2bb673;margin-top:8px;font-weight:bold;">0%</div>' +
+    '</div>';
+  document.body.appendChild(el);
+  return {
+    set: function(pct, msg) {
+      var s = document.getElementById('vr_bulkStep');
+      var b = document.getElementById('vr_bulkBar');
+      var p = document.getElementById('vr_bulkPct');
+      if (s && msg) s.textContent = msg;
+      if (b) b.style.width  = pct + '%';
+      if (p) p.textContent  = pct + '%';
+    },
+    close: function() {
+      var x = document.getElementById('vr_bulkOverlay');
+      if (x) x.remove();
+    }
+  };
+}
+
+function vr__resultModal(s, failedList) {
+  var okAll = (s.failed === 0);
+  var rows = [
+    ['👥 مربون مطابقون في السجلين',      s.matched,      '#004e66'],
+    ['🔄 يحتاجون تحديثاً',                s.changed,      '#e67e22'],
+    ['✅ تم تحديثهم بنجاح',               s.success,      '#2bb673'],
+    ['❌ فشل تحديثهم',                    s.failed,       '#e65050'],
+    ['➖ بياناتهم مطابقة (بلا تغيير)',    s.unchanged,    '#888'],
+    ['⚠️ غير مسجلين في سجل المربي',      s.unregistered, '#8e44ad']
+  ].map(function(r) {
+    return '<tr>' +
+      '<td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right;">' + r[0] + '</td>' +
+      '<td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:bold;font-size:15px;color:' + r[2] + ';">' + r[1] + '</td>' +
+    '</tr>';
+  }).join('');
+
+  var failHtml = failedList.length
+    ? '<div style="margin-top:12px;background:#fdecea;border:1px solid #f5c6c1;border-radius:6px;padding:9px 12px;font-size:11px;color:#7a0000;text-align:right;max-height:130px;overflow:auto;">' +
+      failedList.map(function(f){ return '• ' + f; }).join('<br>') + '</div>'
+    : '';
+
+  var m = document.createElement('div');
+  m.className = 'custom-modal';
+  m.innerHTML =
+    '<div class="modal-box" style="max-width:520px;">' +
+      '<div style="font-size:46px;margin-bottom:8px;">' + (okAll ? '✅' : '⚠️') + '</div>' +
+      '<h3 style="color:' + (okAll ? '#2bb673' : '#e67e22') + ';margin-bottom:6px;">' +
+        (okAll ? 'تمت عملية التحديث بنجاح' : 'اكتملت العملية مع وجود أخطاء') + '</h3>' +
+      '<p style="font-size:13px;color:#555;margin-bottom:12px;">تم تحديث بيانات ' +
+        '<strong style="color:#2bb673;font-size:17px;">' + s.success + '</strong> مربي اعتماداً على سجل التحصين</p>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:12px;">' + rows + '</table>' +
+      failHtml +
+      '<div class="modal-buttons" style="margin-top:16px;">' +
+        '<button class="confirm-btn" onclick="this.closest(\'.custom-modal\').remove()">إغلاق</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(m);
+  m.onclick = function(e){ if (e.target === m) m.remove(); };
+
+  showToast(
+    okAll ? ('✅ تم تحديث ' + s.success + ' مربي بنجاح')
+          : ('⚠️ تم تحديث ' + s.success + ' مربي وفشل ' + s.failed),
+    okAll ? 'success' : 'warning'
+  );
+}
+
+async function vr_bulkUpdateBreeders() {
+  if (!vr_dataLoaded || !vr_allData || !vr_allData.length) {
+    showToast('⚠️ اضغط 🔄 تحديث أولاً لتحميل بيانات التحصين', 'warning');
+    return;
+  }
+
+  var proceed = await vr__confirm(
+    '🔃 تحديث بيانات المربين',
+    'سيتم تحديث بيانات المربين <strong>المسجَّلين مسبقاً</strong> في سجل المربي اعتماداً على أحدث البيانات في سجل متابعة التحصين.<br><br>' +
+    '<strong>الحقول المحدَّثة:</strong> الاسم، المنطقة، رقم الحيازة، الرقم المدني، تاريخ انتهاء الحيازة، وأعداد (ماعز / أغنام / أبقار / جمال).<br><br>' +
+    '<span style="color:#1b5e20;">🛡️ لن يُمسح أي حقل موجود إذا كانت قيمته فارغة في سجل التحصين.</span>'
+  );
+  if (!proceed) return;
+
+  var box   = vr__progressBox('🔃 تحديث بيانات المربين');
+  var stats = { matched:0, changed:0, success:0, failed:0, unchanged:0, unregistered:0 };
+  var failedList = [];
+
+  try {
+    box.set(5, 'جاري جلب سجل المربين...');
+    var bdRes = await vr__api('bd_getAllBreeders');
+    if (!bdRes || !bdRes.success || !Array.isArray(bdRes.data))
+      throw new Error('تعذّر جلب سجل المربين');
+
+    var map = {};
+    bdRes.data.forEach(function(b) {
+      var ph = vr__txt(b.phone);
+      if (ph) map[ph] = b;
+    });
+
+    box.set(15, 'جاري مقارنة البيانات...');
+
+    /* إزالة التكرار: آخر صف لكل رقم هاتف */
+    var srcMap = {};
+    vr_allData.forEach(function(r) {
+      var ph = vr__txt(r.phone);
+      if (ph) srcMap[ph] = r;
+    });
+
+    var updater = window._currentUser || 'نظام التحصين';
+    var pending = [];
+
+    Object.keys(srcMap).forEach(function(ph) {
+      var r = srcMap[ph];
+      var b = map[ph];
+      if (!b) { stats.unregistered++; return; }
+      stats.matched++;
+
+      var an    = b.animals || {};
+      var pick  = function(nu, old) { return vr__txt(nu) !== '' ? vr__txt(nu) : vr__txt(old); };
+      var pickN = function(nu, old) { return vr__num(nu) !== '' ? vr__num(nu) : vr__num(old); };
+
+      var next = {
+        name:          pick(r.name,       b.name),
+        region:        pick(r.area,       b.region),
+        possession:    pick(r.possession, b.possession),
+        civil:         pick(r.civil,      b.civil),
+        financialDate: vr__date(r.financialDate) !== '' ? vr__date(r.financialDate) : vr__date(b.financialDate),
+        goat:  pickN(r.goat,  an.goat),
+        sheep: pickN(r.sheep, an.sheep),
+        cow:   pickN(r.cow,   an.cow),
+        camel: pickN(r.camel, an.camel)
+      };
+
+      var cur = {
+        name:          vr__txt(b.name),
+        region:        vr__txt(b.region),
+        possession:    vr__txt(b.possession),
+        civil:         vr__txt(b.civil),
+        financialDate: vr__date(b.financialDate),
+        goat:  vr__num(an.goat),
+        sheep: vr__num(an.sheep),
+        cow:   vr__num(an.cow),
+        camel: vr__num(an.camel)
+      };
+
+      var changed = Object.keys(next).some(function(k) { return next[k] !== cur[k]; });
+      if (!changed) { stats.unchanged++; return; }
+
+      pending.push({
+        phone: ph,
+        label: next.name || ph,
+        data: {
+          phone:       ph,
+          newPhone:    ph,
+          name:        next.name,
+          possession:  "'" + next.possession,
+          region:      next.region,
+          civil:       next.civil,
+          notes:       vr__txt(b.notes),
+          dataEntry:   vr__txt(b.dataEntry),
+          dataUpdater: updater,
+          animals: {
+            goat:    next.goat,
+            sheep:   next.sheep,
+            cow:     next.cow,
+            camel:   next.camel,
+            poultry: vr__num(an.poultry)
+          },
+          financialDate: next.financialDate
+        }
+      });
+    });
+
+    stats.changed = pending.length;
+
+    if (!pending.length) {
+      box.close();
+      vr__resultModal(stats, failedList);
+      return;
+    }
+
+    for (var i = 0; i < pending.length; i++) {
+      var p   = pending[i];
+      var pct = 20 + Math.round((i / pending.length) * 75);
+      box.set(pct, 'جاري تحديث ' + (i + 1) + ' من ' + pending.length + ' — ' + p.label);
+      try {
+        var res = await vr__api('bd_updateData', { data: p.data });
+        if (res && res.success) stats.success++;
+        else {
+          stats.failed++;
+          failedList.push(p.phone + ' — ' + ((res && res.message) || 'فشل غير معروف'));
+        }
+      } catch (e) {
+        stats.failed++;
+        failedList.push(p.phone + ' — ' + (e.message || e));
+      }
+      await new Promise(function(rs){ setTimeout(rs, 120); });
+    }
+
+    box.set(100, '✅ اكتملت العملية');
+    await new Promise(function(rs){ setTimeout(rs, 500); });
+    box.close();
+    vr__resultModal(stats, failedList);
+
+    /* تحديث القوائم والكاش مرة واحدة فقط بعد انتهاء الدفعة */
+    if (typeof bd_refreshDropdowns     === 'function') bd_refreshDropdowns();
+    if (typeof globalRefreshPhoneLists === 'function') globalRefreshPhoneLists();
+    if (window.BreederCache && window.BreederCache.getState &&
+        window.BreederCache.getState().enabled) window.BreederCache.refreshCache();
+    if (typeof syncBroadcast === 'function') syncBroadcast('breeder', 'bd_updateData');
+
+  } catch (err) {
+    box.close();
+    showToast('❌ خطأ: ' + (err.message || err), 'error');
   }
 }
 // =====================================================
