@@ -7016,15 +7016,15 @@ function fo_stLoad(v){fo_stSel=v?v.split(/[،,]/).map(function(s){return s.trim(
         <h3>الفحص المطلوب</h3>
         <datalist id="testList"></datalist>
         <div class="row"><label>الفحص 1</label><input list="testList" id="test1"></div>
-        <div class="row"><label>النتيجة 1</label><select id="result1"><option value=""></option><option>إيجابي</option><option>سلبي</option><option>تالف</option><option>تم استلام النتيجة</option></select></div>
+        <div class="row"><label>النتيجة 1</label><select id="result1"><option value=""></option><option>إيجابي</option><option>سلبي</option><option>تالف</option><option>تم استلام النتيجة</option><option>الفحص غير متوفر</option></select></div>
         <div class="row"><label>الفحص 2</label><input list="testList" id="test2"></div>
-        <div class="row"><label>النتيجة 2</label><select id="result2"><option value=""></option><option>إيجابي</option><option>سلبي</option><option>تالف</option><option>تم استلام النتيجة</option></select></div>
+        <div class="row"><label>النتيجة 2</label><select id="result2"><option value=""></option><option>إيجابي</option><option>سلبي</option><option>تالف</option><option>تم استلام النتيجة</option><option>الفحص غير متوفر</option></select></div>
         <div class="row"><label>الفحص 3</label><input list="testList" id="test3"></div>
-        <div class="row"><label>النتيجة 3</label><select id="result3"><option value=""></option><option>إيجابي</option><option>سلبي</option><option>تالف</option><option>تم استلام النتيجة</option></select></div>
+        <div class="row"><label>النتيجة 3</label><select id="result3"><option value=""></option><option>إيجابي</option><option>سلبي</option><option>تالف</option><option>تم استلام النتيجة</option><option>الفحص غير متوفر</option></select></div>
         <div class="row"><label>الفحص 4</label><input list="testList" id="test4"></div>
-        <div class="row"><label>النتيجة 4</label><select id="result4"><option value=""></option><option>إيجابي</option><option>سلبي</option><option>تالف</option><option>تم استلام النتيجة</option></select></div>
+        <div class="row"><label>النتيجة 4</label><select id="result4"><option value=""></option><option>إيجابي</option><option>سلبي</option><option>تالف</option><option>تم استلام النتيجة</option><option>الفحص غير متوفر</option></select></div>
         <div class="row"><label>الفحص 5</label><input list="testList" id="test5"></div>
-        <div class="row"><label>النتيجة 5</label><select id="result5"><option value=""></option><option>إيجابي</option><option>سلبي</option><option>تالف</option><option>تم استلام النتيجة</option></select></div>
+        <div class="row"><label>النتيجة 5</label><select id="result5"><option value=""></option><option>إيجابي</option><option>سلبي</option><option>تالف</option><option>تم استلام النتيجة</option><option>الفحص غير متوفر</option></select></div>
       </div>
     </div>
     <div class="top-bar" style="justify-content:center;gap:12px;background:#eef7ff">
@@ -7074,6 +7074,7 @@ function fo_stLoad(v){fo_stSel=v?v.split(/[،,]/).map(function(s){return s.trim(
         <option value="إيجابي">إيجابي</option>
         <option value="سلبي">سلبي</option>
         <option value="تالف">تالف</option>
+        <option value="الفحص غير متوفر">الفحص غير متوفر</option>
       </select>
     </div>
     <button class="search" id="performTestsSearchBtn" style="background:#e67e22;">بحث</button>
@@ -7503,7 +7504,7 @@ async function foPerformTestsSearch() {
 
     var statsHtml = '<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:12px;">';
     Object.keys(statMap).forEach(function(rs) {
-      var color = rs === 'إيجابي' ? '#e65050' : rs === 'سلبي' ? '#2bb673' : rs === 'تالف' ? '#f39c12' : '#888';
+      var color = rs === 'إيجابي' ? '#e65050' : rs === 'سلبي' ? '#2bb673' : rs === 'تالف' ? '#f39c12' : rs === 'الفحص غير متوفر' ? '#7f8c8d' : '#888';
       statsHtml += '<span style="background:' + color + ';color:#fff;padding:5px 16px;border-radius:20px;font-weight:bold;font-size:13px;">'
         + rs + ': ' + statMap[rs] + '</span>';
     });
@@ -7532,6 +7533,7 @@ var html = statsHtml
         if (t.result === 'إيجابي') { resColor = '#ffcccc'; resTextColor = '#7a0000'; }
         else if (t.result === 'سلبي')  { resColor = '#d4f8d4'; resTextColor = '#1b5e20'; }
         else if (t.result === 'تالف')  { resColor = '#fff3cd'; resTextColor = '#7f4f00'; }
+        else if (t.result === 'الفحص غير متوفر') { resColor = '#eceff1'; resTextColor = '#37474f'; }
 
         var isTarget = !showAll && t.name === testType.trim();
         var testCellBg = isTarget ? 'background:#fff8e1;color:#e67e22;font-weight:bold;' : '';
