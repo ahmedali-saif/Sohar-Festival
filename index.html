@@ -6493,7 +6493,7 @@ async function vaccInit() {
 
     <div class="toolbar">
       <label>بحث:</label>
-      <input type="text" id="vr_searchInput" placeholder="رقم الهاتف أو الاسم " style="width:260px" oninput="if(vr_dataLoaded) vr_render()">
+      <input type="text" id="vr_searchInput" placeholder="رقم الهاتف أو الاسم أو المنطقة" style="width:260px" oninput="if(vr_dataLoaded) vr_render()">
       <label>الحالة:</label>
 <select id="vr_statusFilter" onchange="vr_onStatusChange()">
   <option value="all">الكل</option>
@@ -6516,7 +6516,7 @@ async function vaccInit() {
       <label>الفرز:</label>
       <select id="vr_sortBy">
         <option value="name">حسب الاسم</option>
-        <option value="phone">حسب الهاتف</option>
+        <option value="count">حسب أكبر عدد حيوانات</option>
         <option value="area">حسب المنطقة</option>
         <option value="status">حسب الحالة</option>
         <option value="date">حسب تاريخ الإدخال</option>
@@ -6703,6 +6703,7 @@ function vr_render() {
     rows = rows.filter(function(r) {
       if (r.phone     && r.phone.indexOf(q)     !== -1) return true;
       if (r.name      && r.name.indexOf(q)      !== -1) return true;
+      if (r.area      && r.area.indexOf(q)      !== -1) return true;
       if (r.entryDate && r.entryDate.indexOf(q) !== -1) return true;
       if (r.records   && r.records.some(function(rec) {
         return rec.date && rec.date.indexOf(q) !== -1;
@@ -6742,8 +6743,17 @@ function vr_render() {
     rows = rows.filter(function(r) { return vr_isRefused(r); });
   }
   // الترتيب
+function vr_animalTotal(r) {
+    var n = function(v) {
+      if (v === null || v === undefined) return 0;
+      var x = parseFloat(String(v).replace(/,/g, "").trim());
+      return isNaN(x) ? 0 : x;
+    };
+    return n(r.goat) + n(r.sheep) + n(r.cow) + n(r.camel);
+  }
+
   rows.sort(function(a, b) {
-    if (sortBy === "phone")  return (a.phone  || "").localeCompare(b.phone  || "");
+    if (sortBy === "count")  return vr_animalTotal(b) - vr_animalTotal(a);
     if (sortBy === "status") {
       var rank = function(r) {
     if (r.vaccinated) return 2;        // المحصنون أولاً
