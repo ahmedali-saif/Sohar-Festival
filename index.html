@@ -3002,34 +3002,16 @@ function fillFormDataMultiRows(rows, data) {
     var s = String(v).trim();
     // إذا كانت أصلاً بصيغة dd/MM/yyyy اتركها كما هي
 if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s;
-    var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (iso) return iso[3] + '/' + iso[2] + '/' + iso[1];
     var d = new Date(s);
     if (isNaN(d.getTime())) return s;
     return String(d.getDate()).padStart(2,'0') + '/' +
            String(d.getMonth()+1).padStart(2,'0') + '/' +
            d.getFullYear();
   };
-// ── استخراج التاريخ مهما كان اسم الحقل الذي يعيده الـ API ──
-  var pickDose = function(r) {
-    if (!r) return '';
-    var keys = ['date','financialDate','entryDate','vaccDate','dateEntry'];
-    for (var i = 0; i < keys.length; i++) {
-      var v = r[keys[i]];
-      if (v !== undefined && v !== null && String(v).trim() !== '') return v;
-    }
-    for (var k in r) {
-      if (/date|تاريخ/i.test(k) && r[k] && String(r[k]).trim() !== '') return r[k];
-    }
-    return '';
-  };
-  var dose1El = document.getElementById('set_dose1Date');
+var dose1El = document.getElementById('set_dose1Date');
   var dose2El = document.getElementById('set_dose2Date');
-  var d1 = pickDose(rows[0]);
-  var d2 = pickDose(rows[1]);
-  if (dose1El) dose1El.value = d1 ? fmtDose(d1) : '';
-  if (dose2El) dose2El.value = d2 ? fmtDose(d2) : '';
-  console.log('[شهادة] مفاتيح الصف الأول:', rows[0] ? Object.keys(rows[0]) : []);
+  if (dose1El) dose1El.value = (rows[0] && rows[0].date) ? fmtDose(rows[0].date) : '';
+  if (dose2El) dose2El.value = (rows[1] && rows[1].date) ? fmtDose(rows[1].date) : '';
   // ---------------------------------------------------------------
   // مساعد: قراءة قيمة عددية بأمان
   var num = function(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; };
