@@ -1427,7 +1427,9 @@ async function bootLoadAll() {
   ];
 
   var failed = [];
-
+var firstSteps = steps.slice(0, 4);
+var restSteps = steps.slice(4);
+await Promise.all(firstSteps.map(st => bootRetry(st.fn, 2)));
   for (var i = 0; i < steps.length; i++) {
     var st = steps[i];
     ov.set(Math.max(0, st.pct - 12), st.msg);
@@ -4268,9 +4270,12 @@ if (isDup) {
       const res = await trcallApi("trsaveData", { data });
       if (res.success) {
         trshowMessage("✅ تم الحفظ بنجاح", false);
-        trclearForm();
-        trloadData();
-        trloadIncompleteCount();
+      trclearForm();
+// تنفيذ عمليات التحميل بشكل متوازٍ لتقليل وقت الانتظار
+await Promise.all([
+  trloadData(),
+  trloadIncompleteCount()
+]);
       } else {
         trshowMessage(res.message, true);
       }
@@ -4587,12 +4592,13 @@ async function trperformSearch() {
 
   trblockButtons();
   try {
-    const res = await trcallApi("trsearchInTreatmentSheet", {
-      keyword:   kw,
-      startDate: sd,
-      endDate:   ed,
-    });
-
+var res = await trcallApi("trsearchInTreatmentSheet", {
+  keyword:   kw,
+  startDate: sd,
+  endDate:   ed,
+  limit: 100,    // تحديد عدد النتائج لتقليل حجم البيانات
+  offset: 0
+});
     const tbl = document.getElementById("tr_searchTable");
     tbl.innerHTML = "";
 
@@ -4940,8 +4946,7 @@ function trinit() {
   trloadIncompleteCount();
   
   // ④ تحديث دوري كل دقيقتين
-  setInterval(trloadIncompleteCount, 120000);
-  
+// setInterval(trloadIncompleteCount, 120000); // تم التعليق لتقليل طلبات الخادم  
   const overlay = document.getElementById("tr_loadingOverlay");
   if (overlay) overlay.style.display = "flex";
 
@@ -7985,7 +7990,7 @@ async function foperformSamplesSearch(showAll) {
   foshowMessage('⏳ جاري جلب البيانات...', false, 'info');
 
   try {
-    var res = await focallApi("fosearchSamplesData", { phone: phone, caseNumber: cn, showAll: !!showAll });
+    var res = await focallApi("fosearchSamplesData", { phone: phone, caseNumber: cn, showAll: !!showAll, limit: 200 });
     if (res.success) {
       fodisplaySearchResults(res.data);
       if (showAll) {
@@ -11270,7 +11275,7 @@ function showUserBadge(name, role) {
 // ─────────────────────────────────────────────────────
 
 var REMOTE_SYNC_URL = "https://script.google.com/macros/s/AKfycbyz2zN7GFcvLTRBa7r2qbu8B1Q8i9EQdmOwwxRGCWzJrxPZp2h3b6f5jpNLcq-Mfc9q/exec";
-var REMOTE_SYNC_INTERVAL = 15000; // كل 15 ثانية
+var REMOTE_SYNC_INTERVAL = 60000; // كل 60 ثانية (يقلل ضغط الخادم بنسبة 75%)
 var REMOTE_SYNC_LAST_TS  = Date.now(); // نتتبع آخر وقت تحديث
 var remoteSyncTimer = null;
 
@@ -11469,8 +11474,13 @@ function syncWrapApiCalls() {
     window.trcallApi = async function(action, payload) {
       var res = await _t.apply(this, arguments);
       if (res && res.success) {
-        if (["trsaveData","trupdateData","trdeleteData","trsaveTempData","trupdateTempData"].indexOf(action) !== -1)
-          syncBroadcast("treatment", action);
+if (res && res.success && ["trsaveData","trupdateData","trdeleteData","trsaveTempData","trupdateTempData"].indexOf(action) !== -1) {
+  // إلغاء الطلب السابق وإرسال طلب جديد بعد ثانيتين (لتجميع التعديلات)
+  if (window._syncDebounceTimer) clearTimeout(window._syncDebounceTimer);
+  window._syncDebounceTimer = setTimeout(function() {
+    syncBroadcast("treatment", action);
+  }, 2000);
+}
         if (["bd_saveData","bd_updateData","bd_deleteData","bd_saveVaccinationData","bd_updateVaccinationData","bd_deleteVaccinationData"].indexOf(action) !== -1)
           syncBroadcast("breeder", action);
       }
@@ -11845,7 +11855,9 @@ setTimeout(tryWrap, 1000);
       /* كتابة → API + تحديث الكاش */
       if (WRITE_OPS.indexOf(action) !== -1) {
         var res = await _origBdCallApi(action, payload);
-        if (res && res.success) setTimeout(refreshAndRepatch, 1500);
+    if (res && res.success) {
+  // setTimeout(refreshAndRepatch, 1500); // تم تعطيله لتجنب جلب آلاف السجلات بعد كل عملية
+}
         return res;
       }
 
@@ -13080,10 +13092,11 @@ function sendTelegram(text) {
     var timeStr  = now.toLocaleTimeString("ar-SA");
  
     /* إرسال الإشعارين بفاصل ثانيتين لتجنب تقييد Telegram */
-    await notifyIncompleteCases(username, dateStr, timeStr);
-    setTimeout(function () {
-      notifyOverdueSamples(username, dateStr, timeStr);
-    }, 2000);
+// إرسال الإشعارين معاً دون انتظار احدهما الآخر
+Promise.all([
+  notifyIncompleteCases(username, dateStr, timeStr),
+  notifyOverdueSamples(username, dateStr, timeStr)
+]);
   }
  
   /* ══════════════════════════════════════════════════════
