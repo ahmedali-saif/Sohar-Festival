@@ -1033,7 +1033,7 @@ function showPage(pageId) {
   
   // التحقق من الصلاحيات
   if (window._isLoggedIn && window._userAllowedPages && publicPages.indexOf(pageId) === -1) {
-    if (window._userAllowedPages.indexOf(pageId) === -1) {
+    if (window._userAllowedPages.indexOf(pageId.toLowerCase()) === -1 && pageId !== 'home') {
       showToast('⛔ ليس لديك صلاحية الوصول إلى هذه الصفحة', 'error');
       return;
     }
@@ -1118,8 +1118,8 @@ function showPage(pageId) {
   if (vrBody) vrBody.innerHTML = '';
   var vrTable = document.getElementById('vr_searchResultsTable');
   if (vrTable) vrTable.style.display = 'none';
-  vr_allData = [];
-  vr_dataLoaded = false;
+  window.vr_allData = [];
+  window.vr_dataLoaded = false;
   
   // مسح العينات
   document.querySelectorAll('#samples input:not([type=button]), #samples select, #samples textarea').forEach(function(el){ el.value=''; });
@@ -10352,6 +10352,7 @@ function foDismissOverdueAlert() {
     { id: "diseaseTracking",    label: "تتبع المرض",               icon: "🦠" },
     { id: "animalDistribution", label: "توزيع الحيوانات",          icon: "🐄" },
     { id: "comprehensiveReport",label: "التقرير الشامل",           icon: "📈" },
+    { id: "doctorPerformance",  label: "أداء الأطباء",             icon: "📊" },
     { id: "home",               label: "الإعدادات",                icon: "⚙️" },
   ];
 
