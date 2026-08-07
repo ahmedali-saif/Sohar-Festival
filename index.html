@@ -5399,8 +5399,9 @@ async function bd_saveData() {
   bd_showMessage("جاري الحفظ...", false, "info");
   try{
     var res=await bd_callApi("bd_saveData",{data:data});
-if(res.success){bd_setLastEdited();bd_showMessage("تم الحفظ بنجاح",false);bd_clearForm();bd_refreshDropdowns();if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists();}
-else bd_showMessage(res.message,true);
+if(res.success){bd_setLastEdited();
+if(window.BreederCache&&window.BreederCache.applyLocalWrite) window.BreederCache.applyLocalWrite("bd_saveData",{data:data});
+bd_showMessage("تم الحفظ بنجاح",false);bd_clearForm();bd_refreshDropdowns();if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists();}else bd_showMessage(res.message,true);
   }catch(err){bd_showMessage("خطأ: "+err.message,true);}
   finally{btn.disabled=false;}
 }
@@ -5438,8 +5439,9 @@ async function bd_deleteData() {
     bd_showMessage("جاري الحذف...", false, "info");
     try{
       var res=await bd_callApi("bd_deleteData",{phone:phone});
-if(res.success){bd_setLastEdited();bd_showMessage("تم الحذف بنجاح",false);bd_clearForm();bd_refreshDropdowns();if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists();}
-else bd_showMessage(res.message,true);
+if(res.success){bd_setLastEdited();
+if(window.BreederCache&&window.BreederCache.applyLocalWrite) window.BreederCache.applyLocalWrite("bd_deleteData",{phone:phone});
+bd_showMessage("تم الحذف بنجاح",false);bd_clearForm();bd_refreshDropdowns();if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists();}else bd_showMessage(res.message,true);
     }catch(err){bd_showMessage("خطأ: "+err.message,true);}
     finally{btn.disabled=false;}
   });
