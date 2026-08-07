@@ -1427,40 +1427,23 @@ async function bootLoadAll() {
   ];
 
 var failed = [];
+  for (var i = 0; i < steps.length; i++) {
+    var st = steps[i];
+    ov.set(Math.max(0, st.pct - 12), st.msg);
+    try {
+      await bootRetry(st.fn, 2);
+    } catch (err) {
+      failed.push(st.name + ' — ' + (err.message || err));
+      ov.set(st.pct, st.msg);
+      continue;
+    }
+    if (st.check && !st.check()) {
+      try { await st.fn(); } catch (e) {}
+      if (!st.check()) failed.push(st.name + ' — القوائم عادت فارغة');
+    }
+    ov.set(st.pct, st.msg);
+  }
 
-  // ── الخطوات الخمس الأولى: تنفيذ متوازٍ ومرة واحدة فقط ──
-  var mainSteps  = steps.slice(0, 5);
-  var reportStep = steps[5];
-  var doneCount  = 0;
-
-  ov.set(8, 'جاري تحميل بيانات النظام...');
-
-  await Promise.all(mainSteps.map(function (st) {
-    return bootRetry(st.fn, 2)
-      .then(function () {
-        if (st.check && !st.check()) {
-          return Promise.resolve()
-            .then(function () { return st.fn(); })
-            .catch(function () {})
-            .then(function () {
-              if (!st.check()) failed.push(st.name + ' — القوائم عادت فارغة');
-            });
-        }
-      })
-      .catch(function (err) {
-        failed.push(st.name + ' — ' + (err.message || err));
-      })
-      .then(function () {
-        doneCount++;
-        ov.set(Math.round(doneCount / mainSteps.length * 90), st.msg);
-      });
-  }));
-
-  // ── التقارير والإحصاءات: تُحمَّل في الخلفية دون تعطيل الواجهة ──
-  ov.set(95, 'جاري تجهيز التقارير في الخلفية...');
-  bootRetry(reportStep.fn, 2).catch(function (err) {
-    console.warn('[boot] التقارير:', err && err.message ? err.message : err);
-  });
   if (failed.length) {
     ov.fail(failed,
       function () {
@@ -4582,6 +4565,7 @@ if (dataEntryRes.success) {
   } finally {
     trunblockButtons();
   }
+}
 
 // ============================================================
 //  البحث المتقدم (Advanced Search)
@@ -4956,6 +4940,7 @@ function trinit() {
   trbindEvents();
 document.getElementById("tr_financialDate").value = new Date().toLocaleDateString("en-CA");
   // trloadIncompleteCount(); ← يُستدعى تلقائياً من trloadData
+  
   // ④ تحديث دوري كل دقيقتين
 // setInterval(trloadIncompleteCount, 120000); // تم التعليق لتقليل طلبات الخادم  
   const overlay = document.getElementById("tr_loadingOverlay");
@@ -13121,7 +13106,7 @@ Promise.all([
  
     var _orig = global.unlockNav;
     global.unlockNav = function () {
-_orig.apply(this, arguments);
+    _orig.apply(this, arguments);
       /* تأخير 45 ثانية حتى لا يزاحم طلبات الإقلاع */
       setTimeout(runAllNotifications, 45000);
     };
