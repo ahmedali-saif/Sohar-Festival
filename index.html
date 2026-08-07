@@ -11832,6 +11832,77 @@ setTimeout(tryWrap, 1000);
   /* ═══════════════════════════════════════════════════════════════
      ٨. اعتراض دوال التطبيق
      ═══════════════════════════════════════════════════════════════ */
+/* ── تحديث صف مربي واحد في الكاش بعد نجاح الكتابة (بدون جلب من الخادم) ── */
+  function cacheApplyLocalWrite(action, payload) {
+    payload = payload || {};
+    var d     = payload.data || {};
+    var strip = function (v) { return ss(v).replace(/^'/, ""); };
+    var pick  = function (nu, old) { return (nu === undefined) ? ss(old) : ss(nu); };
+
+    function dropPhone(ph) {
+      if (!ph || !state.phoneMap[ph]) return;
+      delete state.phoneMap[ph];
+      var i = state.phoneList.indexOf(ph);
+      if (i !== -1) state.phoneList.splice(i, 1);
+    }
+
+    if (action === "bd_deleteData") {
+      dropPhone(ss(payload.phone));
+
+    } else if (action === "bd_saveData" || action === "bd_updateData") {
+      var oldPh = ss(d.phone);
+      var newPh = ss(d.newPhone) || oldPh;
+      if (!newPh) return;
+
+      var prev = state.phoneMap[oldPh] || {};
+      var pan  = prev.animals || {};
+      var nan  = d.animals    || {};
+
+      var row = {
+        phone:         newPh,
+        name:          pick(d.name,          prev.name),
+        possession:    (d.possession === undefined) ? ss(prev.possession) : strip(d.possession),
+        region:        pick(d.region,        prev.region),
+        civil:         pick(d.civil,         prev.civil),
+        notes:         pick(d.notes,         prev.notes),
+        financialDate: pick(d.financialDate, prev.financialDate),
+        dataEntry:     pick(d.dataEntry,     prev.dataEntry) || ss(prev.dataEntry),
+        dataUpdater:   pick(d.dataUpdater,   prev.dataUpdater) || ss(prev.dataUpdater),
+        animals: {
+          goat:    pick(nan.goat,    pan.goat),
+          sheep:   pick(nan.sheep,   pan.sheep),
+          cow:     pick(nan.cow,     pan.cow),
+          camel:   pick(nan.camel,   pan.camel),
+          poultry: pick(nan.poultry, pan.poultry)
+        }
+      };
+
+      if (oldPh && oldPh !== newPh) dropPhone(oldPh);
+      if (!state.phoneMap[newPh]) state.phoneList.push(newPh);
+      state.phoneMap[newPh] = row;
+
+      if (row.region    && state.regionList.indexOf(row.region)       === -1) state.regionList.push(row.region);
+      if (row.dataEntry && state.dataEntryList.indexOf(row.dataEntry) === -1) state.dataEntryList.push(row.dataEntry);
+
+    } else {
+      return; /* عمليات التحصين والحيازة لا تمس سجل المربي */
+    }
+
+    state.totalRows = state.phoneList.length;
+
+    var rows = [];
+    for (var p in state.phoneMap) rows.push(state.phoneMap[p]);
+    storageSave(rows);
+
+    var now = new Date().toISOString();
+    state.lastUpdate = now;
+    metaSave({ lastUpdate: now, totalRows: state.totalRows, version: CACHE_VERSION });
+
+    refreshAllPhoneDataLists();
+    updateUI("ready");
+    console.log("[Cache] ⚡ تحديث جزئي: " + action + " — " + state.totalRows + " مربي");
+  }
+
   function patchAppFunctions() {
     if (!state.enabled || !state.loaded) return;
     if (!_origBdCallApi) {
@@ -11852,13 +11923,12 @@ setTimeout(tryWrap, 1000);
       }
 
       /* كتابة → API + تحديث الكاش */
-      if (WRITE_OPS.indexOf(action) !== -1) {
-        var res = await _origBdCallApi(action, payload);
-    if (res && res.success) {
-  // setTimeout(refreshAndRepatch, 1500); // تم تعطيله لتجنب جلب آلاف السجلات بعد كل عملية
-}
-        return res;
-      }
+ global._localSyncChannel.onmessage = function (e) {
+  if (_origMsg) _origMsg.call(this, e);
+  if (e.data && e.data.topic === "breeder" && state.enabled) {
+    setTimeout(refreshAndRepatch, 2000);
+  }
+};
 
       /* أي action آخر (بما فيها trget*, syncNotify، إلخ) → API مباشرة */
       return _origBdCallApi(action, payload);
