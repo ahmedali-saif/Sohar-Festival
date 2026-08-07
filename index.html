@@ -1829,116 +1829,12 @@ async function wilayatApply() {
   }
 
   try {
-    // خطوة 1 — أرقام الهاتف
-    setStep('جاري تحميل أرقام الهواتف...', 15);
-    await Promise.allSettled([
-      (async function() {
-        if (typeof trcallApi === 'function') {
-          var r = await trcallApi('trgetPhoneNumbers');
-          if (r.success) {
-            var dl = document.getElementById('tr_phoneList');
-            if (dl) { dl.innerHTML=''; (r.data||[]).sort().forEach(function(v){var o=document.createElement('option');o.value=v;dl.appendChild(o);}); }
-          }
-        }
-      })(),
-      (async function() {
-        if (typeof vaccCallApi === 'function') {
-          var r = await vaccCallApi('getPhoneNumbers');
-          if (r.success) {
-            var dl = document.getElementById('vacc_phoneList');
-            if (dl) { dl.innerHTML=''; (r.data||[]).sort().forEach(function(v){var o=document.createElement('option');o.value=v;dl.appendChild(o);}); }
-          }
-        }
-      })(),
-      (async function() {
-        if (typeof focallApi === 'function') {
-          var r = await focallApi('fogetPhoneNumbers');
-          if (r.success) {
-            var dl = document.getElementById('phoneList');
-            if (dl) { dl.innerHTML=''; (r.data||[]).sort().forEach(function(v){var o=document.createElement('option');o.value=v;dl.appendChild(o);}); }
-          }
-        }
-      })(),
-      (async function() {
-        if (typeof bd_callApi === 'function') {
-          var r = await bd_callApi('bd_getPhoneNumbers');
-          if (r.success) {
-            var dl = document.getElementById('bd_phoneList');
-            if (dl) { dl.innerHTML=''; (r.data||[]).sort().forEach(function(v){var o=document.createElement('option');o.value=v;dl.appendChild(o);}); }
-          }
-        }
-      })()
-    ]);
-
-    // خطوة 2 — مدخلو البيانات
-    setStep('جاري تحميل قوائم مدخلي البيانات...', 35);
-    await Promise.allSettled([
-      (async function() {
-        if (typeof trcallApi === 'function') {
-          var r = await trcallApi('trgetDataEntryOptions');
-          if (r.success) {
-            ['tr_dataEntryList','tr_dataUpdaterList'].forEach(function(id){
-              var dl=document.getElementById(id);
-              if(dl){dl.innerHTML='';(r.data||[]).sort().forEach(function(v){var o=document.createElement('option');o.value=v;dl.appendChild(o);});}
-            });
-          }
-        }
-      })(),
-      (async function() {
-        if (typeof bd_callApi === 'function') {
-          var r = await bd_callApi('bd_getDataEntryOptions');
-          if (r.success) {
-            ['bd_dataEntryList','bd_dataUpdaterList'].forEach(function(id){
-              var dl=document.getElementById(id);
-              if(dl){dl.innerHTML='';(r.data||[]).sort().forEach(function(v){var o=document.createElement('option');o.value=v;dl.appendChild(o);});}
-            });
-          }
-        }
-      })(),
-      (async function() {
-        if (typeof vaccCallApi === 'function') {
-          var r = await vaccCallApi('getDataEntryOptions');
-          if (r.success) {
-            ['vacc_dataEntryList','vacc_dataUpdaterList'].forEach(function(id){
-              var dl=document.getElementById(id);
-              if(dl){dl.innerHTML='';(r.data||[]).sort().forEach(function(v){var o=document.createElement('option');o.value=v;dl.appendChild(o);});}
-            });
-          }
-        }
-      })(),
-      (async function() {
-        if (typeof focallApi === 'function') {
-          var r = await focallApi('fogetDataEntryOptions');
-          if (r.success) {
-            ['dataEntryList','dataUpdaterList'].forEach(function(id){
-              var dl=document.getElementById(id);
-              if(dl){dl.innerHTML='';(r.data||[]).sort().forEach(function(v){var o=document.createElement('option');o.value=v;dl.appendChild(o);});}
-            });
-          }
-        }
-      })()
-    ]);
-
-    // خطوة 3 — الأمراض والأدوية
-    setStep('جاري تحميل قوائم الأمراض والأدوية...', 55);
-    await Promise.allSettled([
-      (async function() {
-        if (typeof trcallApi === 'function') {
-          var r1 = await trcallApi('trgetDiseases');
-          if (r1.success) {
-            var dl=document.getElementById('tr_diseaseList');
-            if(dl){dl.innerHTML='';(r1.data||[]).sort().forEach(function(v){var o=document.createElement('option');o.value=v;dl.appendChild(o);});}
-          }
-          var r2 = await trcallApi('trgetDrugs');
-          if (r2.success) {
-            var dl2=document.getElementById('tr_drugList');
-            if(dl2){dl2.innerHTML='';(r2.data||[]).sort().forEach(function(v){var o=document.createElement('option');o.value=v;dl2.appendChild(o);});}
-          }
-        }
-      })()
-    ]);
-
-    // خطوة 4 — السجل اليومي للعلاج
+   // خطوة 1 — كل القوائم الثابتة بطلب واحد
+    setStep('جاري تحميل القوائم الثابتة...', 40);
+    if (window.StaticLists) {
+      try { await StaticLists.refresh(); } catch (e) {}
+    }
+    // خطوة 2 — السجل اليومي للعلاج
     setStep('جاري تحميل السجل اليومي...', 70);
     await Promise.allSettled([
       (async function() {
@@ -1948,48 +1844,19 @@ async function wilayatApply() {
         if (typeof trloadIncompleteCount === 'function') await trloadIncompleteCount();
       })()
     ]);
-
-    // خطوة 5 — المناطق
-    setStep('جاري تحميل قوائم المناطق...', 82);
-    await Promise.allSettled([
-      (async function() {
-        if (typeof bd_callApi === 'function') {
-          var r = await bd_callApi('bd_getRegionOptions');
-          if (r.success) {
-            var dl=document.getElementById('bd_regionList');
-            if(dl){dl.innerHTML='';(r.data||[]).sort().forEach(function(v){var o=document.createElement('option');o.value=v;dl.appendChild(o);});}
-          }
+// خطوة 3 — إحصاءات العينات (بيانات متغيرة — تُجلب دائماً)
+    setStep('جاري تحميل إحصاءات العينات...', 92);
+    try {
+      if (typeof focallApi === 'function') {
+        var r3 = await focallApi('fogetUniquePhoneCount');
+        if (r3.success || r3.count !== undefined) {
+          var uc = document.getElementById('uniqueCountDisplay');
+          var ls = document.getElementById('lastSampleDisplay');
+          if (uc) uc.textContent = r3.count || 0;
+          if (ls) ls.textContent = r3.lastSample || '—';
         }
-      })()
-    ]);
-
-    // خطوة 6 — العينات والفحوصات
-    setStep('جاري تحميل قوائم العينات...', 92);
-    await Promise.allSettled([
-      (async function() {
-        if (typeof focallApi === 'function') {
-          var r1 = await focallApi('fogetTestOptions');
-          if (r1.success) {
-            var dl=document.getElementById('testList');
-            if(dl){dl.innerHTML='';(r1.data||[]).sort().forEach(function(v){var o=document.createElement('option');o.value=v;dl.appendChild(o);});}
-          }
-          var r2 = await focallApi('fogetSampleTypeOptions');
-          if (r2.success) {
-            var dl2=document.getElementById('sampleTypeList');
-            if(dl2){dl2.innerHTML='';(r2.data||[]).sort().forEach(function(v){var o=document.createElement('option');o.value=v;dl2.appendChild(o);});}
-          }
-          var r3 = await focallApi('fogetUniquePhoneCount');
-          if (r3.success || r3.count !== undefined) {
-            var uc=document.getElementById('uniqueCountDisplay');
-            var ls=document.getElementById('lastSampleDisplay');
-            if(uc) uc.textContent = r3.count || 0;
-            if(ls) ls.textContent = r3.lastSample || '—';
-          }
-        }
-      })()
-    ]);
-
-    // اكتمل
+      }
+    } catch (e) {}
     setStep('✅ تم تحميل جميع البيانات بنجاح!', 100);
     await new Promise(function(r){ setTimeout(r, 700); });
 
