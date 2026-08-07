@@ -5420,9 +5420,10 @@ async function bd_updateData() {
     btn.disabled=true;
     bd_showMessage("جاري التحديث...", false, "info");
     try{
- var res=await bd_callApi("bd_updateData",{data:data});
-if(res.success){bd_setLastEdited();bd_showMessage("تم التحديث بنجاح",false);bd_clearForm();bd_refreshDropdowns();setTimeout(function(){ if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists(); }, 800);}
-else bd_showMessage(res.message,true);
+var res=await bd_callApi("bd_updateData",{data:data});
+if(res.success){bd_setLastEdited();
+if(window.BreederCache&&window.BreederCache.applyLocalWrite) window.BreederCache.applyLocalWrite("bd_updateData",{data:data});
+bd_showMessage("تم التحديث بنجاح",false);bd_clearForm();bd_refreshDropdowns();setTimeout(function(){ if(typeof globalRefreshPhoneLists==='function') globalRefreshPhoneLists(); }, 800);}
     }catch(err){bd_showMessage("خطأ: "+err.message,true);}
     finally{btn.disabled=false;}
   });
@@ -12549,8 +12550,11 @@ function showDesignerInfoModal() {
       if (p) p.classList.remove("open");
     },
 
-    getState:      function () { return { enabled: state.enabled, loaded: state.loaded, totalRows: state.totalRows }; },
-    searchByPhone: cacheGetByPhone,
+getState:      function () { return { enabled: state.enabled, loaded: state.loaded, totalRows: state.totalRows }; },
+    applyLocalWrite: function (action, payload) {
+      if (!state.loaded) return;
+      try { cacheApplyLocalWrite(action, payload); } catch (e) { console.warn("[Cache]", e.message); }
+    },    searchByPhone: cacheGetByPhone,
   };
 
   /* ═══════════════════════════════════════════════════════════════
