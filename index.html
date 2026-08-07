@@ -1426,7 +1426,10 @@ async function bootLoadAll() {
     }
   ];
 
-var failed = [];
+ov.set(5, 'جاري تجهيز القوائم الثابتة...');
+  if (window.StaticLists) { try { await StaticLists.load(); } catch (e) {} }
+
+  var failed = [];
   for (var i = 0; i < steps.length; i++) {
     var st = steps[i];
     ov.set(Math.max(0, st.pct - 12), st.msg);
@@ -1668,10 +1671,54 @@ lockNav();
       ✅ تطبيق الولاية
     </button>
 
-    <div id="wilayatStatus" style="margin-top:10px;font-size:13px;font-weight:bold;
+<div id="wilayatStatus" style="margin-top:10px;font-size:13px;font-weight:bold;
          text-align:center;display:none;"></div>
   </div>
+
+  <div style="background:#f8ffff;border:3px solid #00b8d9;border-radius:8px;padding:15px;max-width:420px;margin-top:14px;">
+    <div style="font-size:15px;font-weight:bold;color:#004e66;margin-bottom:6px;">
+      ⚡ تسريع الإقلاع — القوائم المحفوظة
+    </div>
+    <div style="font-size:12px;color:#666;line-height:1.9;margin-bottom:12px;">
+      تُحفظ القوائم الثابتة في المتصفح ويُتحقق من تحديثها تلقائياً عند كل إقلاع.
+      السجل اليومي والتقارير تُجلب دائماً من الخادم.
+    </div>
+    <div id="slInfo" style="font-size:12px;color:#004e66;background:#eef9fb;
+         border-radius:6px;padding:8px 10px;margin-bottom:10px;">—</div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="slRefresh()" style="flex:1;padding:8px;background:#2bb673;color:#fff;
+        border:none;border-radius:5px;font-weight:bold;font-family:inherit;cursor:pointer;">
+        🔄 تحديث القوائم الآن</button>
+      <button onclick="slClear()" style="flex:1;padding:8px;background:#e65050;color:#fff;
+        border:none;border-radius:5px;font-weight:bold;font-family:inherit;cursor:pointer;">
+        🗑️ مسح المحفوظ</button>
+    </div>
+  </div>
 </div>
+
+<script>
+function slShowInfo() {
+  var el = document.getElementById('slInfo');
+  if (!el || !window.StaticLists) return;
+  var i = StaticLists.info();
+  el.textContent = i
+    ? '✅ محفوظة — ' + i.itemCount + ' عنصر | آخر تحديث: ' +
+      new Date(i.savedAt).toLocaleString('ar-SA')
+    : '⚠️ لا توجد قوائم محفوظة بعد';
+}
+function slRefresh() {
+  showToast('⏳ جاري تحديث القوائم...', 'info');
+  StaticLists.refresh()
+    .then(function () { showToast('✅ تم تحديث القوائم', 'success'); slShowInfo(); })
+    .catch(function (e) { showToast('❌ ' + e.message, 'error'); });
+}
+function slClear() {
+  StaticLists.clear();
+  showToast('🗑️ تم مسح القوائم المحفوظة', 'success');
+  slShowInfo();
+}
+setInterval(slShowInfo, 3000);
+</script>
 
 <script>
 // تحميل الولاية المحفوظة عند فتح الصفحة
@@ -13393,6 +13440,139 @@ window.addEventListener('beforeunload', function() {
   localStorage.removeItem('selected_wilayat_url');
   localStorage.removeItem('selected_wilayat_name');
 });
+</script>
+  <script>
+(function (global) {
+  "use strict";
+
+  var PREFIX = 'static_lists_v1_';
+
+  var MAP = {
+    phones:      ['bd_phoneList','tr_phoneList','vacc_phoneList','phoneList'],
+    diseases:    ['tr_diseaseList'],
+    drugs:       ['tr_drugList'],
+    regions:     ['bd_regionList'],
+    dataEntry:   ['tr_dataEntryList','tr_dataUpdaterList','bd_dataEntryList',
+                  'bd_dataUpdaterList','vacc_dataEntryList','vacc_dataUpdaterList',
+                  'dataEntryList','dataUpdaterList'],
+    tests:       ['testList'],
+    sampleTypes: ['sampleTypeList']
+  };
+
+  var state = { ready: false, lists: null, version: null };
+
+  function key() { return PREFIX + (global._activeApiUrl || 'default'); }
+
+  function api(action) {
+    var url = global._activeApiUrl;
+    if (!url) return Promise.reject(new Error('رابط الخدمة غير معرّف'));
+    return fetch(url, {
+      method: 'POST', mode: 'cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: action }), redirect: 'follow'
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+  }
+
+  function read()  { try { var s = localStorage.getItem(key()); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+  function write(o){ try { localStorage.setItem(key(), JSON.stringify(o)); } catch (e) {} }
+
+  function fill(lists) {
+    if (!lists) return;
+    Object.keys(MAP).forEach(function (k) {
+      var items = lists[k] || [];
+      var html  = '';
+      for (var i = 0; i < items.length; i++)
+        html += '<option value="' + String(items[i]).replace(/"/g, '&quot;') + '">';
+      MAP[k].forEach(function (id) {
+        var dl = document.getElementById(id);
+        if (dl) dl.innerHTML = html;
+      });
+    });
+  }
+
+  function fetchAll() {
+    return api('getAllLists').then(function (r) {
+      if (!r || !r.success) throw new Error('فشل جلب القوائم');
+      state = { ready: true, lists: r.lists, version: r.version };
+      write({ version: r.version, lists: r.lists, savedAt: new Date().toISOString() });
+      fill(r.lists);
+      return { fromCache: false };
+    });
+  }
+
+  function load() {
+    var cached = read();
+    return api('getListsStamp').then(function (res) {
+      var ver = res && res.version;
+      if (cached && ver && cached.version === ver && cached.lists) {
+        state = { ready: true, lists: cached.lists, version: ver };
+        fill(cached.lists);
+        console.log('[Lists] ⚡ من الذاكرة المحلية');
+        return { fromCache: true };
+      }
+      return fetchAll();
+    }).catch(function (err) {
+      if (cached && cached.lists) {
+        state = { ready: true, lists: cached.lists, version: cached.version };
+        fill(cached.lists);
+        console.warn('[Lists] تعذّر التحقق، استُخدمت النسخة المحفوظة:', err.message);
+      } else {
+        state.ready = false;   // ← الرجوع للسلوك القديم
+        console.warn('[Lists]', err.message);
+      }
+    });
+  }
+
+  /* تخطّي دوال تحميل القوائم القديمة عندما تكون الذاكرة جاهزة */
+  function patchSkip(name) {
+    var orig = global[name];
+    if (typeof orig !== 'function' || orig._slPatch) return;
+    global[name] = function () {
+      if (state.ready) { fill(state.lists); return Promise.resolve(true); }
+      return orig.apply(this, arguments);
+    };
+    global[name]._slPatch = true;
+  }
+
+  function patchAll() {
+    ['trloadDropdowns','bd_refreshDropdowns','vaccLoadDropdowns','foloadDropdowns']
+      .forEach(patchSkip);
+
+    /* بعد أي تعديل على المربين — تحديث فوري بدل التخطّي */
+    if (typeof global.globalRefreshPhoneLists === 'function' &&
+        !global.globalRefreshPhoneLists._slPatch) {
+      var orig = global.globalRefreshPhoneLists;
+      global.globalRefreshPhoneLists = function () {
+        if (state.ready) return fetchAll().catch(function () {});
+        return orig.apply(this, arguments);
+      };
+      global.globalRefreshPhoneLists._slPatch = true;
+    }
+  }
+
+  global.StaticLists = {
+    load:    load,
+    refresh: fetchAll,
+    clear:   function () {
+      try { localStorage.removeItem(key()); } catch (e) {}
+      state = { ready: false, lists: null, version: null };
+    },
+    info: function () {
+      var c = read();
+      if (!c) return null;
+      var n = 0;
+      Object.keys(c.lists || {}).forEach(function (k) { n += (c.lists[k] || []).length; });
+      return { savedAt: c.savedAt, version: c.version, itemCount: n };
+    }
+  };
+
+  if (document.readyState === 'complete') setTimeout(patchAll, 300);
+  else global.addEventListener('load', function () { setTimeout(patchAll, 300); });
+
+})(window);
 </script>
 </body>
 </html>
