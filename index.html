@@ -5248,6 +5248,236 @@ async function trSelectIncompleteCase(caseNumber) {
   }
 
 })();
+
+/* ============================================================
+   TreatmentCache — كاش السجل اليومي (فتح فوري + تعديل جزئي)
+   ============================================================ */
+(function (global) {
+  "use strict";
+
+  var DAY_KEY = "tr_daily_cache_v1";
+  var CASE_KEY = "tr_cases_cache_v1";
+  var PREFETCH_DELAY = 400;
+
+  var TC = { date:"", url:"", headers:[], rows:[], cases:{}, skipNextLoad:false, prefetching:false };
+  var _origCallApi = null;
+
+  function today() { return new Date().toLocaleDateString("en-CA"); }
+  function ss(v)   { return (v === null || v === undefined) ? "" : String(v).trim(); }
+  function strip(v){ return ss(v).replace(/^'/, ""); }
+  function curUrl(){ return ss(global._activeApiUrl); }
+
+  /* ── التخزين ── */
+  function save() {
+    try {
+      localStorage.setItem(DAY_KEY,  JSON.stringify({ date:TC.date, url:TC.url, headers:TC.headers, rows:TC.rows }));
+      localStorage.setItem(CASE_KEY, JSON.stringify({ date:TC.date, url:TC.url, cases:TC.cases }));
+    } catch (e) {}
+  }
+  function load() {
+    try {
+      var d = JSON.parse(localStorage.getItem(DAY_KEY) || "null");
+      if (d && d.date === today() && d.url === curUrl()) {
+        TC.date = d.date; TC.url = d.url; TC.headers = d.headers || []; TC.rows = d.rows || [];
+      } else { TC.headers = []; TC.rows = []; }
+      var c = JSON.parse(localStorage.getItem(CASE_KEY) || "null");
+      TC.cases = (c && c.date === today() && c.url === curUrl()) ? (c.cases || {}) : {};
+    } catch (e) { TC.rows = []; TC.cases = {}; }
+  }
+  function clearAll() {
+    TC.headers = []; TC.rows = []; TC.cases = {}; TC.date = ""; TC.url = "";
+    try { localStorage.removeItem(DAY_KEY); localStorage.removeItem(CASE_KEY); } catch (e) {}
+  }
+
+  /* ── فهرسة الأعمدة من صف الرأس ── */
+  function colIdx(keys, fallback) {
+    for (var i = 0; i < TC.headers.length; i++) {
+      var h = ss(TC.headers[i]);
+      for (var k = 0; k < keys.length; k++) if (h.indexOf(keys[k]) !== -1) return i;
+    }
+    return fallback;
+  }
+  function statusIdx() {
+    for (var i = TC.headers.length - 1; i >= 1; i--)
+      if (ss(TC.headers[i]).indexOf("حالة") !== -1) return i;
+    return 6;
+  }
+  function rowIndexOf(cn) {
+    cn = ss(cn);
+    for (var i = 0; i < TC.rows.length; i++) if (ss(TC.rows[i][0]) === cn) return i;
+    return -1;
+  }
+
+  /* ── الرسم من الكاش (نفس شكل trloadData) ── */
+  function render() {
+    var tbl = document.getElementById("tr_dataTable");
+    if (!tbl) return;
+    if (!TC.rows.length) { tbl.innerHTML = "<tr><td colspan='7'>لا توجد بيانات لليوم</td></tr>"; return; }
+    var si = statusIdx();
+    var html = "<thead><tr>";
+    TC.headers.forEach(function (c) { html += "<th>" + (c || "") + "</th>"; });
+    html += "</tr></thead><tbody>";
+    TC.rows.forEach(function (r) {
+      html += ((r[si] + "").indexOf("غير مكتملة") > -1)
+        ? '<tr class="data-missing">' : '<tr style="background-color:#00ff00;">';
+      r.forEach(function (c) { html += "<td>" + (c === "" ? " " : c) + "</td>"; });
+      html += "</tr>";
+    });
+    tbl.innerHTML = html + "</tbody>";
+  }
+
+  function storeTable(data) {
+    TC.date = today(); TC.url = curUrl();
+    if (!data || data.length <= 1) { TC.headers = (data && data[0]) || []; TC.rows = []; }
+    else { TC.headers = data[0] || []; TC.rows = data.slice(1); }
+    save();
+  }
+
+  /* ── تحويل بيانات النموذج إلى شكل trsearchCaseData ── */
+  function toCaseObject(d, prev) {
+    var o = JSON.parse(JSON.stringify(d || {}));
+    o.success        = true;
+    o.possession     = strip(d.possession);
+    o.amount         = strip(d.amount);
+    o.drugQuantities = (d.drugQuantities || []).map(strip);
+    if (prev && !ss(o.dataEntry)) o.dataEntry = prev.dataEntry;
+    return o;
+  }
+
+  /* ── تعديل صف واحد فقط ── */
+  function applyUpdate(d) {
+    var cn = ss(d.caseNumber);
+    if (!cn) return;
+    var i = rowIndexOf(cn);
+    if (i !== -1) {
+      var row = TC.rows[i];
+      var set = function (idx, val) { if (idx >= 0 && idx < row.length) row[idx] = val; };
+      set(colIdx(["هاتف"], 1),            ss(d.phone));
+      set(colIdx(["الاسم","المربي"], 2),  ss(d.name));
+      set(colIdx(["إيصال","ايصال"], 3),   ss(d.receipt));
+      set(colIdx(["مبلغ"], -1),           strip(d.amount));
+      var done = (d.drugs || []).some(function (v) { return ss(v) !== ""; }) ||
+                 (d.diseases || []).some(function (v) { return ss(v) !== ""; });
+      set(statusIdx(), done ? "مكتملة" : "غير مكتملة");
+    }
+    TC.cases[cn] = toCaseObject(d, TC.cases[cn]);
+    save(); render();
+  }
+
+  /* ── حذف صف واحد فقط ── */
+  function applyDelete(cn) {
+    cn = ss(cn);
+    var i = rowIndexOf(cn);
+    if (i !== -1) TC.rows.splice(i, 1);
+    delete TC.cases[cn];
+    save(); render();
+  }
+
+  /* ── تحميل مسبق لبيانات الحالات في الخلفية ── */
+  async function prefetch() {
+    if (TC.prefetching || !_origCallApi) return;
+    TC.prefetching = true;
+    try {
+      for (var i = 0; i < TC.rows.length; i++) {
+        var cn = ss(TC.rows[i][0]);
+        if (!cn || TC.cases[cn]) continue;
+        try {
+          var res = await _origCallApi("trsearchCaseData", { caseNumber: cn });
+          if (res && res.success) TC.cases[cn] = res;
+        } catch (e) {}
+        await new Promise(function (r) { setTimeout(r, PREFETCH_DELAY); });
+      }
+      save();
+    } finally { TC.prefetching = false; }
+  }
+
+  /* ── اعتراض trcallApi ── */
+  function patchApi() {
+    if (!global.trcallApi || global.trcallApi._tcPatch) return;
+    _origCallApi = global.trcallApi;
+    global.trcallApi = async function (action, payload) {
+      var res = await _origCallApi.apply(this, arguments);
+      try {
+        if (res && res.success) {
+          if (action === "trgetAAAData") { storeTable(res.data); setTimeout(prefetch, 1200); }
+          else if (action === "trsearchCaseData") { TC.cases[ss((payload||{}).caseNumber)] = res; save(); }
+          else if (action === "trupdateData" || action === "trupdateTempData") {
+            TC.skipNextLoad = true; applyUpdate((payload||{}).data || {});
+          }
+          else if (action === "trdeleteData") {
+            TC.skipNextLoad = true; applyDelete((payload||{}).caseNumber);
+          }
+        }
+      } catch (e) { console.warn("[TrCache]", e.message); }
+      return res;
+    };
+    global.trcallApi._tcPatch = true;
+  }
+
+  /* ── منع إعادة الجلب الكامل بعد التعديل/الحذف ── */
+  function patchLoadData() {
+    if (!global.trloadData || global.trloadData._tcPatch) return;
+    var _orig = global.trloadData;
+    global.trloadData = function () {
+      if (TC.skipNextLoad) { TC.skipNextLoad = false; render(); return Promise.resolve(); }
+      return _orig.apply(this, arguments);
+    };
+    global.trloadData._tcPatch = true;
+  }
+
+  /* ── فتح فوري عند تهيئة الصفحة ── */
+  function patchInit() {
+    if (!global.trinit || global.trinit._tcPatch) return;
+    var _orig = global.trinit;
+    global.trinit = function () {
+      load();
+      if (TC.rows.length) render();
+      return _orig.apply(this, arguments);
+    };
+    global.trinit._tcPatch = true;
+  }
+
+  /* ── النقر على صف: من الكاش مباشرة ── */
+  function patchClick() {
+    var tbl = document.getElementById("tr_dataTable");
+    if (!tbl || tbl._tcClick) return;
+    tbl._tcClick = true;
+    tbl.addEventListener("click", function (e) {
+      var tr = e.target.closest("tr");
+      if (!tr || !tr.cells || !tr.cells.length) return;
+      var cn = ss(tr.cells[0].textContent);
+      if (!cn || !TC.cases[cn]) return;   /* غير موجود → السلوك الأصلي */
+      e.stopImmediatePropagation();
+      if (typeof global.trclearFormExcept === "function") global.trclearFormExcept(null);
+      global.trfillFormWithData(TC.cases[cn]);
+      if (typeof global.trshowMessage === "function") global.trshowMessage("⚡ تم التحميل فوراً", false);
+    }, true);
+  }
+
+  /* ── مسح الكاش عند الخروج ── */
+  function patchLockNav() {
+    if (!global.lockNav || global.lockNav._tcPatch) return;
+    var _orig = global.lockNav;
+    global.lockNav = function () { _orig.apply(this, arguments); clearAll(); };
+    global.lockNav._tcPatch = true;
+  }
+
+  global.TreatmentCache = {
+    clear: clearAll,
+    render: render,
+    getState: function () { return { rows: TC.rows.length, cases: Object.keys(TC.cases).length, date: TC.date }; }
+  };
+
+  var _n = 0;
+  function tryPatch() {
+    patchApi(); patchLoadData(); patchInit(); patchClick(); patchLockNav();
+    if (++_n < 20 && !(global.trcallApi && global.trcallApi._tcPatch && global.trinit && global.trinit._tcPatch))
+      setTimeout(tryPatch, 500);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", tryPatch);
+  else tryPatch();
+
+})(window);
 </script>
 </div>
 
