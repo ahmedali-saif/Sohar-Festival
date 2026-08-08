@@ -13671,5 +13671,305 @@ window.addEventListener('beforeunload', function() {
 
 })(window);
 </script>
+  <!-- ============================================================
+     NetGuard v2.0 — حارس الاتصال بقاعدة البيانات
+     قياس سلبي للطلبات الفعلية — بلا أي طلب إضافي على الشبكة
+     ============================================================ -->
+<script>
+(function (global) {
+  "use strict";
+
+  /* ── الإعدادات ──────────────────────────────────────────── */
+  var CFG = {
+    writeTimeoutMs:  30000,  // مهلة عمليات الحفظ/التحديث/الحذف
+    readTimeoutMs:   90000,  // مهلة القراءة (التقارير الثقيلة)
+    slowThresholdMs:  5000,  // أبطأ من هذا = طلب بطيء
+    failLockMs:      15000,  // مدة حجب الكتابة بعد فشل مؤكد
+    slowStreakWarn:      2   // عدد الطلبات البطيئة المتتالية قبل التحذير
+  };
+
+  /* ── الإجراءات التي تُعدّل قاعدة البيانات ───────────────── */
+  var WRITE_ACTIONS = [
+    'trsaveData','trupdateData','trdeleteData','trsaveTempData','trupdateTempData',
+    'saveData','updateData','deleteData',
+    'bd_saveData','bd_updateData','bd_deleteData','bd_updatePossessionInTreatment',
+    'bd_saveVaccinationData','bd_updateVaccinationData','bd_deleteVaccinationData',
+    'fosaveData','foupdateData','fodeleteData',
+    'saveDateRange','saveUserPermissions'
+  ];
+
+  /* ── إجراءات خلفية: تُقاس ولا تُنبّه ولا تُحجب ──────────── */
+  var SILENT_ACTIONS = ['syncNotify','syncGetEvents'];
+
+  var _origFetch  = global.fetch.bind(global);
+  var _slowStreak = 0;
+  var _lastFailAt = 0;
+  var _lastReason = '';
+
+  function now() { return Date.now(); }
+
+  function toast(msg, type) {
+    if (typeof global.showToast === 'function') global.showToast(msg, type || 'error');
+  }
+
+  function apiUrl() {
+    return global._activeApiUrl || global.TR_API_URL || global.VACC_API_URL || '';
+  }
+
+  /* ── fetch بمهلة زمنية ──────────────────────────────────── */
+  function fetchTimed(input, init, ms) {
+    var o = Object.assign({}, init || {});
+    var ctrl = null;
+    if (typeof AbortController !== 'undefined' && !o.signal) {
+      ctrl = new AbortController();
+      o.signal = ctrl.signal;
+    }
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, ms);
+    return _origFetch(input, o).then(
+      function (r) { clearTimeout(timer); return r; },
+      function (e) { clearTimeout(timer); throw e; }
+    );
+  }
+
+  /* ── شارة البطء ─────────────────────────────────────────── */
+  function slowBadge(show, ms) {
+    var el = document.getElementById('netguard-slow');
+    if (!show) { if (el) el.remove(); return; }
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'netguard-slow';
+      el.style.cssText =
+        'position:fixed;top:8px;left:8px;background:#e67e22;color:#fff;' +
+        'padding:4px 13px;border-radius:20px;font-size:11.5px;font-weight:bold;' +
+        'z-index:99996;font-family:Tahoma,Arial,sans-serif;direction:rtl;' +
+        'box-shadow:0 2px 8px rgba(0,0,0,.25);';
+      document.body.appendChild(el);
+    }
+    el.textContent = '🐢 شبكة بطيئة (' + (Math.round(ms / 100) / 10) + ' ث)';
+  }
+
+  /* ── تسجيل زمن كل طلب ناجح ──────────────────────────────── */
+  function markSuccess(ms, silent) {
+    _lastFailAt = 0;
+    if (silent) return;
+    if (ms > CFG.slowThresholdMs) {
+      _slowStreak++;
+      slowBadge(true, ms);
+      if (_slowStreak === CFG.slowStreakWarn) {
+        toast('🐢 الاتصال بطيء — قد تتأخر العمليات أو تتعذّر', 'warning');
+      }
+    } else {
+      _slowStreak = 0;
+      slowBadge(false);
+    }
+  }
+
+  function markFailure(reason) {
+    _lastFailAt = now();
+    _lastReason = reason;
+  }
+
+  /* ── شريط الانقطاع ──────────────────────────────────────── */
+  function banner(show) {
+    var el = document.getElementById('netguard-banner');
+    if (!show) { if (el) el.remove(); return; }
+    if (el) return;
+    el = document.createElement('div');
+    el.id = 'netguard-banner';
+    el.style.cssText =
+      'position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;' +
+      'text-align:center;padding:7px;font-size:13px;font-weight:bold;z-index:99997;' +
+      'font-family:Tahoma,Arial,sans-serif;direction:rtl;';
+    el.textContent = '⚠️ لا يوجد اتصال بالإنترنت — عمليات الحفظ والتعديل متوقفة';
+    document.body.appendChild(el);
+  }
+
+  global.addEventListener('offline', function () {
+    banner(true);
+    markFailure('offline');
+    toast('⚠️ انقطع الاتصال بالإنترنت', 'error');
+  });
+  global.addEventListener('online', function () {
+    banner(false);
+    _lastFailAt = 0;
+    _slowStreak = 0;
+    slowBadge(false);
+    toast('✅ عاد الاتصال بالإنترنت', 'success');
+  });
+  if (!navigator.onLine) banner(true);
+
+  /* ── نافذة المنع / الفشل ────────────────────────────────── */
+  /* mode: 'blocked' = لم يُرسل الطلب | 'failed' = أُرسل وفشل */
+  function showModal(reason, mode) {
+    if (document.getElementById('netguard-modal')) return;
+
+    var detail, safety, color;
+
+    if (reason === 'offline') {
+      detail = 'لا يوجد اتصال بالإنترنت على هذا الجهاز.';
+    } else if (reason === 'locked') {
+      detail = 'تعذّر الوصول إلى قاعدة البيانات في المحاولة الأخيرة.';
+    } else if (reason === 'timeout') {
+      detail = 'انتهت مهلة الاتصال بالخادم دون استجابة.';
+    } else if (reason === 'no-url') {
+      detail = 'لم يتم تحديد رابط الخدمة — أعد تسجيل الدخول.';
+    } else if (reason.indexOf('http-') === 0) {
+      detail = 'الخادم أعاد الحالة ' + reason.replace('http-', '') + '.';
+    } else {
+      detail = 'انقطع الاتصال بالخادم أثناء تنفيذ العملية.';
+    }
+
+    if (mode === 'blocked' || reason === 'offline' || reason === 'network') {
+      safety = '<strong>لم يتم حفظ أو تعديل أي بيانات.</strong> تحقق من الإنترنت ثم أعد المحاولة.';
+      color  = '#e65050';
+    } else {
+        safety = 'النظام يمنع التكرار تلقائياً — <strong>يمكنك إعادة المحاولة بأمان</strong>، ' +
+               'ولن تُحفظ العملية مرتين.';
+      color  = '#e67e22';
+    }
+
+    var ov = document.createElement('div');
+    ov.id = 'netguard-modal';
+    ov.style.cssText =
+      'position:fixed;inset:0;background:rgba(0,0,0,.72);display:flex;' +
+      'align-items:center;justify-content:center;z-index:100000;direction:rtl;' +
+      'font-family:Tahoma,Arial,sans-serif;';
+    ov.innerHTML =
+      '<div style="background:#fff;border:3px solid ' + color + ';border-radius:14px;' +
+      'padding:26px 30px;max-width:440px;width:91%;text-align:center;' +
+      'box-shadow:0 12px 40px rgba(0,0,0,.3);">' +
+        '<div style="font-size:46px;margin-bottom:10px;">📡</div>' +
+        '<div style="font-size:17px;font-weight:bold;color:' + color + ';margin-bottom:12px;">' +
+          (mode === 'blocked' ? 'تم إيقاف العملية' : 'فشل تنفيذ العملية') + '</div>' +
+        '<div style="background:#fdf3ef;border:1px solid #f0c9b8;border-radius:8px;' +
+        'padding:12px 15px;font-size:13.5px;color:#5a2d0c;line-height:1.95;margin-bottom:18px;' +
+        'text-align:right;">' + detail + '<br>' + safety + '</div>' +
+        '<button id="ng-close" style="background:' + color + ';color:#fff;border:none;' +
+        'border-radius:8px;padding:10px 34px;font-size:13.5px;font-weight:bold;' +
+        'cursor:pointer;font-family:inherit;">حسناً</button>' +
+      '</div>';
+    document.body.appendChild(ov);
+    document.getElementById('ng-close').onclick = function () { ov.remove(); };
+  }
+/* ── بصمة الطلب ومنع التكرار ────────────────────────────── */
+  var _inflight = {};
+
+  function ngHash(str) {
+    var h1 = 5381, h2 = 52711, i = str.length;
+    while (i--) {
+      var c = str.charCodeAt(i);
+      h1 = (h1 * 33) ^ c;
+      h2 = (h2 * 33) ^ (c + i);
+    }
+    return (((h1 >>> 0) * 4096) + (h2 >>> 0)).toString(36) + '_' + str.length.toString(36);
+  }
+
+  function ngWatchDedup(resp) {
+    try {
+      resp.clone().json().then(function (d) {
+        if (d && d._dedup) {
+          toast('🛡️ العملية كانت محفوظة مسبقاً — لم يتم تكرارها', 'warning');
+        }
+      }).catch(function () {});
+    } catch (e) {}
+  }
+  /* ── الاعتراض المركزي ───────────────────────────────────── */
+global.fetch = function (input, init) {
+    var url = (typeof input === 'string') ? input : ((input && input.url) || '');
+    var bodyStr = '', action = '';
+    try {
+      if (init && typeof init.body === 'string' && init.body.charAt(0) === '{') {
+        bodyStr = init.body;
+        action  = (JSON.parse(bodyStr).action || '').toString();
+      }
+    } catch (e) {}
+
+    var silent  = SILENT_ACTIONS.indexOf(action) !== -1 || url.indexOf('ntfy.sh') !== -1;
+    var isWrite = action !== '' && WRITE_ACTIONS.indexOf(action) !== -1;
+    var opId    = '';
+
+    if (isWrite) {
+      /* ١. بوابات الحجب الفورية */
+      if (!navigator.onLine) {
+        showModal('offline', 'blocked');
+        return Promise.reject(new Error('لا يوجد اتصال بالإنترنت — لم يتم تنفيذ العملية'));
+      }
+      if (!apiUrl()) {
+        showModal('no-url', 'blocked');
+        return Promise.reject(new Error('رابط الخدمة غير معرّف — لم يتم تنفيذ العملية'));
+      }
+      if (_lastFailAt && (now() - _lastFailAt) < CFG.failLockMs && _lastReason !== 'timeout') {
+        showModal('locked', 'blocked');
+        return Promise.reject(new Error('الاتصال بقاعدة البيانات منقطع — لم يتم تنفيذ العملية'));
+      }
+
+      /* ٢. بصمة المحتوى + منع الطلب المتزامن المكرر */
+      opId = ngHash(bodyStr);
+      if (_inflight[opId]) {
+        toast('⏳ نفس العملية قيد التنفيذ — انتظر النتيجة', 'warning');
+        return Promise.reject(new Error('العملية قيد التنفيذ بالفعل'));
+      }
+
+      /* ٣. حقن opId في جسم الطلب */
+      try {
+        var o = JSON.parse(bodyStr);
+        o.opId = opId;
+        init = Object.assign({}, init, { body: JSON.stringify(o) });
+        _inflight[opId] = true;
+      } catch (e) { opId = ''; }
+    }
+
+    function release() { if (opId) delete _inflight[opId]; }
+
+    var t0 = now();
+    var limit = isWrite ? CFG.writeTimeoutMs : CFG.readTimeoutMs;
+
+    return fetchTimed(input, init, limit).then(function (r) {
+      release();
+      var ms = now() - t0;
+      if (!r.ok) {
+        markFailure('http-' + r.status);
+        if (isWrite) showModal('http-' + r.status, 'failed');
+        else if (!silent) toast('❌ الخادم أعاد خطأ ' + r.status, 'error');
+        return r;
+      }
+      markSuccess(ms, silent);
+      if (isWrite) ngWatchDedup(r);
+      return r;
+    }).catch(function (e) {
+      release();
+      var aborted = (e && e.name === 'AbortError');
+      var reason  = aborted ? 'timeout' : (navigator.onLine ? 'network' : 'offline');
+      markFailure(reason);
+
+      if (isWrite) showModal(reason, 'failed');
+      else if (!silent) {
+        toast(aborted ? '⏱️ انتهت مهلة الاتصال بالخادم'
+                      : '❌ انقطع الاتصال بالخادم', 'error');
+      }
+
+      throw new Error(aborted ? 'انتهت مهلة الاتصال بالخادم'
+                              : 'تعذّر الاتصال بقاعدة البيانات');
+    });
+  };
+  /* ── واجهة عامة ─────────────────────────────────────────── */
+  global.NetGuard = {
+    config: CFG,
+    getState: function () {
+      return {
+        online:     navigator.onLine,
+        slowStreak: _slowStreak,
+        lastFailAt: _lastFailAt,
+        lastReason: _lastReason
+      };
+    },
+    reset: function () {
+      _lastFailAt = 0; _slowStreak = 0; slowBadge(false);
+    }
+  };
+
+  console.log('[NetGuard v2] ✅ حارس الاتصال نشط — قياس سلبي بلا طلبات إضافية');
+})(window);
+</script>
 </body>
 </html>
