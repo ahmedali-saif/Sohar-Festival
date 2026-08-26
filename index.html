@@ -1003,20 +1003,26 @@ window.showToast = function(message, type) {
 <!-- القائمة -->
 <nav>
   <button onclick="showPage('breeder')">سجل المربي</button>
-  <button onclick="showPage('treatment')">سجل العلاج</button>
-  <button onclick="showPage('vaccination')">سجل التحصين</button>
   <button onclick="showPage('vaccinationRequests')">طلبات التحصين</button>
+  <button onclick="showPage('vaccination')">سجل التحصين</button>
+  <button onclick="showPage('settings')">طباعة شهادة التحصين</button>
+  <button onclick="showPage('animalDistribution')">توزيع الحيوانات المحصنة</button>
+  <button onclick="showPage('comprehensiveReport')">التقرير الشامل</button>
+    <button onclick="showPage('doctorPerformance')">📊 أداء الأطباء</button>
+  <button onclick="showPage('home')">الإعدادات</button>
+    <button onclick="showPage('login')" title="تسجيل الدخول" aria-label="تسجيل الدخول" style="padding:5px 9px;line-height:0;vertical-align:middle;">
+    <svg width="22" height="22" viewBox="0 0 100 100" style="display:block;">
+      <rect x="4" y="4" width="92" height="92" rx="22" fill="#ef3b3b" stroke="#b52b2b" stroke-width="5"/>
+      <path d="M50 22 L50 52" stroke="#fff" stroke-width="11" stroke-linecap="round" fill="none"/>
+      <path d="M31 36 A26 26 0 1 0 69 36" stroke="#fff" stroke-width="11" stroke-linecap="round" fill="none"/>
+    </svg>
+  </button>
+  <button onclick="showPage('treatment')">سجل العلاج</button>
   <button onclick="showPage('samples')">نموذج العينات</button>
   <button onclick="showPage('dashboard')">طباعة نماذج العينات</button>
-  <button onclick="showPage('settings')">طباعة شهادة التحصين</button>
   <button onclick="showPage('reports')">الأدوية المصروفة</button>
   <button onclick="showPage('financialInventory')">المتحصلات اليومية</button>
   <button onclick="showPage('diseaseTracking')">تتبع المرض</button>
-  <button onclick="showPage('animalDistribution')">توزيع الحيوانات</button>
-  <button onclick="showPage('comprehensiveReport')">التقرير الشامل</button>
-  <button onclick="showPage('doctorPerformance')">📊 أداء الأطباء</button>
-   <button onclick="showPage('home')">الإعدادات</button>
-  <button onclick="showPage('login')">تسجيل الدخول</button>
 </nav>
 
 <!-- دالة التنقل المركزية -->
