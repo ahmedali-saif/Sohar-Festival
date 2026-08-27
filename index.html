@@ -6936,7 +6936,18 @@ if (cb && cb.checked) {
   } catch(err){ div.innerHTML='<p style="color:red;">خطأ: '+err.message+'</p>'; }
   finally{ btn.textContent=orig; btn.disabled=false; }
 }
+/* المصدر الوحيد لعدد الحيوانات المحصنة — تستخدمه الصفحة ولوحة الحملة معاً */
+async function vaccGetTotalVaccinated(dateFrom, dateTo, phone) {
+  var res = await vaccCallApi("getMaxAnimalsPerBreeder", {
+    filters: { phone: phone || '', dateFrom: dateFrom || '', dateTo: dateTo || '' }
+  });
+  if (!res || !res.success) return { total: 0, breeders: 0, totals: [], rows: [] };
+  var t = res.totals || [];
+  var total = t.length ? Number(t[t.length - 1]) || 0 : 0;
+  return { total: total, breeders: res.recordCount || 0, totals: t, rows: res.rows || [] };
+}
 
+function vacc_toggleTotalRow(show) {
 function vacc_toggleTotalRow(show) {
   var tbody = document.querySelector('#vacc_maxAnimalsResults tbody');
   if (tbody) tbody.style.display = show ? 'none' : '';
@@ -10673,31 +10684,16 @@ async function camp_dashLoad(){
       /* المنجز = عدد الحيوانات المحصنة من سجل التحصين */
     var done = 0;
     try{
-      var mx = await vaccCallApi('getMaxAnimalsPerBreeder', {
-        filters:{ phone:'', dateFrom:c.dateFrom, dateTo:c.dateTo }
-      });
-      if (mx && mx.success) {
-        /* نفس معادلة «إجمالي عدد الحيوانات المحصنة»:
-           MAX لكل نوع حيوان لكل مربي ← ثم مجموع الأنواع الخمسة.
-           الخادم يُرجع الإجمالي العام في آخر عنصر من totals. */
-        if (mx.totals && mx.totals.length >= 6) {
-          done = cd_n(mx.totals[mx.totals.length - 1]);
-        } else if (mx.rows && mx.rows.length) {
-          /* احتياط: اجمع عمود «الإجمالي» (آخر عمود) من صفوف المربين */
-          mx.rows.forEach(function (r) { done += cd_n(r[r.length - 1]); });
-        }
-        console.log('[CampDash] المنجز =', done, '| عدد المربين =', mx.recordCount || 0);
+      var mx = await vaccGetTotalVaccinated(c.dateFrom, c.dateTo, '');
+      done = mx.total;
+      console.log('[CampDash] المنجز =', done, '| عدد المربين =', mx.breeders);
       }
     }catch(e){ console.warn('[CampDash] getMaxAnimalsPerBreeder:', e.message||e); }
 
      console.log('[CampDash] المنجز (سجل التحصين):', done);
     /* ٢. الأداء التراكمي — المستهدف = المعدل اليومي × اليوم التشغيلي */
     var cumTarget = rate * curDay;
-    var cumPct = cumTarget? Math.round(done/cumTarget*100) : 0;
-    cd_set('cd_cumTarget', cd_num(cumTarget));
-    cd_set('cd_cumDone',   cd_num(done));
-    cd_set('cd_cumPct',    cumTarget? cumPct+'%' : '—');
-    var cb=document.getElementById('cd_cumBar'); if(cb) cb.style.width=Math.min(100,cumPct)+'%';
+       var gap = done - cumTarget;
 
       /* ١. الأداء الكلي — المنجز = عدد الحيوانات المحصنة */
     var totPct = target? Math.round(done/target*100) : 0;
