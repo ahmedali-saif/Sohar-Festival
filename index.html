@@ -1701,6 +1701,11 @@ lockNav();
     <label style="font-size:13px;font-weight:bold;color:#004e66;display:block;margin-bottom:5px;">عدد أيام الحملة :</label>
     <input type="number" id="camp_days" min="0" placeholder="أدخل عدد الأيام يدوياً"
       style="width:100%;padding:7px 9px;border:2px solid #ddd;border-radius:5px;
+             font-size:14px;font-family:inherit;margin-bottom:10px;color:#333;">
+
+    <label style="font-size:13px;font-weight:bold;color:#004e66;display:block;margin-bottom:5px;">عدد الحيوانات المستهدفة :</label>
+    <input type="number" id="camp_target" min="0" placeholder="أدخل العدد المستهدف يدوياً"
+      style="width:100%;padding:7px 9px;border:2px solid #ddd;border-radius:5px;
              font-size:14px;font-family:inherit;margin-bottom:12px;color:#333;">
 
     <div style="display:flex;gap:8px;">
@@ -1748,11 +1753,14 @@ lockNav();
       if (res && res.success) {
         document.getElementById('camp_dateFrom').value = res.dateFrom || '';
         document.getElementById('camp_dateTo').value   = res.dateTo   || '';
-        document.getElementById('camp_days').value     = res.days     || '';
-        window._vaccCampaign = { dateFrom: res.dateFrom, dateTo: res.dateTo, days: res.days };
+         document.getElementById('camp_days').value     = res.days     || '';
+        document.getElementById('camp_target').value   = res.target   || '';
+        window._vaccCampaign = { dateFrom: res.dateFrom, dateTo: res.dateTo,
+                                 days: res.days, target: res.target };
         if (res.dateFrom || res.dateTo) {
           camp_setStatus('✅ الحملة الحالية: ' + (res.dateFrom || '—') + ' → ' + (res.dateTo || '—')
-            + (res.days ? ' (' + res.days + ' يوم)' : ''), '#2bb673');
+            + (res.days ? ' (' + res.days + ' يوم)' : '')
+            + (res.target ? ' | المستهدف: ' + res.target : ''), '#2bb673');
         } else {
           camp_setStatus(silent ? '' : 'ℹ️ لا توجد بيانات محفوظة بعد', '#888');
         }
@@ -1769,7 +1777,8 @@ lockNav();
   async function camp_save() {
     var from = document.getElementById('camp_dateFrom').value;
     var to   = document.getElementById('camp_dateTo').value;
-    var days = document.getElementById('camp_days').value;
+    var days   = document.getElementById('camp_days').value;
+    var target = document.getElementById('camp_target').value;
 
     if (!from || !to) { showToast('⚠️ أدخل تاريخ البداية وتاريخ النهاية', 'warning'); return; }
     if (from > to)    { showToast('⚠️ تاريخ البداية يجب أن يكون قبل تاريخ النهاية', 'warning'); return; }
@@ -1780,12 +1789,14 @@ lockNav();
     showToast('⏳ جاري حفظ بيانات الحملة...', 'info');
     try {
       var res = await camp_api('saveVaccCampaign', {
-        dateFrom: from, dateTo: to, days: days,
+        dateFrom: from, dateTo: to, days: days, target: target,
         dataEntry: window._currentUser || ''
       });
       if (res && res.success) {
-        window._vaccCampaign = { dateFrom: from, dateTo: to, days: days };
-        camp_setStatus('✅ الحملة الحالية: ' + from + ' → ' + to + (days ? ' (' + days + ' يوم)' : ''), '#2bb673');
+        window._vaccCampaign = { dateFrom: from, dateTo: to, days: days, target: target };
+        camp_setStatus('✅ الحملة الحالية: ' + from + ' → ' + to
+          + (days ? ' (' + days + ' يوم)' : '')
+          + (target ? ' | المستهدف: ' + target : ''), '#2bb673');
         showToast('✅ تم حفظ المدى الزمني لحملة التحصين', 'success');
       } else {
         camp_setStatus('❌ ' + ((res && res.message) || 'فشل الحفظ'), '#e65050');
