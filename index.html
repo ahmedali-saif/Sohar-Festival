@@ -10625,22 +10625,43 @@ function cd_badge(id,text,bg,color){ var el=document.getElementById(id); if(!el)
 
 async function camp_dashLoad(){
   try{
-    var c = window._vaccCampaign;
-    if((!c || !c.dateFrom || !c.dateTo) && typeof camp_api === 'function'){
-      var res = await camp_api('getVaccCampaign');
-      if(res && res.success){
-        c = { dateFrom:res.dateFrom, dateTo:res.dateTo, days:res.days, target:res.target };
-        window._vaccCampaign = c;
-      }
+    var cd_inp = function(id){ var el=document.getElementById(id); return el? String(el.value||'').trim() : ''; };
+
+    /* ١) من الخادم */
+    var c = null;
+    if(typeof camp_api === 'function'){
+      try{
+        var res = await camp_api('getVaccCampaign');
+        if(res && res.success && res.dateFrom && res.dateTo)
+          c = { dateFrom:res.dateFrom, dateTo:res.dateTo, days:res.days, target:res.target };
+      }catch(e){ console.warn('[CampDash] getVaccCampaign:', e.message||e); }
     }
-    if(!c || !c.dateFrom || !c.dateTo){
+    /* ٢) من الذاكرة */
+    if(!c){
+      var m = window._vaccCampaign;
+      if(m && m.dateFrom && m.dateTo) c = m;
+    }
+    /* ٣) من حقول صفحة الإعدادات */
+    if(!c && cd_inp('camp_dateFrom') && cd_inp('camp_dateTo')){
+      c = { dateFrom:cd_inp('camp_dateFrom'), dateTo:cd_inp('camp_dateTo'),
+            days:cd_inp('camp_days'), target:cd_inp('camp_target') };
+    }
+    if(c) window._vaccCampaign = c;
+
+    var start = c ? cd_date(c.dateFrom) : null;
+    var end   = c ? cd_date(c.dateTo)   : null;
+
+    if(!start || !end){
+      console.warn('[CampDash] تعذّر تحليل تواريخ الحملة:', c);
       cd_set('cd_range','لم تُحدَّد بعد — راجع صفحة الإعدادات');
       cd_badge('cd_activeBadge','غير محددة','#f0f0f0','#777');
       return;
     }
 
-    var start=cd_date(c.dateFrom), end=cd_date(c.dateTo);
+    start.setHours(0,0,0,0);
+    end.setHours(0,0,0,0);
     var today=new Date(); today.setHours(0,0,0,0);
+    console.log('[CampDash] البداية:', cd_fmt(start), '| اليوم:', cd_fmt(today), '| بدأت؟', today.getTime()>=start.getTime());
 
     var totalDays=cd_n(c.days);
     if(!totalDays && start && end) totalDays=Math.floor((end-start)/86400000)+1;
