@@ -10490,191 +10490,13 @@ async function dp_loadAll() {
 </div>
 <div id="comprehensiveReport" class="page">
 <div id="rpt_loadingOverlay" style="display:none;text-align:center;padding:40px;font-size:16px;font-weight:bold;color:#00b8d9;">⏳ جاري تحميل التقرير...</div>
-
-<!-- ===== لوحة متابعة المشروع الوطني للتحصين ===== -->
-<div id="campDash" style="font-family:Tahoma,Arial,sans-serif;direction:rtl;margin-bottom:16px;">
-
-  <div style="background:#fff;border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 10px rgba(0,0,0,.07);">
-    <span style="width:9px;height:46px;background:#3f5c2a;border-radius:6px;flex-shrink:0;"></span>
-    <div style="flex:1;text-align:center;">
-      <div style="font-size:17px;font-weight:bold;color:#2c3e50;">لوحة متابعة المشروع الوطني للتحصين <span id="cd_years">—</span></div>
-      <div style="font-size:12px;color:#95a0ac;margin-top:4px;">محافظة شمال الباطنة – الإدارة التنفيذية للثروة الحيوانية</div>
-    </div>
-    <button onclick="camp_dashLoad()" title="تحديث" style="background:#3f5c2a;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-family:inherit;font-size:12px;font-weight:bold;cursor:pointer;flex-shrink:0;">🔄 تحديث</button>
-  </div>
-
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;">
-
-    <!-- العمود الأيمن: المؤشرات الزمنية -->
-    <div style="display:flex;flex-direction:column;gap:10px;">
-      <div style="background:#fff;border-radius:10px;padding:10px 14px;box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;align-items:center;justify-content:space-between;gap:10px;">
-        <div><div style="font-size:11px;color:#95a0ac;">المدى الزمني للحملة</div>
-          <div style="font-size:14px;font-weight:bold;color:#2c3e50;margin-top:3px;" id="cd_range">—</div></div>
-        <span id="cd_days" style="font-size:11px;color:#5a6b7a;white-space:nowrap;">—</span>
-      </div>
-
-      <div style="background:#fffdf5;border-radius:10px;padding:10px 14px;box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;align-items:center;justify-content:space-between;gap:10px;">
-        <div><div style="font-size:11px;color:#c08a2e;">اليوم التشغيلي الحالي</div>
-          <div style="font-size:15px;font-weight:bold;color:#2c3e50;margin-top:3px;" id="cd_curDay">—</div></div>
-        <span id="cd_activeBadge" style="font-size:11px;font-weight:bold;background:#f0f0f0;color:#777;border-radius:14px;padding:3px 12px;white-space:nowrap;">—</span>
-      </div>
-
-      <div style="background:#fff;border-radius:10px;padding:10px 14px;box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;align-items:center;justify-content:space-between;gap:10px;">
-        <div><div style="font-size:11px;color:#95a0ac;">الزمن المتبقي</div>
-          <div style="font-size:15px;font-weight:bold;color:#2c3e50;margin-top:3px;" id="cd_remDays">—</div></div>
-        <span id="cd_remPct" style="font-size:11px;font-weight:bold;background:#eef3f8;color:#41586e;border-radius:14px;padding:3px 12px;white-space:nowrap;">—</span>
-      </div>
-
-      <div style="background:#fff;border-radius:10px;padding:10px 14px;box-shadow:0 2px 8px rgba(0,0,0,.06);border-right:4px solid #4a6fa5;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-        <div><div style="font-size:11px;color:#4a6fa5;">المعدل المطلوب يومياً</div>
-          <div style="font-size:15px;font-weight:bold;color:#2c3e50;margin-top:3px;" id="cd_rate">—</div></div>
-        <span style="font-size:11px;font-weight:bold;background:#e8eefa;color:#2f4d80;border-radius:14px;padding:3px 12px;white-space:nowrap;">مستهدف</span>
-      </div>
-    </div>
-
-    <!-- العمود الأيسر: بطاقات الأداء -->
-    <div style="display:flex;flex-direction:column;gap:12px;">
-      <div style="background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 2px 8px rgba(0,0,0,.06);">
-        <div style="font-size:14px;font-weight:bold;color:#3f5c2a;text-align:left;margin-bottom:10px;">1. الأداء الكلي</div>
-        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px;"><span style="color:#95a0ac;">المستهدف:</span><span style="font-weight:bold;color:#2c3e50;" id="cd_totTarget">—</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:8px;"><span style="color:#95a0ac;">المنجز:</span><span style="font-weight:bold;color:#2c3e50;" id="cd_totDone">—</span></div>
-        <div style="border-top:1px solid #eee;padding-top:7px;display:flex;justify-content:space-between;font-size:13px;"><span style="font-weight:bold;color:#2c3e50;">النسبة:</span><span style="font-weight:bold;color:#3f5c2a;" id="cd_totPct">—</span></div>
-        <div style="background:#eef1ee;border-radius:20px;height:7px;overflow:hidden;margin-top:7px;"><div id="cd_totBar" style="height:100%;width:0%;background:#3f5c2a;border-radius:20px;transition:width .5s;"></div></div>
-      </div>
-
-      <div style="background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 2px 8px rgba(0,0,0,.06);">
-        <div style="font-size:14px;font-weight:bold;color:#c9821f;text-align:left;margin-bottom:10px;">2. الأداء التراكمي</div>
-        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px;"><span style="color:#95a0ac;">المستهدف:</span><span style="font-weight:bold;color:#2c3e50;" id="cd_cumTarget">—</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:8px;"><span style="color:#95a0ac;">المنجز:</span><span style="font-weight:bold;color:#c9821f;" id="cd_cumDone">—</span></div>
-        <div style="border-top:1px solid #eee;padding-top:7px;display:flex;justify-content:space-between;font-size:13px;"><span style="font-weight:bold;color:#2c3e50;">النسبة:</span><span style="font-weight:bold;color:#c9821f;" id="cd_cumPct">—</span></div>
-        <div style="background:#f5f0e6;border-radius:20px;height:7px;overflow:hidden;margin-top:7px;"><div id="cd_cumBar" style="height:100%;width:0%;background:#c9a227;border-radius:20px;transition:width .5s;"></div></div>
-      </div>
-    </div>
-  </div>
-
-  <div style="background:#fff;border-radius:10px;padding:10px 16px;margin-top:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
-    <div style="font-size:12.5px;color:#95a0ac;">الفارق: <span id="cd_gap" style="font-weight:bold;background:#eef3f8;color:#41586e;border-radius:14px;padding:3px 12px;">—</span></div>
-    <div style="font-size:12.5px;color:#95a0ac;">المتبقي: <span id="cd_left" style="font-weight:bold;color:#2c3e50;">—</span></div>
-    <div style="font-size:12.5px;color:#95a0ac;">الحالة: <span id="cd_status" style="font-weight:bold;background:#f0f0f0;color:#777;border-radius:14px;padding:3px 12px;">—</span></div>
-  </div>
-</div>
-
-<script>
-"use strict";
-function cd_set(id, v){ var el=document.getElementById(id); if(el) el.textContent = v; }
-function cd_n(v){ var n=parseFloat(String(v==null?'':v).replace(/,/g,'')); return isNaN(n)?0:n; }
-function cd_num(n){ return Math.round(n).toLocaleString('en-US'); }
-function cd_date(s){
-  if(!s) return null;
-  var t=String(s).trim(), m=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if(m) return new Date(+m[1], +m[2]-1, +m[3]);
-  m=t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if(m) return new Date(+m[3], +m[2]-1, +m[1]);
-  var d=new Date(t);
-  return isNaN(d.getTime())?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());
-}
-function cd_fmt(d){ return d ? String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear() : '—'; }
-function cd_badge(id, text, bg, color){
-  var el=document.getElementById(id); if(!el) return;
-  el.textContent=text; el.style.background=bg; el.style.color=color;
-}
-
-async function camp_dashLoad(){
-  try{
-    var c = window._vaccCampaign;
-    if(!c || !c.dateFrom || !c.dateTo){
-      if(typeof camp_api === 'function'){
-        var res = await camp_api('getVaccCampaign');
-        if(res && res.success){
-          c = { dateFrom:res.dateFrom, dateTo:res.dateTo, days:res.days, target:res.target };
-          window._vaccCampaign = c;
-        }
-      }
-    }
-    if(!c || !c.dateFrom || !c.dateTo){
-      cd_set('cd_range','لم تُحدَّد بعد — راجع صفحة الإعدادات');
-      cd_badge('cd_activeBadge','غير محددة','#f0f0f0','#777');
-      return;
-    }
-
-    var start = cd_date(c.dateFrom), end = cd_date(c.dateTo);
-    var today = new Date(); today.setHours(0,0,0,0);
-
-    var totalDays = cd_n(c.days);
-    if(!totalDays && start && end) totalDays = Math.floor((end-start)/86400000)+1;
-    var target = cd_n(c.target);
-
-    cd_set('cd_years', start && end ? (start.getFullYear()===end.getFullYear()? start.getFullYear() : start.getFullYear()+'–'+end.getFullYear()) : '');
-    cd_set('cd_range', cd_fmt(start)+' — '+cd_fmt(end));
-    cd_set('cd_days', totalDays ? totalDays+' يوماً' : '—');
-
-    /* اليوم التشغيلي — لا يُنشَّط إلا عند بلوغ تاريخ البداية */
-    var curDay = 0, started = (start && today.getTime() >= start.getTime());
-    if(started) curDay = Math.min(Math.floor((today-start)/86400000)+1, totalDays||1);
-
-    if(!started){
-      cd_set('cd_curDay','لم تبدأ بعد');
-      cd_badge('cd_activeBadge','غير نشط','#f0f0f0','#777');
-    } else {
-      cd_set('cd_curDay','اليوم '+curDay+' من '+totalDays);
-      cd_badge('cd_activeBadge', curDay>=totalDays?'منتهية':'نشط', curDay>=totalDays?'#eef3f8':'#e8f6ec', curDay>=totalDays?'#41586e':'#1b7a44');
-    }
-
-    var remDays = Math.max(0, totalDays - curDay);
-    cd_set('cd_remDays', remDays+' يوماً متبقياً');
-    cd_badge('cd_remPct', (totalDays? Math.round(remDays/totalDays*100):0)+'% متبقي','#eef3f8','#41586e');
-
-    var rate = totalDays ? Math.round(target/totalDays) : 0;
-    cd_set('cd_rate', cd_num(rate)+' رأس / يوم');
-
-    /* المنجز — عدد الرؤوس المحصنة خلال مدى الحملة */
-    var done = 0;
-    try{
-      var map = await ani_callApi('getVaccinationByRegion', { dateFrom:c.dateFrom, dateTo:c.dateTo });
-      Object.keys(map||{}).forEach(function(k){
-        var r = map[k]||{};
-        done += cd_n(r.goats)+cd_n(r.sheep)+cd_n(r.cattle)+cd_n(r.camels);
-      });
-    }catch(e){ console.warn('[CampDash]', e.message||e); }
-
-    /* الأداء الكلي */
-    var totPct = target? Math.round(done/target*100) : 0;
-    cd_set('cd_totTarget', cd_num(target));
-    cd_set('cd_totDone',   cd_num(done));
-    cd_set('cd_totPct',    totPct+'%');
-    var tb=document.getElementById('cd_totBar'); if(tb) tb.style.width = Math.min(100,totPct)+'%';
-
-    /* الأداء التراكمي */
-    var cumTarget = rate * curDay;
-    var cumPct = cumTarget? Math.round(done/cumTarget*100) : 0;
-    cd_set('cd_cumTarget', cd_num(cumTarget));
-    cd_set('cd_cumDone',   cd_num(done));
-    cd_set('cd_cumPct',    cumTarget? cumPct+'%' : '—');
-    var cb=document.getElementById('cd_cumBar'); if(cb) cb.style.width = Math.min(100,cumPct)+'%';
-
-    /* الشريط السفلي */
-    var gap = done - cumTarget;
-    cd_badge('cd_gap', (gap>=0?'+':'') + cd_num(gap) + ' رأس',
-             gap>=0?'#e8f6ec':'#fdecea', gap>=0?'#1b7a44':'#a02020');
-    cd_set('cd_left', cd_num(Math.max(0, target-done))+' رأس');
-
-    if(!started)        cd_badge('cd_status','لم تبدأ','#f0f0f0','#777');
-    else if(gap > 0)    cd_badge('cd_status','متقدم','#e8f6ec','#1b7a44');
-    else if(gap < 0)    cd_badge('cd_status','متأخر','#fdecea','#a02020');
-    else                cd_badge('cd_status','مطابق','#eef3f8','#41586e');
-
-  }catch(err){
-    console.warn('[CampDash]', err.message||err);
-  }
-}
-</script>
-
 <div class="tabs">
   <button class="tab-btn active" onclick="rpt_showTab('diseases')">🐄 أمراض الحيوانات</button>
   <button class="tab-btn" onclick="rpt_showTab('poultry')">🐔 أمراض الدواجن</button>
   <button class="tab-btn" onclick="rpt_showTab('vaccination')">💉 التحصين</button>
   <button class="tab-btn" onclick="rpt_showTab('beneficiaries')">👥 عداد المستفيدين</button>
-  <button class="tab-btn" onclick="rpt_showTab('medicines')">💊 الأدوية المصروفة</button>
+   <button class="tab-btn" onclick="rpt_showTab('medicines')">💊 الأدوية المصروفة</button>
+  <button class="tab-btn" onclick="rpt_showTab('campaign');camp_dashLoad()">📊 متابعة حملة التحصين</button>
   <button class="tab-btn" id="rpt_refreshBtn" style="background:#e8f5e9;color:#2e7d32;border-color:#2e7d32" onclick="rpt_refreshData()">🔄 تحديث</button>
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#fff;padding:8px 12px;border:2px solid #00b8d9;border-radius:6px">
     <span style="font-weight:bold;color:#00b8d9">📅 الفترة:</span>
@@ -10718,6 +10540,170 @@ async function camp_dashLoad(){
     <div class="sw"><table><thead><tr><th>م</th><th>اسم الدواء</th><th>الوحدة</th><th>المستخدم</th></tr></thead><tbody id="rpt_tb4"></tbody></table></div>
   </div>
 </div>
+
+<div id="tab-campaign" class="tab-pane">
+  <div class="card">
+    <h3 style="background:#3f5c2a">لوحة متابعة المشروع الوطني للتحصين <span id="cd_years"></span></h3>
+    <div style="text-align:center;font-size:12px;color:#95a0ac;margin-bottom:10px;">محافظة شمال الباطنة – الإدارة التنفيذية للثروة الحيوانية</div>
+
+    <div class="fb" style="justify-content:center">
+      <button class="bp" style="background:#3f5c2a" onclick="camp_dashLoad()">🔄 تحديث</button>
+      <button class="bp" onclick="rpt_printTab('tab-campaign')">🖨️ طباعة</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;">
+
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#fff;border-radius:10px;padding:10px 14px;box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div><div style="font-size:11px;color:#95a0ac;">المدى الزمني للحملة</div>
+            <div style="font-size:14px;font-weight:bold;color:#2c3e50;margin-top:3px;" id="cd_range">—</div></div>
+          <span id="cd_days" style="font-size:11px;color:#5a6b7a;white-space:nowrap;">—</span>
+        </div>
+
+        <div style="background:#fffdf5;border-radius:10px;padding:10px 14px;box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div><div style="font-size:11px;color:#c08a2e;">اليوم التشغيلي الحالي</div>
+            <div style="font-size:15px;font-weight:bold;color:#2c3e50;margin-top:3px;" id="cd_curDay">—</div></div>
+          <span id="cd_activeBadge" style="font-size:11px;font-weight:bold;background:#f0f0f0;color:#777;border-radius:14px;padding:3px 12px;white-space:nowrap;">—</span>
+        </div>
+
+        <div style="background:#fff;border-radius:10px;padding:10px 14px;box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div><div style="font-size:11px;color:#95a0ac;">الزمن المتبقي</div>
+            <div style="font-size:15px;font-weight:bold;color:#2c3e50;margin-top:3px;" id="cd_remDays">—</div></div>
+          <span id="cd_remPct" style="font-size:11px;font-weight:bold;background:#eef3f8;color:#41586e;border-radius:14px;padding:3px 12px;white-space:nowrap;">—</span>
+        </div>
+
+        <div style="background:#fff;border-radius:10px;padding:10px 14px;box-shadow:0 2px 8px rgba(0,0,0,.06);border-right:4px solid #4a6fa5;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div><div style="font-size:11px;color:#4a6fa5;">المعدل المطلوب يومياً</div>
+            <div style="font-size:15px;font-weight:bold;color:#2c3e50;margin-top:3px;" id="cd_rate">—</div></div>
+          <span style="font-size:11px;font-weight:bold;background:#e8eefa;color:#2f4d80;border-radius:14px;padding:3px 12px;white-space:nowrap;">مستهدف</span>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 2px 8px rgba(0,0,0,.06);">
+          <div style="font-size:14px;font-weight:bold;color:#3f5c2a;text-align:left;margin-bottom:10px;">1. الأداء الكلي</div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px;"><span style="color:#95a0ac;">المستهدف:</span><span style="font-weight:bold;color:#2c3e50;" id="cd_totTarget">—</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:8px;"><span style="color:#95a0ac;">المنجز:</span><span style="font-weight:bold;color:#2c3e50;" id="cd_totDone">—</span></div>
+          <div style="border-top:1px solid #eee;padding-top:7px;display:flex;justify-content:space-between;font-size:13px;"><span style="font-weight:bold;color:#2c3e50;">النسبة:</span><span style="font-weight:bold;color:#3f5c2a;" id="cd_totPct">—</span></div>
+          <div style="background:#eef1ee;border-radius:20px;height:7px;overflow:hidden;margin-top:7px;"><div id="cd_totBar" style="height:100%;width:0%;background:#3f5c2a;border-radius:20px;transition:width .5s;"></div></div>
+        </div>
+
+        <div style="background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 2px 8px rgba(0,0,0,.06);">
+          <div style="font-size:14px;font-weight:bold;color:#c9821f;text-align:left;margin-bottom:10px;">2. الأداء التراكمي</div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px;"><span style="color:#95a0ac;">المستهدف:</span><span style="font-weight:bold;color:#2c3e50;" id="cd_cumTarget">—</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:8px;"><span style="color:#95a0ac;">المنجز:</span><span style="font-weight:bold;color:#c9821f;" id="cd_cumDone">—</span></div>
+          <div style="border-top:1px solid #eee;padding-top:7px;display:flex;justify-content:space-between;font-size:13px;"><span style="font-weight:bold;color:#2c3e50;">النسبة:</span><span style="font-weight:bold;color:#c9821f;" id="cd_cumPct">—</span></div>
+          <div style="background:#f5f0e6;border-radius:20px;height:7px;overflow:hidden;margin-top:7px;"><div id="cd_cumBar" style="height:100%;width:0%;background:#c9a227;border-radius:20px;transition:width .5s;"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border-radius:10px;padding:10px 16px;margin-top:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
+      <div style="font-size:12.5px;color:#95a0ac;">الفارق: <span id="cd_gap" style="font-weight:bold;background:#eef3f8;color:#41586e;border-radius:14px;padding:3px 12px;">—</span></div>
+      <div style="font-size:12.5px;color:#95a0ac;">المتبقي: <span id="cd_left" style="font-weight:bold;color:#2c3e50;">—</span></div>
+      <div style="font-size:12.5px;color:#95a0ac;">الحالة: <span id="cd_status" style="font-weight:bold;background:#f0f0f0;color:#777;border-radius:14px;padding:3px 12px;">—</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+function cd_set(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; }
+function cd_n(v){ var n=parseFloat(String(v==null?'':v).replace(/,/g,'')); return isNaN(n)?0:n; }
+function cd_num(n){ return Math.round(n).toLocaleString('en-US'); }
+function cd_date(s){
+  if(!s) return null;
+  var t=String(s).trim(), m=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  m=t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m) return new Date(+m[3],+m[2]-1,+m[1]);
+  var d=new Date(t);
+  return isNaN(d.getTime())?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());
+}
+function cd_fmt(d){ return d?String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear():'—'; }
+function cd_badge(id,text,bg,color){ var el=document.getElementById(id); if(!el)return; el.textContent=text; el.style.background=bg; el.style.color=color; }
+
+async function camp_dashLoad(){
+  try{
+    var c = window._vaccCampaign;
+    if((!c || !c.dateFrom || !c.dateTo) && typeof camp_api === 'function'){
+      var res = await camp_api('getVaccCampaign');
+      if(res && res.success){
+        c = { dateFrom:res.dateFrom, dateTo:res.dateTo, days:res.days, target:res.target };
+        window._vaccCampaign = c;
+      }
+    }
+    if(!c || !c.dateFrom || !c.dateTo){
+      cd_set('cd_range','لم تُحدَّد بعد — راجع صفحة الإعدادات');
+      cd_badge('cd_activeBadge','غير محددة','#f0f0f0','#777');
+      return;
+    }
+
+    var start=cd_date(c.dateFrom), end=cd_date(c.dateTo);
+    var today=new Date(); today.setHours(0,0,0,0);
+
+    var totalDays=cd_n(c.days);
+    if(!totalDays && start && end) totalDays=Math.floor((end-start)/86400000)+1;
+    var target=cd_n(c.target);
+
+    cd_set('cd_years', start&&end ? (start.getFullYear()===end.getFullYear()?start.getFullYear():start.getFullYear()+'–'+end.getFullYear()) : '');
+    cd_set('cd_range', cd_fmt(start)+' — '+cd_fmt(end));
+    cd_set('cd_days', totalDays? totalDays+' يوماً' : '—');
+
+    /* لا يُنشَّط العداد إلا عند بلوغ تاريخ بداية الحملة */
+    var started = (start && today.getTime() >= start.getTime());
+    var curDay = started ? Math.min(Math.floor((today-start)/86400000)+1, totalDays||1) : 0;
+
+    if(!started){
+      cd_set('cd_curDay','لم تبدأ بعد');
+      cd_badge('cd_activeBadge','غير نشط','#f0f0f0','#777');
+    } else {
+      cd_set('cd_curDay','اليوم '+curDay+' من '+totalDays);
+      var fin = curDay>=totalDays;
+      cd_badge('cd_activeBadge', fin?'منتهية':'نشط', fin?'#eef3f8':'#e8f6ec', fin?'#41586e':'#1b7a44');
+    }
+
+    var remDays=Math.max(0,totalDays-curDay);
+    cd_set('cd_remDays', remDays+' يوماً متبقياً');
+    cd_badge('cd_remPct',(totalDays?Math.round(remDays/totalDays*100):0)+'% متبقي','#eef3f8','#41586e');
+
+    var rate = totalDays? Math.round(target/totalDays) : 0;
+    cd_set('cd_rate', cd_num(rate)+' رأس / يوم');
+
+    var done=0;
+    try{
+      var map = await ani_callApi('getVaccinationByRegion',{ dateFrom:c.dateFrom, dateTo:c.dateTo });
+      Object.keys(map||{}).forEach(function(k){
+        var r=map[k]||{};
+        done += cd_n(r.goats)+cd_n(r.sheep)+cd_n(r.cattle)+cd_n(r.camels);
+      });
+    }catch(e){ console.warn('[CampDash]', e.message||e); }
+
+    var totPct = target? Math.round(done/target*100) : 0;
+    cd_set('cd_totTarget', cd_num(target));
+    cd_set('cd_totDone',   cd_num(done));
+    cd_set('cd_totPct',    totPct+'%');
+    var tb=document.getElementById('cd_totBar'); if(tb) tb.style.width=Math.min(100,totPct)+'%';
+
+    var cumTarget = rate*curDay;
+    var cumPct = cumTarget? Math.round(done/cumTarget*100) : 0;
+    cd_set('cd_cumTarget', cd_num(cumTarget));
+    cd_set('cd_cumDone',   cd_num(done));
+    cd_set('cd_cumPct',    cumTarget? cumPct+'%' : '—');
+    var cb=document.getElementById('cd_cumBar'); if(cb) cb.style.width=Math.min(100,cumPct)+'%';
+
+    var gap = done - cumTarget;
+    cd_badge('cd_gap',(gap>=0?'+':'')+cd_num(gap)+' رأس', gap>=0?'#e8f6ec':'#fdecea', gap>=0?'#1b7a44':'#a02020');
+    cd_set('cd_left', cd_num(Math.max(0,target-done))+' رأس');
+
+    if(!started)      cd_badge('cd_status','لم تبدأ','#f0f0f0','#777');
+    else if(gap>0)    cd_badge('cd_status','متقدم','#e8f6ec','#1b7a44');
+    else if(gap<0)    cd_badge('cd_status','متأخر','#fdecea','#a02020');
+    else              cd_badge('cd_status','مطابق','#eef3f8','#41586e');
+
+  }catch(err){ console.warn('[CampDash]', err.message||err); }
+}
+</script>
 
 <script>
 /* ============================================================
@@ -10843,7 +10829,6 @@ async function rpt_loadReport() {
   try {
     rpt_D = await rpt_callApi("getReportData");
     rpt_buildAll();
-    camp_dashLoad();
   } catch (err) {
     document.getElementById('rpt_loadingOverlay').textContent = '❌ خطأ: ' + err.message;
     return;
