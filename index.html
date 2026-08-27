@@ -10681,16 +10681,7 @@ async function camp_dashLoad(){
       }
     }catch(e){ console.warn('[CampDash] getMaxAnimalsPerBreeder:', e.message||e); }
 
-    if(!done){
-      try{
-        var map = await ani_callApi('getVaccinationByRegion',{ dateFrom:c.dateFrom, dateTo:c.dateTo });
-        Object.keys(map||{}).forEach(function(k){
-          var r=map[k]||{};
-          done += cd_n(r.goats)+cd_n(r.sheep)+cd_n(r.cattle)+cd_n(r.camels);
-        });
-      }catch(e){ console.warn('[CampDash] getVaccinationByRegion:', e.message||e); }
-    }
-
+     console.log('[CampDash] المنجز (سجل التحصين):', done);
     /* ٢. الأداء التراكمي — المستهدف = المعدل اليومي × اليوم التشغيلي */
     var cumTarget = rate * curDay;
     var cumPct = cumTarget? Math.round(done/cumTarget*100) : 0;
@@ -10699,11 +10690,10 @@ async function camp_dashLoad(){
     cd_set('cd_cumPct',    cumTarget? cumPct+'%' : '—');
     var cb=document.getElementById('cd_cumBar'); if(cb) cb.style.width=Math.min(100,cumPct)+'%';
 
-    /* ١. الأداء الكلي — المنجز = المستهدف الكلي − المستهدف التراكمي */
-    var totDone = target - cumTarget;
-    var totPct  = target? Math.round(totDone/target*100) : 0;
+      /* ١. الأداء الكلي — المنجز = عدد الحيوانات المحصنة */
+    var totPct = target? Math.round(done/target*100) : 0;
     cd_set('cd_totTarget', cd_num(target));
-    cd_set('cd_totDone',   cd_num(totDone));
+    cd_set('cd_totDone',   cd_num(done));
     cd_set('cd_totPct',    totPct+'%');
     var tb=document.getElementById('cd_totBar'); if(tb) tb.style.width=Math.max(0,Math.min(100,totPct))+'%';
 
