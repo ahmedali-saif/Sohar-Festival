@@ -6948,7 +6948,6 @@ async function vaccGetTotalVaccinated(dateFrom, dateTo, phone) {
 }
 
 function vacc_toggleTotalRow(show) {
-function vacc_toggleTotalRow(show) {
   var tbody = document.querySelector('#vacc_maxAnimalsResults tbody');
   if (tbody) tbody.style.display = show ? 'none' : '';
 }
@@ -10687,13 +10686,17 @@ async function camp_dashLoad(){
       var mx = await vaccGetTotalVaccinated(c.dateFrom, c.dateTo, '');
       done = mx.total;
       console.log('[CampDash] المنجز =', done, '| عدد المربين =', mx.breeders);
-      }
     }catch(e){ console.warn('[CampDash] getMaxAnimalsPerBreeder:', e.message||e); }
 
      console.log('[CampDash] المنجز (سجل التحصين):', done);
     /* ٢. الأداء التراكمي — المستهدف = المعدل اليومي × اليوم التشغيلي */
     var cumTarget = rate * curDay;
-       var gap = done - cumTarget;
+    var cumPct    = cumTarget ? Math.round(done / cumTarget * 100) : 0;
+    cd_set('cd_cumTarget', cd_num(cumTarget));
+    cd_set('cd_cumDone',   cd_num(done));
+    cd_set('cd_cumPct',    cumPct + '%');
+    var cb = document.getElementById('cd_cumBar');
+    if (cb) cb.style.width = Math.max(0, Math.min(100, cumPct)) + '%';
 
       /* ١. الأداء الكلي — المنجز = عدد الحيوانات المحصنة */
     var totPct = target? Math.round(done/target*100) : 0;
