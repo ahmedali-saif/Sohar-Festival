@@ -10677,7 +10677,13 @@ async function camp_dashLoad(){
         filters:{ phone:'', dateFrom:c.dateFrom, dateTo:c.dateTo }
       });
       if(mx && mx.success && mx.totals && mx.totals.length){
-        mx.totals.forEach(function(t){ done += cd_n(t); });
+        var tt = mx.totals.map(cd_n);
+        var sum = 0;
+        tt.forEach(function(v){ sum += v; });
+        var mx1 = Math.max.apply(null, tt);
+        /* إذا احتوى الصف على عمود إجمالي عام، فهو يساوي مجموع الباقي */
+        done = (mx1 * 2 >= sum && mx1 > 0) ? mx1 : sum;
+        console.log('[CampDash] totals:', JSON.stringify(mx.totals), '→ المنجز:', done);
       }
     }catch(e){ console.warn('[CampDash] getMaxAnimalsPerBreeder:', e.message||e); }
 
