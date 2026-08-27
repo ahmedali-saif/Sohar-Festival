@@ -1426,6 +1426,7 @@ async function bootLoadAll() {
           if (dt) dt.value = '';
           if (typeof dtr_loadData === 'function') await dtr_loadData();
         }
+        if (typeof camp_load === 'function') { try { await camp_load(true); } catch (e) {} }
         bootBindOnce();
       },
       check: null
@@ -1680,6 +1681,124 @@ lockNav();
 <div id="wilayatStatus" style="margin-top:10px;font-size:13px;font-weight:bold;
          text-align:center;display:none;"></div>
   </div>
+
+  <!-- ===== بطاقة المدى الزمني لحملة التحصين ===== -->
+  <div style="background:#f8ffff;border:3px solid #00b8d9;border-radius:8px;padding:15px;max-width:420px;margin-top:14px;">
+    <div style="font-size:15px;font-weight:bold;color:#004e66;margin-bottom:12px;">
+      📅 المدى الزمني لحملة التحصين
+    </div>
+
+    <label style="font-size:13px;font-weight:bold;color:#004e66;display:block;margin-bottom:5px;">من تاريخ :</label>
+    <input type="date" id="camp_dateFrom" dir="ltr"
+      style="width:100%;padding:7px 9px;border:2px solid #ddd;border-radius:5px;
+             font-size:14px;font-family:inherit;margin-bottom:10px;color:#333;">
+
+    <label style="font-size:13px;font-weight:bold;color:#004e66;display:block;margin-bottom:5px;">إلى تاريخ :</label>
+    <input type="date" id="camp_dateTo" dir="ltr"
+      style="width:100%;padding:7px 9px;border:2px solid #ddd;border-radius:5px;
+             font-size:14px;font-family:inherit;margin-bottom:10px;color:#333;">
+
+    <label style="font-size:13px;font-weight:bold;color:#004e66;display:block;margin-bottom:5px;">عدد أيام الحملة :</label>
+    <input type="number" id="camp_days" min="0" placeholder="أدخل عدد الأيام يدوياً"
+      style="width:100%;padding:7px 9px;border:2px solid #ddd;border-radius:5px;
+             font-size:14px;font-family:inherit;margin-bottom:12px;color:#333;">
+
+    <div style="display:flex;gap:8px;">
+      <button onclick="camp_save()" id="camp_saveBtn"
+        style="flex:1;padding:9px;background:#2bb673;color:#fff;border:none;border-radius:5px;
+               font-size:14px;font-weight:bold;font-family:inherit;cursor:pointer;">💾 حفظ</button>
+      <button onclick="camp_load(false)" id="camp_loadBtn"
+        style="flex:1;padding:9px;background:#00b8d9;color:#fff;border:none;border-radius:5px;
+               font-size:14px;font-weight:bold;font-family:inherit;cursor:pointer;">🔄 جلب</button>
+    </div>
+
+    <div id="camp_status" style="margin-top:10px;font-size:12px;font-weight:bold;
+         text-align:center;display:none;"></div>
+  </div>
+
+  <script>
+  async function camp_api(action, payload) {
+    var url = window._activeApiUrl;
+    if (!url) throw new Error('رابط الخدمة غير معرّف');
+    var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
+    var r = await fetch(url, {
+      method: 'POST', mode: 'cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: body, redirect: 'follow'
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  }
+
+  function camp_setStatus(msg, color) {
+    var el = document.getElementById('camp_status');
+    if (!el) return;
+    if (!msg) { el.style.display = 'none'; el.textContent = ''; return; }
+    el.style.display = 'block';
+    el.style.color = color || '#2bb673';
+    el.textContent = msg;
+  }
+
+  async function camp_load(silent) {
+    var btn = document.getElementById('camp_loadBtn');
+    if (btn) btn.disabled = true;
+    if (!silent) camp_setStatus('⏳ جاري الجلب...', '#00b8d9');
+    try {
+      var res = await camp_api('getVaccCampaign');
+      if (res && res.success) {
+        document.getElementById('camp_dateFrom').value = res.dateFrom || '';
+        document.getElementById('camp_dateTo').value   = res.dateTo   || '';
+        document.getElementById('camp_days').value     = res.days     || '';
+        window._vaccCampaign = { dateFrom: res.dateFrom, dateTo: res.dateTo, days: res.days };
+        if (res.dateFrom || res.dateTo) {
+          camp_setStatus('✅ الحملة الحالية: ' + (res.dateFrom || '—') + ' → ' + (res.dateTo || '—')
+            + (res.days ? ' (' + res.days + ' يوم)' : ''), '#2bb673');
+        } else {
+          camp_setStatus(silent ? '' : 'ℹ️ لا توجد بيانات محفوظة بعد', '#888');
+        }
+      } else if (!silent) {
+        camp_setStatus('❌ ' + ((res && res.message) || 'تعذّر الجلب'), '#e65050');
+      }
+    } catch (err) {
+      if (!silent) camp_setStatus('❌ ' + err.message, '#e65050');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function camp_save() {
+    var from = document.getElementById('camp_dateFrom').value;
+    var to   = document.getElementById('camp_dateTo').value;
+    var days = document.getElementById('camp_days').value;
+
+    if (!from || !to) { showToast('⚠️ أدخل تاريخ البداية وتاريخ النهاية', 'warning'); return; }
+    if (from > to)    { showToast('⚠️ تاريخ البداية يجب أن يكون قبل تاريخ النهاية', 'warning'); return; }
+
+    var btn = document.getElementById('camp_saveBtn');
+    if (btn) btn.disabled = true;
+    camp_setStatus('⏳ جاري الحفظ...', '#00b8d9');
+    showToast('⏳ جاري حفظ بيانات الحملة...', 'info');
+    try {
+      var res = await camp_api('saveVaccCampaign', {
+        dateFrom: from, dateTo: to, days: days,
+        dataEntry: window._currentUser || ''
+      });
+      if (res && res.success) {
+        window._vaccCampaign = { dateFrom: from, dateTo: to, days: days };
+        camp_setStatus('✅ الحملة الحالية: ' + from + ' → ' + to + (days ? ' (' + days + ' يوم)' : ''), '#2bb673');
+        showToast('✅ تم حفظ المدى الزمني لحملة التحصين', 'success');
+      } else {
+        camp_setStatus('❌ ' + ((res && res.message) || 'فشل الحفظ'), '#e65050');
+        showToast('❌ ' + ((res && res.message) || 'فشل الحفظ'), 'error');
+      }
+    } catch (err) {
+      camp_setStatus('❌ ' + err.message, '#e65050');
+      showToast('❌ ' + err.message, 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+  </script>
 
   <div style="background:#f8ffff;border:3px solid #00b8d9;border-radius:8px;padding:15px;max-width:420px;margin-top:14px;">
     <div style="font-size:15px;font-weight:bold;color:#004e66;margin-bottom:6px;">
