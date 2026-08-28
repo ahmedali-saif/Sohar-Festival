@@ -1418,8 +1418,12 @@ async function bootLoadAll() {
           (typeof fin_loadFinancialData === 'function') ? fin_loadFinancialData() : Promise.resolve()
         ]);
 
+        try {
+          if (typeof camp_load === 'function') await camp_load(true);
+        } catch (e) {}
+
         if (typeof dtr_loadDiseaseList === 'function') {
-          await dtr_loadDiseaseList();
+          await dtr_loadDiseaseList();          await dtr_loadDiseaseList();
           var df = document.getElementById('dtr_dateFrom');
           var dt = document.getElementById('dtr_dateTo');
           if (df) df.value = '';
@@ -1707,6 +1711,17 @@ lockNav();
       style="width:100%;padding:7px 9px;border:2px solid #ddd;border-radius:5px;
              font-size:14px;font-family:inherit;margin-bottom:12px;color:#333;">
 
+    <label style="font-size:13px;font-weight:bold;color:#004e66;display:block;margin-bottom:5px;">
+      🐄 عدد الحيوانات المحصنة خلال مدى الحملة :
+    </label>
+    <input type="text" id="camp_vaccinated" readonly placeholder="—"
+      style="width:100%;padding:7px 9px;border:2px solid #2bb673;border-radius:5px;
+             font-size:14px;font-family:inherit;margin-bottom:6px;color:#1b5e20;
+             background:#eafaf1;font-weight:bold;text-align:center;cursor:default;">
+
+    <div id="camp_vaccPct" style="display:none;font-size:12px;font-weight:bold;
+         text-align:center;margin-bottom:10px;"></div>
+
     <div style="display:flex;gap:8px;">
       <button onclick="camp_save()" id="camp_saveBtn"
         style="flex:1;padding:9px;background:#2bb673;color:#fff;border:none;border-radius:5px;
@@ -1770,6 +1785,58 @@ lockNav();
       if (!silent) camp_setStatus('❌ ' + err.message, '#e65050');
     } finally {
       if (btn) btn.disabled = false;
+      camp_loadVaccinated(true);
+    }
+  }
+
+  async function camp_loadVaccinated(silent) {
+    var el  = document.getElementById('camp_vaccinated');
+    var pct = document.getElementById('camp_vaccPct');
+    if (!el) return;
+
+    /* المدى الزمني = تواريخ الحملة المحفوظة حصراً */
+    var c    = window._vaccCampaign || {};
+    var from = c.dateFrom || (document.getElementById('camp_dateFrom') || {}).value || '';
+    var to   = c.dateTo   || (document.getElementById('camp_dateTo')   || {}).value || '';
+
+    if (!from || !to) {
+      el.value = '— حدّد المدى الزمني للحملة أولاً —';
+      if (pct) pct.style.display = 'none';
+      return;
+    }
+
+    /* المصدر الوحيد: دالة سجل التحصين */
+    if (typeof vaccGetTotalVaccinated !== 'function') {
+      el.value = '⏳ سجل التحصين لم يُحمَّل بعد';
+      return;
+    }
+
+    el.value = '⏳ جاري الجلب...';
+    try {
+      var r     = await vaccGetTotalVaccinated(from, to, '');
+      var total = r.total || 0;
+      window._vaccTotalAnimals = total;
+
+      el.value = total.toLocaleString('en-US') + ' حيوان'
+               + (r.breeders ? '  —  ' + r.breeders + ' مربي' : '');
+
+      var target = Number((document.getElementById('camp_target') || {}).value) || 0;
+      if (pct) {
+        if (target > 0) {
+          var p = Math.round(total / target * 100);
+          pct.style.display = 'block';
+          pct.style.color   = p >= 100 ? '#2bb673' : (p >= 50 ? '#e67e22' : '#e65050');
+          pct.textContent   = '📊 نسبة الإنجاز: ' + p + '%  من ' + target.toLocaleString('en-US')
+                            + '   |   ' + from + ' → ' + to;
+        } else {
+          pct.style.display = 'block';
+          pct.style.color   = '#004e66';
+          pct.textContent   = '📅 المدى: ' + from + ' → ' + to;
+        }
+      }
+    } catch (err) {
+      el.value = '❌ ' + err.message;
+      if (!silent) showToast('❌ تعذّر جلب عدد الحيوانات المحصنة', 'error');
     }
   }
 
@@ -1797,7 +1864,7 @@ lockNav();
           + (days ? ' (' + days + ' يوم)' : '')
           + (target ? ' | المستهدف: ' + target : ''), '#2bb673');
         showToast('✅ تم حفظ المدى الزمني لحملة التحصين', 'success');
-      } else {
+        camp_loadVaccinated(true);      } else {
         camp_setStatus('❌ ' + ((res && res.message) || 'فشل الحفظ'), '#e65050');
         showToast('❌ ' + ((res && res.message) || 'فشل الحفظ'), 'error');
       }
