@@ -10685,6 +10685,25 @@ async function dp_loadAll() {
       </div>
 
     </div>
+
+    <div style="margin-top:14px;">
+      <div class="cmp-card">
+        <div class="cmp-t">📈 الأداء التراكمي خلال الحملة</div>
+        <div style="position:relative;height:250px;"><canvas id="rptCamp_ch1"></canvas></div>
+        <div class="cmp-sub" id="rptCamp_ch1Note" style="margin-top:6px;"></div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-top:12px;">
+      <div class="cmp-card">
+        <div class="cmp-t">💉 الجرعات حسب نوع اللقاح</div>
+        <div style="position:relative;height:230px;"><canvas id="rptCamp_ch2"></canvas></div>
+      </div>
+      <div class="cmp-card">
+        <div class="cmp-t">👥 المستفيدون (تحصين / علاج)</div>
+        <div style="position:relative;height:230px;"><canvas id="rptCamp_ch3"></canvas></div>
+      </div>
+    </div>
   </div>
 </div>
 <script>
@@ -10995,6 +11014,221 @@ async function rptCamp_load(force) {
       perf.style.background = '#e65050';
     }
   }
+
+  /* ٧) المخططات البيانية */
+  rptCamp_drawCharts(c, rate, dFrom, days, dayNow);
+}
+
+/* ============================================================
+   المخططات البيانية للوحة متابعة المشروع الوطني للتحصين
+   ============================================================ */
+window._rptCampCh = window._rptCampCh || {};
+
+function rptCamp_kill(id) {
+  try {
+    if (window._rptCampCh[id]) { window._rptCampCh[id].destroy(); delete window._rptCampCh[id]; }
+  } catch (e) {}
+}
+
+function rptCamp_ymd(d) {
+  return d.getFullYear() + '-' +
+         String(d.getMonth() + 1).padStart(2, '0') + '-' +
+         String(d.getDate()).padStart(2, '0');
+}
+
+/* ── ١) الأداء التراكمي خلال الحملة ──
+   خط ثابت: المستهدف التراكمي — يمتد من اليوم ١ حتى آخر يوم في الحملة
+   خط متغيّر: المنجز الفعلي   — يتوقف عند اليوم التشغيلي الحالي         */
+async function rptCamp_chart1(c, rate, dFrom, days, dayNow) {
+  var note = document.getElementById('rptCamp_ch1Note');
+  var ctx  = document.getElementById('rptCamp_ch1');
+  if (!ctx || typeof Chart === 'undefined') return;
+  rptCamp_kill('ch1');
+
+  var DAY = 86400000;
+  var dTo = rptCamp_d(c.dateTo);
+  if (!dFrom || !dTo) { if (note) note.textContent = 'لم يُحدَّد المدى الزمني للحملة'; return; }
+
+  if (!days || days <= 0) days = Math.floor((dTo - dFrom) / DAY) + 1;
+  if (!isFinite(dayNow) || dayNow < 0) dayNow = 0;
+
+  var target = Number(c.target) || 0;
+
+  /* أخذ عيّنة إن طالت الحملة — للحد من عدد طلبات الخادم */
+  /* عيّنة كل ٥ أيام عمل — لتقليل نداءات الخادم
+     غيّر SAMPLE_STEP إلى 7 لعيّنة أسبوعية كاملة */
+  var SAMPLE_STEP = 5;
+  var MAX_PTS     = 26;   /* سقف أمان للحملات الطويلة جداً */
+
+  var step = SAMPLE_STEP;
+  if (Math.ceil(days / step) > MAX_PTS) step = Math.ceil(days / MAX_PTS);
+
+  var idxs = [1];
+  for (var d = step; d <= days; d += step) if (idxs.indexOf(d) === -1) idxs.push(d);
+  if (idxs.indexOf(days) === -1) idxs.push(days);
+  if (dayNow > 0 && idxs.indexOf(dayNow) === -1) idxs.push(dayNow);
+  idxs.sort(function (a, b) { return a - b; });
+
+  /* الخط الثابت */
+  var labels = [], planned = [], actual = [];
+  idxs.forEach(function (i) {
+    var dt = new Date(dFrom.getTime() + (i - 1) * DAY);
+    labels.push('يوم ' + i + ' — ' + String(dt.getDate()).padStart(2, '0') + '/' +
+                String(dt.getMonth() + 1).padStart(2, '0'));
+    var p = rate * i;
+    if (target > 0 && p > target) p = target;
+    planned.push(p);
+  });
+
+  /* الخط المتغيّر */
+  var canFetch = (typeof vaccGetTotalVaccinated === 'function');
+  for (var k = 0; k < idxs.length; k++) {
+    var i2 = idxs[k];
+    if (!canFetch || dayNow === 0 || i2 > dayNow) { actual.push(null); continue; }
+    if (note) note.textContent = '⏳ جاري جلب المنجز… (' + (k + 1) + '/' + idxs.length + ')';
+    var dt2 = new Date(dFrom.getTime() + (i2 - 1) * DAY);
+    try {
+      var r = await vaccGetTotalVaccinated(c.dateFrom, rptCamp_ymd(dt2), '');
+      actual.push(r.total || 0);
+    } catch (e) { actual.push(null); }
+  }
+
+  if (note) {
+    note.textContent = 'كامل مدة الحملة: ' + days + ' يوم' +
+' — نقطة كل ' + step + ' أيام' +
+      (dayNow > 0 ? ' — المنجز حتى اليوم ' + dayNow : ' — الحملة لم تبدأ بعد');
+  }
+
+  window._rptCampCh['ch1'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'المستهدف التراكمي', data: planned,
+          borderColor: '#e65050', borderDash: [6, 4], borderWidth: 2,
+          tension: 0, fill: false, pointRadius: 2 },
+        { label: 'المنجز التراكمي (الفعلي)', data: actual,
+          borderColor: '#2bb673', backgroundColor: 'rgba(43,182,115,.12)',
+          borderWidth: 3, tension: .25, fill: true, pointRadius: 4, spanGaps: true }      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { font: { family: 'Tahoma', size: 11 }, boxWidth: 14 } },
+        tooltip: { callbacks: { label: function (x) {
+          if (x.parsed.y === null) return x.dataset.label + ': —';
+          return x.dataset.label + ': ' + x.parsed.y.toLocaleString('en-US');
+        } } }
+      },
+      scales: {
+        x: { ticks: { font: { family: 'Tahoma', size: 10 }, maxRotation: 60, autoSkip: true },
+             grid: { display: false } },
+        y: { beginAtZero: true, ticks: { font: { family: 'Tahoma', size: 11 },
+             callback: function (v) { return v.toLocaleString('en-US'); } } }
+      }
+    }
+  });
+}
+
+/* ── ٢) الجرعات حسب نوع اللقاح — من جدول التقرير الشامل ── */
+function rptCamp_chart2() {
+  var ctx = document.getElementById('rptCamp_ch2');
+  if (!ctx || typeof Chart === 'undefined') return;
+  rptCamp_kill('ch2');
+  if (!rpt_D || !rpt_D.vaccination) return;
+
+  var labels = [], values = [];
+  rpt_D.vaccination.forEach(function (row) {
+    if (row.type === 'total') return;
+    var name = String(row.vaccine || '').trim();
+    if (!name) return;
+    var vals = row.values || [];
+    var tot  = Number(vals[vals.length - 1]);
+    if (!isFinite(tot)) {
+      tot = 0;
+      vals.forEach(function (v) { tot += Number(v) || 0; });
+    }
+    if (tot > 0) { labels.push(name); values.push(tot); }
+  });
+  if (!labels.length) return;
+
+  var colors = ['#00b8d9','#2bb673','#f39c12','#e65050','#9b59b6',
+                '#1abc9c','#e67e22','#3498db','#c0392b','#7f8c8d'];
+  var usePie = labels.length <= 5;
+
+  window._rptCampCh['ch2'] = new Chart(ctx, {
+    type: usePie ? 'pie' : 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'عدد الجرعات', data: values,
+        backgroundColor: usePie ? colors.slice(0, labels.length) : '#00b8d9',
+        borderColor: '#fff', borderWidth: usePie ? 2 : 0, borderRadius: usePie ? 0 : 4
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: usePie, position: 'right',
+                  labels: { font: { family: 'Tahoma', size: 10 }, padding: 8, boxWidth: 12 } },
+        tooltip: { callbacks: { label: function (x) {
+          var v = usePie ? x.parsed : x.parsed.y;
+          return x.label + ': ' + v.toLocaleString('en-US') + ' جرعة';
+        } } }
+      },
+      scales: usePie ? {} : {
+        x: { ticks: { font: { family: 'Tahoma', size: 10 }, maxRotation: 45 }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { font: { family: 'Tahoma', size: 11 } } }
+      }
+    }
+  });
+}
+
+/* ── ٣) المستفيدون (تحصين / علاج) — من عداد المستفيدين ── */
+function rptCamp_chart3() {
+  var ctx = document.getElementById('rptCamp_ch3');
+  if (!ctx || typeof Chart === 'undefined') return;
+  rptCamp_kill('ch3');
+  if (!rpt_D || !rpt_D.beneficiaries) return;
+
+  var vac = Math.round(Number(rpt_D.beneficiaries.vaccination)  || 0);
+  var trt = Math.round(Number(rpt_D.beneficiaries.therapeutic) || 0);
+  if (!vac && !trt) return;
+
+  window._rptCampCh['ch3'] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['التحصين', 'العلاج'],
+      datasets: [{
+        label: 'عدد المستفيدين', data: [vac, trt],
+        backgroundColor: ['#2bb673', '#00b8d9'], borderRadius: 6, barPercentage: .55
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: function (x) {
+          return x.parsed.y.toLocaleString('en-US') + ' مستفيد';
+        } } }
+      },
+      scales: {
+        x: { ticks: { font: { family: 'Tahoma', size: 13, weight: 'bold' } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { font: { family: 'Tahoma', size: 11 } } }
+      }
+    }
+  });
+}
+
+/* ── المنسّق ── */
+async function rptCamp_drawCharts(c, rate, dFrom, days, dayNow) {
+  if (typeof Chart === 'undefined') return;
+  if (!rpt_D) {
+    try { rpt_D = await rpt_callApi('getReportData'); rpt_buildAll(); } catch (e) {}
+  }
+  rptCamp_chart2();
+  rptCamp_chart3();
+  try { await rptCamp_chart1(c, rate, dFrom, days, dayNow); } catch (e) {}
 }
 
 async function rpt_loadReport() {
