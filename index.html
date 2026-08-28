@@ -10677,6 +10677,13 @@ async function dp_loadAll() {
         <div class="cmp-bar"><div id="rptCamp_cumBar"></div></div>
       </div>
 
+      <div class="cmp-card">
+        <div class="cmp-t">⚖️ الفارق والأداء المتبقي</div>
+        <div class="cmp-r"><span>المتبقي لتحقيق المستهدف</span><b id="rptCamp_remain">—</b></div>
+        <div class="cmp-r"><span>الفارق عن المستهدف التراكمي</span><b id="rptCamp_gap">—</b></div>
+        <div class="cmp-r"><span>حالة الأداء</span><b><span class="cmp-badge" id="rptCamp_perf">—</span></b></div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -10815,10 +10822,13 @@ function rptCamp_num(n) { return (Number(n) || 0).toLocaleString('en-US'); }
 function rptCamp_reset() {
   ['rptCamp_from','rptCamp_to','rptCamp_days','rptCamp_dayNow','rptCamp_left',
    'rptCamp_target','rptCamp_done','rptCamp_pct','rptCamp_rate',
-   'rptCamp_cumTarget','rptCamp_cumDone','rptCamp_cumPct']
+   'rptCamp_cumTarget','rptCamp_cumDone','rptCamp_cumPct',
+   'rptCamp_remain','rptCamp_gap']
     .forEach(function (id) { rptCamp_set(id, '—'); });
-  var st = document.getElementById('rptCamp_state');
-  if (st) { st.textContent = '—'; st.style.background = '#95a5a6'; }
+  ['rptCamp_state','rptCamp_perf'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) { el.textContent = '—'; el.style.background = '#95a5a6'; }
+  });
   ['rptCamp_bar','rptCamp_cumBar'].forEach(function (id) {
     var b = document.getElementById(id); if (b) b.style.width = '0%';
   });
@@ -10916,6 +10926,37 @@ async function rptCamp_load() {
     b.style.width = Math.min(100, x[1]) + '%';
     b.style.background = x[1] >= 100 ? '#2bb673' : (x[1] >= 50 ? '#e67e22' : '#e65050');
   });
+
+  /* ٦) الفارق والأداء المتبقي */
+  var remain = target > 0 ? Math.max(0, target - done) : 0;
+  var gap    = done - cumTarget;
+
+  rptCamp_set('rptCamp_remain',
+    target > 0
+      ? (remain === 0 ? '✅ تم بلوغ المستهدف' : rptCamp_num(remain) + ' حيوان')
+      : '—');
+
+  rptCamp_set('rptCamp_gap',
+    cumTarget > 0
+      ? (gap >= 0 ? '+' : '−') + rptCamp_num(Math.abs(gap)) + ' حيوان'
+      : '—');
+
+  var perf = document.getElementById('rptCamp_perf');
+  if (perf) {
+    if (dayNow === 0) {
+      perf.textContent = 'لم تبدأ الحملة';
+      perf.style.background = '#95a5a6';
+    } else if (cumTarget <= 0) {
+      perf.textContent = 'لا يوجد مستهدف';
+      perf.style.background = '#95a5a6';
+    } else if (gap >= 0) {
+      perf.textContent = '🔼 متقدم عن الخطة';
+      perf.style.background = '#2bb673';
+    } else {
+      perf.textContent = '🔽 متأخر عن الخطة';
+      perf.style.background = '#e65050';
+    }
+  }
 }
 
 async function rpt_loadReport() {
