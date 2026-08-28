@@ -10949,9 +10949,12 @@ async function rptCamp_load() {
     } else if (cumTarget <= 0) {
       perf.textContent = 'لا يوجد مستهدف';
       perf.style.background = '#95a5a6';
-    } else if (gap >= 0) {
+    } else if (gap > 0) {
       perf.textContent = '🔼 متقدم عن الخطة';
       perf.style.background = '#2bb673';
+    } else if (gap === 0) {
+      perf.textContent = '✔️ ضمن الخطة';
+      perf.style.background = '#00b8d9';
     } else {
       perf.textContent = '🔽 متأخر عن الخطة';
       perf.style.background = '#e65050';
