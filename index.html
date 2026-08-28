@@ -10902,12 +10902,24 @@ async function rptCamp_load(force) {
     state = 'نشطة'; stColor = '#2bb673';
     left = dTo ? Math.max(0, Math.floor((dTo - today) / DAY)) : 0;
   }
-  if (dTo && today > dTo) { state = 'منتهية'; stColor = '#e67e22'; dayNow = days; left = 0; }
+  if (dTo && today > dTo) {
+    state = 'منتهية'; stColor = '#e67e22';
+    left = 0;
+    /* الحملة اكتملت — اليوم التشغيلي = كامل المدة */
+    if (days > 0) dayNow = days;
+    else if (dFrom) dayNow = Math.floor((dTo - dFrom) / DAY) + 1;
+  }
+  if (!isFinite(dayNow) || dayNow < 0) dayNow = 0;
+  if (!isFinite(left)  || left  < 0) left  = 0;
 
   /* ٤) المعدل المطلوب يوميًا + المستهدف التراكمي */
-  var target    = Number(c.target) || 0;
-  var rate      = (days > 0 && target > 0) ? Math.ceil(target / days) : 0;
-  var cumTarget = rate * dayNow;
+  var target = Number(c.target) || 0;
+  if (!isFinite(target) || target < 0) target = 0;
+  var rate = (days > 0 && target > 0) ? Math.ceil(target / days) : 0;
+
+  /* عند انتهاء الحملة: المستهدف التراكمي = المستهدف الكلي بالضبط */
+  var cumTarget = (state === 'منتهية' && target > 0) ? target : rate * dayNow;
+  if (!isFinite(cumTarget) || cumTarget < 0) cumTarget = 0;
 
   rptCamp_set('rptCamp_from',      c.dateFrom);
   rptCamp_set('rptCamp_to',        c.dateTo);
