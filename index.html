@@ -10572,6 +10572,7 @@ async function dp_loadAll() {
   <button class="tab-btn" onclick="rpt_showTab('vaccination')">💉 التحصين</button>
   <button class="tab-btn" onclick="rpt_showTab('beneficiaries')">👥 عداد المستفيدين</button>
    <button class="tab-btn" onclick="rpt_showTab('medicines')">💊 الأدوية المصروفة</button>
+  <button class="tab-btn" onclick="rpt_showTab('campaign');rptCamp_load()">🎯 لوحة متابعة المشروع الوطني للتحصين</button>
   <button class="tab-btn" id="rpt_refreshBtn" style="background:#e8f5e9;color:#2e7d32;border-color:#2e7d32" onclick="rpt_refreshData()">🔄 تحديث</button>
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#fff;padding:8px 12px;border:2px solid #00b8d9;border-radius:6px">
     <span style="font-weight:bold;color:#00b8d9">📅 الفترة:</span>
@@ -10612,7 +10613,71 @@ async function dp_loadAll() {
 <div id="tab-medicines" class="tab-pane">
   <div class="card"><h3>الأدوية المصروفة</h3>
     <div class="fb"><input type="text" id="rpt_s4" placeholder="🔍 بحث عن دواء..." oninput="rpt_filterT('rpt_s4','rpt_tb4')"><button class="bp" onclick="rpt_printTab('tab-medicines')">🖨️ طباعة</button></div>
-    <div class="sw"><table><thead><tr><th>م</th><th>اسم الدواء</th><th>الوحدة</th><th>المستخدم</th></tr></thead><tbody id="rpt_tb4"></tbody></table></div>
+      <div class="sw"><table><thead><tr><th>م</th><th>اسم الدواء</th><th>الوحدة</th><th>المستخدم</th></tr></thead><tbody id="rpt_tb4"></tbody></table></div>
+  </div>
+</div>
+
+<div id="tab-campaign" class="tab-pane">
+  <style>
+    #tab-campaign .cmp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;}
+    #tab-campaign .cmp-card{background:#f8ffff;border:2px solid #00b8d9;border-radius:8px;padding:12px;}
+    #tab-campaign .cmp-t{font-size:13px;font-weight:bold;color:#004e66;border-bottom:1px dashed #b3e5fc;padding-bottom:6px;margin-bottom:8px;}
+    #tab-campaign .cmp-r{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:4px 0;}
+    #tab-campaign .cmp-r span{color:#555;}
+    #tab-campaign .cmp-r b{color:#004e66;font-size:14px;}
+    #tab-campaign .cmp-big{font-size:26px;font-weight:bold;color:#00b8d9;text-align:center;margin:8px 0 4px;}
+    #tab-campaign .cmp-sub{font-size:11px;color:#888;text-align:center;}
+    #tab-campaign .cmp-badge{display:inline-block;padding:3px 14px;border-radius:20px;background:#95a5a6;color:#fff;font-size:12px;font-weight:bold;}
+    #tab-campaign .cmp-bar{background:#e0e0e0;border-radius:20px;height:9px;overflow:hidden;margin-top:6px;}
+    #tab-campaign .cmp-bar div{height:100%;width:0%;background:#00b8d9;border-radius:20px;transition:width .5s ease;}
+  </style>
+
+  <div class="card"><h3>لوحة متابعة المشروع الوطني للتحصين</h3>
+    <div class="fb">
+      <button class="bp" onclick="rptCamp_load()">🔄 تحديث البيانات</button>
+      <button class="bp" style="background:#6c5ce7" onclick="rpt_printTab('tab-campaign')">🖨️ طباعة</button>
+      <span id="rptCamp_status" style="display:none;font-size:12px;font-weight:bold;"></span>
+    </div>
+
+    <div class="cmp-grid">
+
+      <div class="cmp-card">
+        <div class="cmp-t">📅 المدى الزمني للحملة</div>
+        <div class="cmp-r"><span>من تاريخ</span><b id="rptCamp_from">—</b></div>
+        <div class="cmp-r"><span>إلى تاريخ</span><b id="rptCamp_to">—</b></div>
+        <div class="cmp-r"><span>إجمالي أيام الحملة</span><b id="rptCamp_days">—</b></div>
+      </div>
+
+      <div class="cmp-card">
+        <div class="cmp-t">⏱️ اليوم التشغيلي الحالي</div>
+        <div class="cmp-big" id="rptCamp_dayNow">—</div>
+        <div class="cmp-r"><span>حالة الحملة</span><b><span class="cmp-badge" id="rptCamp_state">—</span></b></div>
+        <div class="cmp-r"><span>الأيام المتبقية</span><b id="rptCamp_left">—</b></div>
+      </div>
+
+      <div class="cmp-card">
+        <div class="cmp-t">🎯 الأداء الكلي</div>
+        <div class="cmp-r"><span>المستهدف</span><b id="rptCamp_target">—</b></div>
+        <div class="cmp-r"><span>المنجز</span><b id="rptCamp_done">—</b></div>
+        <div class="cmp-r"><span>نسبة الإنجاز</span><b id="rptCamp_pct">—</b></div>
+        <div class="cmp-bar"><div id="rptCamp_bar"></div></div>
+      </div>
+
+      <div class="cmp-card">
+        <div class="cmp-t">📈 المعدل المطلوب يوميًا</div>
+        <div class="cmp-big" id="rptCamp_rate">—</div>
+        <div class="cmp-sub">المستهدف ÷ عدد أيام الحملة</div>
+      </div>
+
+      <div class="cmp-card">
+        <div class="cmp-t">📊 الأداء التراكمي</div>
+        <div class="cmp-r"><span>المستهدف التراكمي</span><b id="rptCamp_cumTarget">—</b></div>
+        <div class="cmp-r"><span>المنجز الفعلي</span><b id="rptCamp_cumDone">—</b></div>
+        <div class="cmp-r"><span>نسبة الإنجاز</span><b id="rptCamp_cumPct">—</b></div>
+        <div class="cmp-bar"><div id="rptCamp_cumBar"></div></div>
+      </div>
+
+    </div>
   </div>
 </div>
 <script>
@@ -10732,6 +10797,125 @@ document.getElementById('rpt_tb5').innerHTML =
     });
   });
   document.getElementById('rpt_tb4').innerHTML = h;
+}
+
+/* ============================================================
+   لوحة متابعة المشروع الوطني للتحصين
+   المصدر: بطاقة "المدى الزمني لحملة التحصين" في صفحة الإعدادات
+   ============================================================ */
+function rptCamp_d(s) {
+  if (!s) return null;
+  var p = String(s).substring(0, 10).split('-');
+  if (p.length !== 3) return null;
+  var d = new Date(+p[0], +p[1] - 1, +p[2]);
+  return isNaN(d.getTime()) ? null : d;
+}
+function rptCamp_set(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
+function rptCamp_num(n) { return (Number(n) || 0).toLocaleString('en-US'); }
+function rptCamp_reset() {
+  ['rptCamp_from','rptCamp_to','rptCamp_days','rptCamp_dayNow','rptCamp_left',
+   'rptCamp_target','rptCamp_done','rptCamp_pct','rptCamp_rate',
+   'rptCamp_cumTarget','rptCamp_cumDone','rptCamp_cumPct']
+    .forEach(function (id) { rptCamp_set(id, '—'); });
+  var st = document.getElementById('rptCamp_state');
+  if (st) { st.textContent = '—'; st.style.background = '#95a5a6'; }
+  ['rptCamp_bar','rptCamp_cumBar'].forEach(function (id) {
+    var b = document.getElementById(id); if (b) b.style.width = '0%';
+  });
+}
+
+async function rptCamp_load() {
+  var box = document.getElementById('rptCamp_status');
+  function status(msg, color) {
+    if (!box) return;
+    box.style.display = 'inline';
+    box.textContent = msg;
+    box.style.color = color || '#00b8d9';
+  }
+  status('⏳ جاري جلب بيانات الحملة...');
+
+  /* ١) بيانات الحملة من صفحة الإعدادات */
+  var c = window._vaccCampaign;
+  if (!c || !c.dateFrom || !c.dateTo) {
+    try {
+      var res = await rpt_callApi('getVaccCampaign');
+      if (res && res.success) {
+        c = { dateFrom: res.dateFrom, dateTo: res.dateTo, days: res.days, target: res.target };
+        window._vaccCampaign = c;
+      }
+    } catch (err) {}
+  }
+  if (!c || !c.dateFrom || !c.dateTo) {
+    rptCamp_reset();
+    status('⚠️ لم يُحدَّد المدى الزمني للحملة — حدّده من صفحة الإعدادات', '#e65050');
+    return;
+  }
+
+  var DAY   = 86400000;
+  var dFrom = rptCamp_d(c.dateFrom);
+  var dTo   = rptCamp_d(c.dateTo);
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+
+  /* ٢) عدد أيام الحملة */
+  var days = parseInt(c.days, 10);
+  if (!days || days <= 0)
+    days = (dFrom && dTo) ? Math.floor((dTo - dFrom) / DAY) + 1 : 0;
+
+  /* ٣) اليوم التشغيلي والحالة والأيام المتبقية */
+  var dayNow = 0, state = 'غير نشطة', stColor = '#95a5a6', left = days;
+  if (dFrom && today >= dFrom) {
+    dayNow = Math.floor((today - dFrom) / DAY) + 1;
+    if (days > 0 && dayNow > days) dayNow = days;
+    state = 'نشطة'; stColor = '#2bb673';
+    left = dTo ? Math.max(0, Math.floor((dTo - today) / DAY)) : 0;
+  }
+  if (dTo && today > dTo) { state = 'منتهية'; stColor = '#e67e22'; dayNow = days; left = 0; }
+
+  /* ٤) المعدل المطلوب يوميًا + المستهدف التراكمي */
+  var target    = Number(c.target) || 0;
+  var rate      = (days > 0 && target > 0) ? Math.ceil(target / days) : 0;
+  var cumTarget = rate * dayNow;
+
+  rptCamp_set('rptCamp_from',      c.dateFrom);
+  rptCamp_set('rptCamp_to',        c.dateTo);
+  rptCamp_set('rptCamp_days',      days ? days + ' يوم' : '—');
+  rptCamp_set('rptCamp_dayNow',    dayNow ? 'اليوم ' + dayNow : '—');
+  rptCamp_set('rptCamp_left',      left + ' يوم');
+  rptCamp_set('rptCamp_target',    target ? rptCamp_num(target) : '—');
+  rptCamp_set('rptCamp_rate',      rate ? rptCamp_num(rate) + ' حيوان / يوم' : '—');
+  rptCamp_set('rptCamp_cumTarget', cumTarget ? rptCamp_num(cumTarget) : '—');
+  var st = document.getElementById('rptCamp_state');
+  if (st) { st.textContent = state; st.style.background = stColor; }
+
+  /* ٥) المنجز الفعلي — نفس مصدر سجل التحصين */
+  var done = 0;
+  if (typeof vaccGetTotalVaccinated === 'function') {
+    try {
+      var r = await vaccGetTotalVaccinated(c.dateFrom, c.dateTo, '');
+      done = r.total || 0;
+      window._vaccTotalAnimals = done;
+      status('✅ آخر تحديث: ' + new Date().toLocaleTimeString('ar-SA'), '#2bb673');
+    } catch (e) {
+      status('⚠️ تعذّر جلب عدد الحيوانات المحصنة', '#e65050');
+    }
+  } else {
+    status('⚠️ افتح صفحة سجل التحصين أولاً', '#e67e22');
+  }
+
+  rptCamp_set('rptCamp_done',    rptCamp_num(done));
+  rptCamp_set('rptCamp_cumDone', rptCamp_num(done));
+
+  var p1 = target    > 0 ? Math.round(done / target    * 100) : 0;
+  var p2 = cumTarget > 0 ? Math.round(done / cumTarget * 100) : 0;
+  rptCamp_set('rptCamp_pct',    target    ? p1 + '%' : '—');
+  rptCamp_set('rptCamp_cumPct', cumTarget ? p2 + '%' : '—');
+
+  [['rptCamp_bar', p1], ['rptCamp_cumBar', p2]].forEach(function (x) {
+    var b = document.getElementById(x[0]);
+    if (!b) return;
+    b.style.width = Math.min(100, x[1]) + '%';
+    b.style.background = x[1] >= 100 ? '#2bb673' : (x[1] >= 50 ? '#e67e22' : '#e65050');
+  });
 }
 
 async function rpt_loadReport() {
