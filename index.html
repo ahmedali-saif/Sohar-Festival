@@ -11502,6 +11502,8 @@ function foDismissOverdueAlert() {
     bdsave: "حفظ بيانات التحصين", 
     bdupdate: "تحديث بيانات التحصين",
     apply: "تطبيق الولاية",
+    camp_save: "حفظ حملة التحصيت",
+    camp_load: "جلب حملة التحصين",
   };
 
   /* ─────────────────────────────────────────────────────
@@ -11550,7 +11552,8 @@ function foDismissOverdueAlert() {
       { id: "wilayatApplyBtn", action: "apply" },
     ],
      home: [
-    { selector: "#home .wilayatApply", action: "wilsave" },
+      { id: "camp_saveBtn",   action: "camp_save"   },
+      { id: "camp_loadBtn", action: "camp_load" },
   ],
   };
 
