@@ -10572,7 +10572,7 @@ async function dp_loadAll() {
   <button class="tab-btn" onclick="rpt_showTab('vaccination')">💉 التحصين</button>
   <button class="tab-btn" onclick="rpt_showTab('beneficiaries')">👥 عداد المستفيدين</button>
    <button class="tab-btn" onclick="rpt_showTab('medicines')">💊 الأدوية المصروفة</button>
-  <button class="tab-btn" onclick="rpt_showTab('campaign');rptCamp_load()">🎯 لوحة متابعة المشروع الوطني للتحصين</button>
+  <button class="tab-btn" onclick="rpt_showTab('campaign');rptCamp_load()">🎯متابعة التحصين</button>
   <button class="tab-btn" id="rpt_refreshBtn" style="background:#e8f5e9;color:#2e7d32;border-color:#2e7d32" onclick="rpt_refreshData()">🔄 تحديث</button>
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#fff;padding:8px 12px;border:2px solid #00b8d9;border-radius:6px">
     <span style="font-weight:bold;color:#00b8d9">📅 الفترة:</span>
@@ -10634,7 +10634,7 @@ async function dp_loadAll() {
 
   <div class="card"><h3>لوحة متابعة المشروع الوطني للتحصين</h3>
     <div class="fb">
-      <button class="bp" onclick="rptCamp_load()">🔄 تحديث البيانات</button>
+      <button class="bp" onclick="rptCamp_load(true)">🔄 تحديث البيانات</button>
       <button class="bp" style="background:#6c5ce7" onclick="rpt_printTab('tab-campaign')">🖨️ طباعة</button>
       <span id="rptCamp_status" style="display:none;font-size:12px;font-weight:bold;"></span>
     </div>
@@ -10834,7 +10834,17 @@ function rptCamp_reset() {
   });
 }
 
-async function rptCamp_load() {
+/* مزامنة حقول بطاقة "المدى الزمني لحملة التحصين" في صفحة الإعدادات */
+function rptCamp_syncSettings(c) {
+  if (!c) return;
+  [['camp_dateFrom', c.dateFrom], ['camp_dateTo', c.dateTo],
+   ['camp_days', c.days], ['camp_target', c.target]].forEach(function (x) {
+    var el = document.getElementById(x[0]);
+    if (el) el.value = x[1] || '';
+  });
+}
+
+async function rptCamp_load(force) {
   var box = document.getElementById('rptCamp_status');
   function status(msg, color) {
     if (!box) return;
@@ -10842,19 +10852,32 @@ async function rptCamp_load() {
     box.textContent = msg;
     box.style.color = color || '#00b8d9';
   }
-  status('⏳ جاري جلب بيانات الحملة...');
 
-  /* ١) بيانات الحملة من صفحة الإعدادات */
+  /* ١) تحديث بطاقة "المدى الزمني لحملة التحصين" في صفحة الإعدادات أولاً */
   var c = window._vaccCampaign;
-  if (!c || !c.dateFrom || !c.dateTo) {
-    try {
-      var res = await rpt_callApi('getVaccCampaign');
-      if (res && res.success) {
-        c = { dateFrom: res.dateFrom, dateTo: res.dateTo, days: res.days, target: res.target };
-        window._vaccCampaign = c;
-      }
-    } catch (err) {}
+  if (force || !c || !c.dateFrom || !c.dateTo) {
+    status('⏳ جاري تحديث المدى الزمني للحملة من صفحة الإعدادات...');
+
+    var viaSettings = false;
+    if (typeof camp_load === 'function') {
+      try { await camp_load(true); viaSettings = true; } catch (e) {}
+    }
+    c = window._vaccCampaign;
+
+    /* احتياطي: إن لم تتوفر دالة صفحة الإعدادات */
+    if (!viaSettings) {
+      try {
+        var res = await rpt_callApi('getVaccCampaign');
+        if (res && res.success) {
+          c = { dateFrom: res.dateFrom, dateTo: res.dateTo, days: res.days, target: res.target };
+          window._vaccCampaign = c;
+          rptCamp_syncSettings(c);
+        }
+      } catch (err) {}
+    }
   }
+
+  status('⏳ جاري احتساب مؤشرات اللوحة...');
   if (!c || !c.dateFrom || !c.dateTo) {
     rptCamp_reset();
     status('⚠️ لم يُحدَّد المدى الزمني للحملة — حدّده من صفحة الإعدادات', '#e65050');
@@ -10954,7 +10977,7 @@ async function rptCamp_load() {
       perf.style.background = '#2bb673';
     } else if (gap === 0) {
       perf.textContent = '✔️ ضمن الخطة';
-      perf.style.background = '#00b8d9';
+      perf.style.background = '#fbea8b';
     } else {
       perf.textContent = '🔽 متأخر عن الخطة';
       perf.style.background = '#e65050';
