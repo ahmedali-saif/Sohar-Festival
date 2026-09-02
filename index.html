@@ -11134,7 +11134,7 @@ async function rptCamp_load(force) {
     dayNow = Math.floor((today - dFrom) / DAY) + 1;
     if (days > 0 && dayNow > days) dayNow = days;
     state = 'نشطة'; stColor = '#2bb673';
-    left = dTo ? Math.max(0, Math.floor((dTo - today) / DAY)) : 0;
+    left = (days > 0) ? Math.max(0, days - dayNow) : 0;
   }
   if (dTo && today > dTo) {
     state = 'منتهية'; stColor = '#e67e22';
