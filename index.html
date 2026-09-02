@@ -7557,6 +7557,62 @@ function vr_parseDate(val) {
   var keywords = ['رفض', 'لا يرغب', 'عدم رغبة', 'غير راغب', 'لا يريد', 'عدم الرغبة'];
   return keywords.some(function(k) { return notes.indexOf(k) !== -1; });
 }
+
+/* ── أنواع الحيوانات التي يجب أن يغطيها كل لقاح ── */
+var VR_VACCINE_ANIMALS = {
+  intox:  ['sheep','goat'],
+  pock:   ['sheep','goat'],
+  fmd:    ['sheep','goat','cow'],
+  lsd:    ['cow'],
+  rabies: ['sheep','goat','cow','camel']
+};
+var VR_ANIMAL_WORDS = {
+  goat:  ['ماعز'],
+  sheep: ['أغنام','اغنام','ضأن','ضان'],
+  cow:   ['أبقار','ابقار','بقر'],
+  camel: ['جمال','إبل','ابل','جمل']
+};
+var VR_VACCINE_WORDS = {
+  intox:  ['التسمم المعوي','تسمم معوي','intox'],
+  pock:   ['طاعون','جدري','pock'],
+  fmd:    ['الحمى القلاعية','قلاعية','fmd'],
+  lsd:    ['التهاب الجلد العقدي','الجلد العقدي','lsd'],
+  rabies: ['السعار','سعار','rabies']
+};
+
+/* يقتطع من الملخص الجزء الخاص باللقاح المحدد فقط */
+function vr_vaccineSegment(summary, type) {
+  var s = (summary || '').toString();
+  var start = -1;
+  (VR_VACCINE_WORDS[type] || []).forEach(function(w) {
+    var i = s.indexOf(w);
+    if (i !== -1 && (start === -1 || i < start)) start = i;
+  });
+  if (start === -1) return null;            // اللقاح غير مذكور إطلاقاً
+  var end = s.length;
+  Object.keys(VR_VACCINE_WORDS).forEach(function(k) {
+    if (k === type) return;
+    VR_VACCINE_WORDS[k].forEach(function(w) {
+      var i = s.indexOf(w, start + 1);
+      if (i !== -1 && i < end) end = i;
+    });
+  });
+  return s.substring(start, end);
+}
+
+/* true إذا بقي نوع حيوان واحد على الأقل غير مغطى بهذا اللقاح */
+function vr_hasUncovered(r, type) {
+  var needed = (VR_VACCINE_ANIMALS[type] || []).filter(function(a) {
+    var v = parseFloat(String(r[a] == null ? '' : r[a]).replace(/,/g, '').trim());
+    return !isNaN(v) && v > 0;
+  });
+  if (!needed.length) return false;         // لا يملك حيوانات يشملها هذا اللقاح
+  var seg = vr_vaccineSegment(r.summary, type);
+  if (seg === null) return true;            // لم يُحصَّن بهذا اللقاح مطلقاً
+  return needed.some(function(a) {
+    return !VR_ANIMAL_WORDS[a].some(function(w) { return seg.indexOf(w) !== -1; });
+  });
+}
 function vr_render() {
   var q      = (document.getElementById("vr_searchInput").value || '').trim();
   var status = document.getElementById("vr_statusFilter").value;
@@ -7586,19 +7642,7 @@ function vr_render() {
       // أظهر المحصنين بنوع اللقاح المحدد، لكن اعرض فقط من لم يُحصَّن بهذا اللقاح
       rows = rows.filter(function(r) {
         if (!r.vaccinated) return false;
-        var summary = (r.summary || "").toLowerCase();
-        var vaccineLabels = {
-          intox:  ["التسمم المعوي","intox"],
-          pock:   ["طاعون","جدري","pock"],
-          fmd:    ["الحمى القلاعية","fmd"],
-          lsd:    ["التهاب الجلد العقدي","lsd"],
-          rabies: ["السعار","rabies"]
-        };
-        var labels = vaccineLabels[vaccineType] || [];
-        var hasVaccine = labels.some(function(lbl) {
-          return summary.indexOf(lbl) !== -1;
-        });
-        return !hasVaccine;
+        return vr_hasUncovered(r, vaccineType);
       });
     } else {
       rows = rows.filter(function(r) { return r.vaccinated; });
@@ -7644,7 +7688,7 @@ if (sortBy === "date") {
     if (statsEl) statsEl.parentNode.insertBefore(filterNote, statsEl);
   }
   if (status === "vacc" && vaccLabel) {
-    filterNote.textContent = "⚠️ يعرض المحصنين الذين لم يتلقوا لقاح: " + vaccLabel;
+    filterNote.textContent = "⚠️ يعرض المحصنين الذين لم تُغطَّ جميع حيواناتهم بلقاح: " + vaccLabel;
     filterNote.style.display = "block";
   } else {
     filterNote.style.display = "none";
