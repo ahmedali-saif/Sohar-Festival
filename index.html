@@ -1306,6 +1306,20 @@ function bootBindOnce() {
   });
 }
 
+function bootOpenTreatment() {
+  if (typeof PERM !== 'undefined' && PERM.isPageAllowed &&
+      !PERM.isPageAllowed('treatment')) return;
+  setTimeout(function () {
+    showPage('treatment');
+    if (typeof trshowAllCards === 'function') trshowAllCards();
+    try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch (e) { window.scrollTo(0, 0); }
+    if (document.documentElement) document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
+    var nav = document.querySelector('nav');
+    if (nav) nav.scrollLeft = nav.scrollWidth;
+  }, 120);
+}
+
 async function bootLoadAll() {
   if (window._bootRunning) return;
   window._bootRunning = true;
@@ -1316,6 +1330,7 @@ async function bootLoadAll() {
     window._bootRunning = false;
     ov.close();
     if (msg) showToast(msg, type || 'success');
+    bootOpenTreatment();
   }
 
   if (!window._activeApiUrl) {
