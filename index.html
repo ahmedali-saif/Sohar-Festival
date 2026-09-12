@@ -6077,6 +6077,7 @@ async function bd_analyzeInactive() {
 
     /* ── ٢. تجميع آخر نشاط لكل رقم هاتف ── */
     var lastActivity = {};
+    var visitCount   = {};
     var firstTreatmentDate = null;   /* أقدم تاريخ علاج في السجل — مرجع احتساب مدة عدم النشاط */
 
     function _parseDay(s) {
@@ -6102,6 +6103,7 @@ async function bd_analyzeInactive() {
       if (!ph) return;
       /* وجود السجل نفسه كافٍ لاعتباره نشطاً حتى لو كان التاريخ غير صالح */
       if (!(ph in lastActivity)) lastActivity[ph] = null;
+      visitCount[ph] = (visitCount[ph] || 0) + 1;
       if (!dateStr) return;
       var s = String(dateStr).trim();
       var d;
@@ -6179,7 +6181,7 @@ async function bd_analyzeInactive() {
     breeders.forEach(function(b) {
       var ph = String(b.phone || '').trim();
       if (!ph) return;
-      var rec = { phone: ph, name: b.name || '', region: b.region || '' };
+      var rec = { phone: ph, name: b.name || '', region: b.region || '', visits: visitCount[ph] || 0 };
       if (ph in lastActivity) {
         var last = lastActivity[ph];
         rec.last = last;
@@ -6196,6 +6198,7 @@ async function bd_analyzeInactive() {
 
     /* النشطون: الأحدث نشاطاً أولاً | غير النشطين: أبجدياً */
     active.sort(function(a, b) {
+      if (b.visits !== a.visits) return b.visits - a.visits;
       if (a.days === null) return 1;
       if (b.days === null) return -1;
       return a.days - b.days;
@@ -6255,8 +6258,8 @@ function bd_showActivityList(mode) {
 
   var color = (mode === 'active') ? '#27ae60' : '#e67e22';
   var head  = (mode === 'active')
-    ? ['#','رقم الهاتف','اسم المربي','المنطقة','تاريخ آخر نشاط','آخر نشاط','إجراء']
-    : ['#','رقم الهاتف','اسم المربي','المنطقة','من تاريخ','مدة عدم النشاط','إجراء'];
+    ? ['#','رقم الهاتف','اسم المربي','المنطقة','تاريخ آخر نشاط','آخر نشاط','عدد الزيارات','إجراء']
+    : ['#','رقم الهاتف','اسم المربي','المنطقة','من تاريخ','مدة عدم النشاط','عدد الزيارات','إجراء'];
 
   var html = '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr>' +
     head.map(function(h){ return '<th style="background:' + color + ';color:#fff;border:1px solid #ccc;padding:7px;">' + h + '</th>'; }).join('') +
@@ -6282,6 +6285,7 @@ function bd_showActivityList(mode) {
       '<td style="' + td + 'text-align:center;">' + r.region + '</td>' +
       '<td style="' + td + 'text-align:center;">' + bd_fmtDate(dCol) + '</td>' +
       '<td style="' + td + 'text-align:center;font-weight:bold;color:' + c.txt + ';">' + dTxt + '</td>' +
+      '<td style="' + td + 'text-align:center;"><span style="display:inline-block;min-width:34px;background:#00b8d9;color:#fff;border-radius:12px;padding:2px 10px;font-weight:bold;font-size:12px;">' + (r.visits || 0) + '</span></td>' +
       '<td style="' + td + 'text-align:center;">' + openBtn + '</td>' +
     '</tr>';
   });
