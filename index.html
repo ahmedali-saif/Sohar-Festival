@@ -1068,7 +1068,12 @@ function showPage(pageId) {
   if (excludedPages.indexOf(pageId) === -1 && typeof foCheckOverdueSamples === 'function') {
     setTimeout(foCheckOverdueSamples, 500);
   }
-  
+    var _dirtyTopic = { treatment:'treatment', breeder:'breeder', vaccination:'vaccination',
+                      samples:'samples', financialInventory:'financial' }[pageId];
+  if (_dirtyTopic && window._syncDirty && window._syncDirty[_dirtyTopic]) {
+    delete window._syncDirty[_dirtyTopic];
+    if (typeof remoteSyncApply === 'function') setTimeout(function(){ remoteSyncApply(_dirtyTopic); }, 50);
+  }
   if (pageId === 'treatment' && !window._treatmentInitialized) {
     window._treatmentInitialized = true;
     var trOverlay = document.getElementById('tr_loadingOverlay');
@@ -1086,6 +1091,22 @@ function showPage(pageId) {
   if (pageId === 'vaccination' && !window._vaccinationInitialized) {
     window._vaccinationInitialized = true;
     if (typeof vaccInit === 'function') vaccInit();
+  }
+    window._lazyLoaded = window._lazyLoaded || {};
+  var _lazy = {
+    animalDistribution:  function(){ if (typeof ani_loadData === 'function') ani_loadData(); },
+    reports:             function(){ if (typeof dim_loadData === 'function') dim_loadData(); },
+    comprehensiveReport: function(){ if (typeof rpt_loadReport === 'function') rpt_loadReport(); },
+    financialInventory:  function(){ if (typeof fin_loadFinancialData === 'function') fin_loadFinancialData(); },
+    home:                function(){ if (typeof camp_load === 'function') camp_load(true); },
+    diseaseTracking:     function(){
+      if (typeof dtr_loadDiseaseList === 'function')
+        dtr_loadDiseaseList().then(function(){ if (typeof dtr_loadData === 'function') dtr_loadData(); });
+    }
+  };
+  if (_lazy[pageId] && !window._lazyLoaded[pageId]) {
+    window._lazyLoaded[pageId] = true;
+    _lazy[pageId]();
   }
   if (pageId === 'vaccinationRequests' && !window._vrInitialized) {
     window._vrInitialized = true;
@@ -1422,25 +1443,7 @@ async function bootLoadAll() {
         if (ft) ft.value = today;
         window.fin_isFirstLoad = false;
 
-        await Promise.allSettled([
-          (typeof ani_loadData          === 'function') ? ani_loadData()          : Promise.resolve(),
-          (typeof dim_loadData          === 'function') ? dim_loadData()          : Promise.resolve(),
-          (typeof rpt_loadReport        === 'function') ? rpt_loadReport()        : Promise.resolve(),
-          (typeof fin_loadFinancialData === 'function') ? fin_loadFinancialData() : Promise.resolve()
-        ]);
-
-        try {
-          if (typeof camp_load === 'function') await camp_load(true);
-        } catch (e) {}
-
-        if (typeof dtr_loadDiseaseList === 'function') {
-          await dtr_loadDiseaseList();          await dtr_loadDiseaseList();
-          var df = document.getElementById('dtr_dateFrom');
-          var dt = document.getElementById('dtr_dateTo');
-          if (df) df.value = '';
-          if (dt) dt.value = '';
-          if (typeof dtr_loadData === 'function') await dtr_loadData();
-        }
+         /* التقارير تُحمَّل عند فتح صفحتها فقط — انظر showPage */
         bootBindOnce();
       },
       check: null
@@ -4396,10 +4399,7 @@ if (isDup) {
         trshowMessage("✅ تم الحفظ بنجاح", false);
       trclearForm();
 // تنفيذ عمليات التحميل بشكل متوازٍ لتقليل وقت الانتظار
-await Promise.all([
-  trloadData(),
-  trloadIncompleteCount()
-]);
+await trloadData();
       } else {
         trshowMessage(res.message, true);
       }
@@ -5479,8 +5479,8 @@ async function trSelectIncompleteCase(caseNumber) {
       var res = await _origCallApi.apply(this, arguments);
       try {
         if (res && res.success) {
-          if (action === "trgetAAAData") { storeTable(res.data); setTimeout(prefetch, 1200); }
-          else if (action === "trsearchCaseData") { TC.cases[ss((payload||{}).caseNumber)] = res; save(); }
+ if (action === "trgetAAAData") { storeTable(res.data); }
+ else if (action === "trsearchCaseData") { TC.cases[ss((payload||{}).caseNumber)] = res; save(); }
           else if (action === "trupdateData" || action === "trupdateTempData") {
             TC.skipNextLoad = true; applyUpdate((payload||{}).data || {});
           }
@@ -12505,6 +12505,14 @@ async function remoteSyncPoll() {
 // ٣. تطبيق التحديث المناسب لكل موضوع
 // ─────────────────────────────────────────────────────
 function remoteSyncApply(topic, action) {
+  var pageOf = { treatment:'treatment', breeder:'breeder', vaccination:'vaccination',
+                 samples:'samples', financial:'financialInventory' };
+  var pg = document.getElementById(pageOf[topic]);
+  if (!pg || !pg.classList.contains('active')) {
+    window._syncDirty = window._syncDirty || {};
+    window._syncDirty[topic] = true;
+    return;
+  }
   var handlers = {
     "treatment": function() {
       if (typeof trloadData === "function") trloadData();
@@ -13071,13 +13079,7 @@ setTimeout(tryWrap, 1000);
         return r.success ? r : _origBdCallApi(action, payload);
       }
 
-      /* كتابة → API + تحديث الكاش */
- global._localSyncChannel.onmessage = function (e) {
-  if (_origMsg) _origMsg.call(this, e);
-  if (e.data && e.data.topic === "breeder" && state.enabled) {
-    setTimeout(refreshAndRepatch, 2000);
-  }
-};
+      /* كتابة → API مباشرة (التحديث المحلي يتم عبر applyLocalWrite) */
 
       /* أي action آخر (بما فيها trget*, syncNotify، إلخ) → API مباشرة */
       return _origBdCallApi(action, payload);
@@ -13745,7 +13747,7 @@ getState:      function () { return { enabled: state.enabled, loaded: state.load
           global._localSyncChannel.onmessage = function (e) {
             if (_origMsg) _origMsg.call(this, e);
             if (e.data && e.data.topic === "breeder" && state.enabled) {
-              setTimeout(refreshAndRepatch, 2000);
+              window._breederCacheStale = true;
             }
           };
         }
@@ -14115,7 +14117,11 @@ function sendTelegram(text) {
  
       /* شغّل الفحص فقط عند نجاح الحفظ الفعلي */
       if (res && res.success && action === "trsaveData") {
-        setTimeout(trCheckDiseaseThreshold, 2500);
+        var _n = Date.now();
+        if (!global._daLastCheck || _n - global._daLastCheck > 15 * 60 * 1000) {
+          global._daLastCheck = _n;
+          setTimeout(trCheckDiseaseThreshold, 2500);
+        }
       }
  
       return res;
