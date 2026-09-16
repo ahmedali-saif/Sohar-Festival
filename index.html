@@ -12479,8 +12479,8 @@ async function remoteSyncPoll() {
     var res = await r.json();
 
     if (res.events && res.events.length > 0) {
-      // حدّث الطابع الزمني
-      REMOTE_SYNC_LAST_TS = Date.now();
+           // حدّث الطابع الزمني من توقيت الخادم (يتجنب فرق الساعة بين الأجهزة)
+      REMOTE_SYNC_LAST_TS = Math.max.apply(null, res.events.map(function (ev) { return Number(ev.ts) || 0; }));
 
       // جمّع المواضيع الفريدة فقط (لتجنب تحديثات مكررة)
       var topics = {};
